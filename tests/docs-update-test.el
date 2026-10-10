@@ -450,6 +450,7 @@
 
 (ert-deftest docs-upd-update-with-agent-inserts-task-without-sending ()
   "Starts gptel-agent in the config root and inserts (not sends) the task."
+  (require 'gptel-agent nil t)          ; load the real library first so it cannot overwrite the stub
   (let (dir sent)
     (cl-letf (((symbol-function 'gptel-agent)
                (lambda (d &rest _) (setq dir d) (switch-to-buffer (generate-new-buffer "*gptel-agent:test*"))))
