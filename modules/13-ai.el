@@ -65,10 +65,10 @@
   (ide-ai-apply-fim-backend)
   (define-key minuet-active-mode-map (kbd "TAB") #'minuet-accept-suggestion)
   (define-key minuet-active-mode-map (kbd "<tab>") #'minuet-accept-suggestion)
-  (define-key minuet-active-mode-map (kbd "M-f") #'minuet-accept-suggestion-word)
-  (define-key minuet-active-mode-map (kbd "M-e") #'minuet-accept-suggestion-line)
-  (define-key minuet-active-mode-map (kbd "M-]") #'minuet-next-suggestion)
-  (define-key minuet-active-mode-map (kbd "M-[") #'minuet-previous-suggestion)
+  (define-key minuet-active-mode-map (kbd "C-<return>") #'minuet-accept-suggestion-word)
+  (define-key minuet-active-mode-map (kbd "S-<return>") #'minuet-accept-suggestion-line)
+  (define-key minuet-active-mode-map (kbd "M-n") #'minuet-next-suggestion)
+  (define-key minuet-active-mode-map (kbd "M-p") #'minuet-previous-suggestion)
   (define-key minuet-active-mode-map (kbd "C-g") #'minuet-dismiss-suggestion))
 
 ;;;; gptel ------------------------------------------------------------------

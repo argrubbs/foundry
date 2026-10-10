@@ -181,7 +181,7 @@
          (wf (vconcat (alist-get 'workflows data)
                       (vector `((id . "x") (title . "X") (blurb . "")
                                 (steps . [((t . "a") (d . "Press {{C-c z q}} now")) ((t . "b") (d . "Run [[ide-gone-command]]"))
-                                          ((t . "c") (d . "Set [[confluence-site]] and press {{C-b}}"))])))))
+                                          ((t . "c") (d . "Set [[confluence-site]] and press {{M-.}}"))])))))
          (bad (ide-docs--workflow-problems (ide-docs--put data 'workflows wf)
                                            (mapcar (lambda (f) (ide-docs--norm-keys (nth 0 f))) (plist-get docs-upd--facts :keybinds)))))
     (should (equal bad '(("x" . 0) ("x" . 1))))))
@@ -200,11 +200,11 @@
            (r (ide-docs--merge data (docs-upd--facts-with-key)))
            (needs (ide-docs--needs (cdr r)))
            (resp `((keybinds . (((keys . "C-c z z") (ctx . "global") (title . "Zed\ncommand") (desc . ,(make-string 400 ?x)) (cat . "Help & docs"))
-                                ((keys . "M-1") (ctx . "global") (title . "HIJACKED") (desc . "nope") (cat . "AI"))))
+                                ((keys . "C-c w 1") (ctx . "global") (title . "HIJACKED") (desc . "nope") (cat . "AI"))))
                    (menu_items . (((menu . "services") (key . "d") (does . "nope"))))))
            (out (ide-docs--apply-response (car r) needs resp))
            (e (cl-find "C-c z z" (alist-get 'keybinds (car out)) :key (lambda (k) (alist-get 'keys k)) :test #'equal))
-           (m1 (cl-find "M-1" (alist-get 'keybinds (car out)) :key (lambda (k) (alist-get 'keys k)) :test #'equal)))
+           (m1 (cl-find "C-c w 1" (alist-get 'keybinds (car out)) :key (lambda (k) (alist-get 'keys k)) :test #'equal)))
       (should (equal (alist-get 'title e) "Zed command"))
       (should (<= (length (alist-get 'desc e)) 160))
       (should (equal (alist-get 'cat e) "Help & docs"))
@@ -483,7 +483,7 @@
   (docs-upd--with-page
     (let ((good (docs-upd--validate-real ide-docs-file)))
       (should (car good)))
-    ;; claim a binding that does not exist: M-1 -> some other command
+    ;; claim a binding that does not exist: C-c w 1 -> some other command
     (let* ((html (docs-upd--slurp ide-docs-file))
            (bad (replace-regexp-in-string "\"cmd\": \"ide-toggle-project-tree\"" "\"cmd\": \"ignore\"" html t t))
            (file (expand-file-name "bad.html" (file-name-directory ide-docs-file))))

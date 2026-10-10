@@ -257,7 +257,7 @@ make doctor</pre></div>
     </div>
     <div>
       <div class="callout info"><strong>macOS tip</strong>The <kbd>M-</kbd> bindings need Option to act as Meta. Add <code>(setq ns-alternate-modifier 'meta)</code> to <code>custom.el</code>.</div>
-      <div class="callout"><strong>First terminal</strong>The terminal (<kbd>M-0</kbd>, ghostel) downloads a small prebuilt native module the first time you open it, and asks before doing so. Nothing is fetched at startup.</div>
+      <div class="callout"><strong>First terminal</strong>The terminal (<kbd>C-c w 0</kbd>, ghostel) downloads a small prebuilt native module the first time you open it, and asks before doing so. Nothing is fetched at startup.</div>
       <div class="callout ok"><strong>Verify anything, any time</strong><code>make compile</code> (strict byte-compile) and <code>make test</code> (ERT suite) run headless against the sandbox.</div>
     </div>
   </div>
@@ -267,20 +267,20 @@ make doctor</pre></div>
   <h2 id="h-layout"><span class="num">03</span>Tool windows</h2>
   <p class="lede">An interactive model of the workspace. Select a region to read about it, and use the toggles — or the real keys in <em>Try keys</em> mode — to open and close windows the way you will in the editor.</p>
   <div class="togglebar" role="group" aria-label="Show or hide tool windows">
-    <button class="chip" type="button" data-toggle="tree" aria-pressed="true">Project <kbd>M-1</kbd></button>
-    <button class="chip" type="button" data-toggle="struct" aria-pressed="true">Structure <kbd>M-7</kbd></button>
-    <button class="chip" type="button" data-toggle="drawer" aria-pressed="true">Drawer <kbd>M-4</kbd></button>
+    <button class="chip" type="button" data-toggle="tree" aria-pressed="true">Project <kbd>C-c w 1</kbd></button>
+    <button class="chip" type="button" data-toggle="struct" aria-pressed="true">Structure <kbd>C-c w 7</kbd></button>
+    <button class="chip" type="button" data-toggle="drawer" aria-pressed="true">Drawer <kbd>C-c w 4</kbd></button>
   </div>
   <div class="ide" id="ide" role="group" aria-label="Interactive IDE layout">
     <button class="zone z-crumb" type="button" data-zone="crumb" aria-pressed="false"><span class="zt">Breadcrumbs <span class="ft">header line</span></span>my-service › src › handlers.py › <b>create_order</b></button>
-    <button class="zone z-tree" type="button" data-zone="tree" aria-pressed="false"><span class="zt">Project <span class="ft">M-1</span></span><span class="ft" style="display:block;line-height:1.7">▾ my-service<br>&nbsp;▾ src<br>&nbsp;&nbsp;&nbsp;handlers.py<br>&nbsp;&nbsp;&nbsp;models.py<br>&nbsp;▸ tests<br>&nbsp;&nbsp;&nbsp;pyproject.toml</span></button>
+    <button class="zone z-tree" type="button" data-zone="tree" aria-pressed="false"><span class="zt">Project <span class="ft">C-c w 1</span></span><span class="ft" style="display:block;line-height:1.7">▾ my-service<br>&nbsp;▾ src<br>&nbsp;&nbsp;&nbsp;handlers.py<br>&nbsp;&nbsp;&nbsp;models.py<br>&nbsp;▸ tests<br>&nbsp;&nbsp;&nbsp;pyproject.toml</span></button>
     <div class="zone z-code" data-zone="code" aria-hidden="true"><div class="codeview"><span class="gutter">12</span><span class="k">def</span> <span class="f">create_order</span>(req: Request) -&gt; Order:
 <span class="gutter bp">● 13</span>    items = <span class="f">parse_items</span>(req.body)
 <span class="gutter">14</span>    total = <span class="f">sum</span>(i.price <span class="g">*</span> i.qty <span class="k">for</span> i <span class="k">in</span> items)
 <span class="gutter">15</span>    <span class="c"># ghost text from the inline completion appears here ▒▒▒▒▒▒</span>
 <span class="gutter">16</span>    <span class="k">return</span> Order(items=items, total=total)</div></div>
-    <button class="zone z-struct" type="button" data-zone="struct" aria-pressed="false"><span class="zt">Structure <span class="ft">M-7</span></span><span class="ft" style="display:block;line-height:1.7">ƒ create_order<br>ƒ parse_items<br>ƒ cancel_order<br>C Order<br>&nbsp;&nbsp;ƒ total</span></button>
-    <button class="zone z-drawer" type="button" data-zone="drawer" aria-pressed="false"><span class="tabs-mini" aria-hidden="true"><span class="on">*compilation*</span><span>Flymake</span><span>*ghostel*</span><span>*docker-logs*</span><span>*azdo-threads*</span></span><span class="zt">Bottom drawer <span class="ft">M-4 · M-6 · M-0</span></span><span class="ft">$ python -m pytest tests/ -q<br>..........  10 passed in 0.42s</span></button>
+    <button class="zone z-struct" type="button" data-zone="struct" aria-pressed="false"><span class="zt">Structure <span class="ft">C-c w 7</span></span><span class="ft" style="display:block;line-height:1.7">ƒ create_order<br>ƒ parse_items<br>ƒ cancel_order<br>C Order<br>&nbsp;&nbsp;ƒ total</span></button>
+    <button class="zone z-drawer" type="button" data-zone="drawer" aria-pressed="false"><span class="tabs-mini" aria-hidden="true"><span class="on">*compilation*</span><span>Flymake</span><span>*ghostel*</span><span>*docker-logs*</span><span>*azdo-threads*</span></span><span class="zt">Bottom drawer <span class="ft">C-c w 4 · C-c w 6 · C-c w 0</span></span><span class="ft">$ python -m pytest tests/ -q<br>..........  10 passed in 0.42s</span></button>
     <button class="zone z-status" type="button" data-zone="status" aria-pressed="false">main ✓ · Flymake 0 errors · UTF-8 · Python · Eglot: pyright</button>
   </div>
   <div class="card infopanel" id="zoneinfo" aria-live="polite"></div>
@@ -302,9 +302,8 @@ make doctor</pre></div>
     <div class="chips" id="kbchips" role="group" aria-label="Filter by category"></div>
   </div>
   <div class="kblist" id="kblist"></div>
-  <div class="callout" style="margin-top:1.2rem"><strong>Defaults these bindings replace</strong>
-    Following familiar IDE muscle memory displaces a few Emacs classics. They remain available through <code>M-x</code>:
-    <table style="margin-top:.5rem"><tbody id="displaced"></tbody></table>
+  <div class="callout" style="margin-top:1.2rem"><strong>No standard editing keys are replaced</strong>
+    Foundry only binds <kbd>C-c</kbd> + letter (reserved for users), <kbd>M-s</kbd> (the search prefix), <kbd>C-=</kbd> and function keys. Go to definition and usages use the standard <kbd>M-.</kbd> and <kbd>M-?</kbd>, and <kbd>C-s</kbd> stays Isearch. <kbd>M-RET</kbd> for code actions is bound in programming modes only, so Org and Markdown keep theirs.
   </div>
 </section>
 
@@ -457,7 +456,7 @@ make doctor</pre></div>
  ],
  "keybinds": [
   {
-   "keys": "M-1",
+   "keys": "C-c w 1",
    "cmd": "ide-toggle-project-tree",
    "title": "Project tree",
    "desc": "Toggle the left project drawer (treemacs, follows the current file).",
@@ -466,7 +465,7 @@ make doctor</pre></div>
    "equiv": "Alt+1 Project"
   },
   {
-   "keys": "M-4",
+   "keys": "C-c w 4",
    "cmd": "ide-toggle-run-window",
    "title": "Run drawer",
    "desc": "Show or hide the bottom compilation / run output.",
@@ -475,7 +474,7 @@ make doctor</pre></div>
    "equiv": "Alt+4 Run"
   },
   {
-   "keys": "M-5",
+   "keys": "C-c w 5",
    "cmd": "ide-toggle-debug-window",
    "title": "Debug panes",
    "desc": "Toggle sessions, locals and breakpoints panes.",
@@ -484,7 +483,7 @@ make doctor</pre></div>
    "equiv": "Alt+5 Debug"
   },
   {
-   "keys": "M-6",
+   "keys": "C-c w 6",
    "cmd": "ide-toggle-problems",
    "title": "Problems",
    "desc": "Flymake diagnostics for the current buffer in the drawer.",
@@ -493,7 +492,7 @@ make doctor</pre></div>
    "equiv": "Alt+6 Problems"
   },
   {
-   "keys": "M-7",
+   "keys": "C-c w 7",
    "cmd": "ide-toggle-structure",
    "title": "Structure outline",
    "desc": "Toggle the right symbol outline (imenu-list).",
@@ -502,7 +501,7 @@ make doctor</pre></div>
    "equiv": "Alt+7 Structure"
   },
   {
-   "keys": "M-8",
+   "keys": "C-c w 8",
    "cmd": "ide-services-dispatch",
    "title": "Services & DevOps",
    "desc": "Menu for Docker, Kubernetes, Azure, Azure DevOps, IaC and tool setup.",
@@ -511,7 +510,7 @@ make doctor</pre></div>
    "equiv": "Alt+8 Services"
   },
   {
-   "keys": "M-9",
+   "keys": "C-c w 9",
    "cmd": "magit-status",
    "title": "Git (Magit)",
    "desc": "Open Magit status, including Azure DevOps sections.",
@@ -520,7 +519,7 @@ make doctor</pre></div>
    "equiv": "Alt+9 Git"
   },
   {
-   "keys": "M-0",
+   "keys": "C-c w 0",
    "cmd": "ide-toggle-terminal",
    "title": "Terminal drawer",
    "desc": "Open or hide a ghostel terminal rooted in the project.",
@@ -532,7 +531,7 @@ make doctor</pre></div>
    "keys": "M-<f12>",
    "cmd": "ide-toggle-terminal",
    "title": "Terminal drawer (alt)",
-   "desc": "Same as M-0, for Alt+F12 muscle memory.",
+   "desc": "Same as C-c w 0, for Alt+F12 muscle memory.",
    "cat": "Tool windows",
    "ctx": "global",
    "equiv": "Alt+F12 Terminal"
@@ -546,7 +545,7 @@ make doctor</pre></div>
    "ctx": "global"
   },
   {
-   "keys": "M-`",
+   "keys": "C-c w t",
    "cmd": "popper-toggle-type",
    "title": "Promote / demote popup",
    "desc": "Switch the current buffer between popup and regular window.",
@@ -554,7 +553,7 @@ make doctor</pre></div>
    "ctx": "global"
   },
   {
-   "keys": "<escape>",
+   "keys": "C-c w e",
    "cmd": "ide-escape",
    "title": "Back to the editor",
    "desc": "Quit prompts, clear the region, or close popups and return focus to code.",
@@ -563,7 +562,7 @@ make doctor</pre></div>
    "equiv": "Esc"
   },
   {
-   "keys": "C-b",
+   "keys": "M-.",
    "cmd": "xref-find-definitions",
    "title": "Go to definition",
    "desc": "Jump to the definition of the symbol at point.",
@@ -575,12 +574,12 @@ make doctor</pre></div>
    "keys": "<f12>",
    "cmd": "xref-find-definitions",
    "title": "Go to definition (alt)",
-   "desc": "Same as C-b.",
+   "desc": "Same as M-.",
    "cat": "Code & editing",
    "ctx": "global"
   },
   {
-   "keys": "C-M-b",
+   "keys": "M-?",
    "cmd": "xref-find-references",
    "title": "Find usages",
    "desc": "List references to the symbol at point.",
@@ -594,11 +593,11 @@ make doctor</pre></div>
    "title": "Intentions",
    "desc": "Show quick fixes and refactorings from the language server.",
    "cat": "Code & editing",
-   "ctx": "global",
+   "ctx": "prog-mode-map",
    "equiv": "Alt+Enter"
   },
   {
-   "keys": "C-q",
+   "keys": "C-c l h",
    "cmd": "eldoc-box-help-at-point",
    "title": "Quick documentation",
    "desc": "Hover documentation in a child frame.",
@@ -607,7 +606,7 @@ make doctor</pre></div>
    "equiv": "Ctrl+Q"
   },
   {
-   "keys": "C-M-l",
+   "keys": "C-c l f",
    "cmd": "ide-reformat-buffer",
    "title": "Reformat buffer",
    "desc": "Format via the language server, or apheleia, or indent.",
@@ -616,7 +615,7 @@ make doctor</pre></div>
    "equiv": "Ctrl+Alt+L"
   },
   {
-   "keys": "C-w",
+   "keys": "C-=",
    "cmd": "ide-smart-expand",
    "title": "Expand selection",
    "desc": "Grow the selection structurally (expand-region).",
@@ -652,7 +651,7 @@ make doctor</pre></div>
    "equiv": "Gutter click"
   },
   {
-   "keys": "C-s",
+   "keys": "M-s l",
    "cmd": "consult-line",
    "title": "Find in file",
    "desc": "Live search of the current buffer (replaces isearch).",
@@ -670,7 +669,7 @@ make doctor</pre></div>
    "equiv": "Ctrl+Shift+F"
   },
   {
-   "keys": "M-o",
+   "keys": "M-s f",
    "cmd": "ide-search-everywhere",
    "title": "Search everywhere",
    "desc": "Project files via fd, falling back to find or buffers.",
@@ -679,7 +678,7 @@ make doctor</pre></div>
    "equiv": "Double Shift"
   },
   {
-   "keys": "C-<tab>",
+   "keys": "M-s b",
    "cmd": "consult-buffer",
    "title": "Switch buffer",
    "desc": "Buffers, recent files and bookmarks in one list.",
@@ -848,7 +847,7 @@ make doctor</pre></div>
    "ctx": "minuet-active-mode-map"
   },
   {
-   "keys": "M-f",
+   "keys": "C-<return>",
    "cmd": "minuet-accept-suggestion-word",
    "title": "Accept next word",
    "desc": "Accept one word of the suggestion.",
@@ -856,7 +855,7 @@ make doctor</pre></div>
    "ctx": "minuet-active-mode-map"
   },
   {
-   "keys": "M-e",
+   "keys": "S-<return>",
    "cmd": "minuet-accept-suggestion-line",
    "title": "Accept next line",
    "desc": "Accept one line of the suggestion.",
@@ -864,7 +863,7 @@ make doctor</pre></div>
    "ctx": "minuet-active-mode-map"
   },
   {
-   "keys": "M-]",
+   "keys": "M-n",
    "cmd": "minuet-next-suggestion",
    "title": "Next suggestion",
    "desc": "Cycle to the next candidate.",
@@ -872,7 +871,7 @@ make doctor</pre></div>
    "ctx": "minuet-active-mode-map"
   },
   {
-   "keys": "M-[",
+   "keys": "M-p",
    "cmd": "minuet-previous-suggestion",
    "title": "Previous suggestion",
    "desc": "Cycle to the previous candidate.",
@@ -1078,7 +1077,7 @@ make doctor</pre></div>
    "top": true,
    "name": "Services & DevOps",
    "prefix": "ide-services-dispatch",
-   "open": "M-8",
+   "open": "C-c w 8",
    "blurb": "The Services tool window: containers, clusters, clouds and tool setup.",
    "groups": [
     {
@@ -1414,7 +1413,7 @@ make doctor</pre></div>
    "top": true,
    "name": "Azure CLI",
    "prefix": "azure-dispatch",
-   "open": "C-c d a  ·  M-8, then a",
+   "open": "C-c d a  ·  C-c w 8, then a",
    "blurb": "Wraps az; output lands in the bottom drawer. Requires az (install with mise).",
    "groups": [
     {
@@ -1498,7 +1497,7 @@ make doctor</pre></div>
    "top": true,
    "name": "Terraform & Packer",
    "prefix": "iac-dispatch",
-   "open": "C-c d i  ·  M-8, then i",
+   "open": "C-c d i  ·  C-c w 8, then i",
    "blurb": "Runs in the project root; output in the drawer (*iac-terraform*, *iac-packer*).",
    "groups": [
     {
@@ -1558,7 +1557,7 @@ make doctor</pre></div>
    "top": true,
    "name": "Magit push menu (additions)",
    "prefix": "magit-push",
-   "open": "M-9, then P",
+   "open": "C-c w 9, then P",
    "blurb": "P keeps opening Magit's push menu. Two Azure DevOps entries are added to it, so P c and P l work.",
    "groups": [
     {
@@ -1593,7 +1592,7 @@ make doctor</pre></div>
     },
     {
      "t": "Open Magit in the repository.",
-     "d": "Press {{M-9}}. Besides the usual sections you get Azure DevOps Pull Requests, Azure Boards: Assigned to Me and Azure Pipelines (this branch). They fill in the background and are cached for 60 seconds."
+     "d": "Press {{C-c w 9}}. Besides the usual sections you get Azure DevOps Pull Requests, Azure Boards: Assigned to Me and Azure Pipelines (this branch). They fill in the background and are cached for 60 seconds."
     },
     {
      "t": "Open a pull request.",
@@ -1624,7 +1623,7 @@ make doctor</pre></div>
    "steps": [
     {
      "t": "Start from Magit.",
-     "d": "{{M-9}}, then {{P}} (push menu) and {{c}}. Or {{C-c d o}} then {{c}}."
+     "d": "{{C-c w 9}}, then {{P}} (push menu) and {{c}}. Or {{C-c d o}} then {{c}}."
     },
     {
      "t": "Answer the prompts.",
@@ -1670,7 +1669,7 @@ make doctor</pre></div>
    "steps": [
     {
      "t": "Run.",
-     "d": "Open a test file and press {{S-<f10>}}. Python runs pytest, Go runs go test, output opens in the bottom drawer. Toggle it with {{M-4}}."
+     "d": "Open a test file and press {{S-<f10>}}. Python runs pytest, Go runs go test, output opens in the bottom drawer. Toggle it with {{C-c w 4}}."
     },
     {
      "t": "Set a breakpoint.",
@@ -1682,7 +1681,7 @@ make doctor</pre></div>
     },
     {
      "t": "Inspect.",
-     "d": "{{M-5}} toggles the sessions, locals and breakpoints panes."
+     "d": "{{C-c w 5}} toggles the sessions, locals and breakpoints panes."
     }
    ]
   },
@@ -1728,7 +1727,7 @@ make doctor</pre></div>
     },
     {
      "t": "Tail logs.",
-     "d": "{{M-8}} then {{p}} streams a pod's logs into the drawer. {{M-8}} {{s}} opens a shell inside a Docker container."
+     "d": "{{C-c w 8}} then {{p}} streams a pod's logs into the drawer. {{C-c w 8}} {{s}} opens a shell inside a Docker container."
     }
    ]
   },
@@ -1766,7 +1765,7 @@ make doctor</pre></div>
     },
     {
      "t": "Accept.",
-     "d": "{{TAB}} full, {{M-f}} a word, {{M-e}} a line. {{M-]}} and {{M-[}} cycle candidates; {{C-g}} dismisses."
+     "d": "{{TAB}} full, {{C-<return>}} a word, {{S-<return>}} a line. {{M-n}} and {{M-p}} cycle candidates; {{C-g}} dismisses."
     },
     {
      "t": "Transform code.",
@@ -2326,33 +2325,6 @@ make doctor</pre></div>
    "desc": "Refresh docs/index.html from the live config without an AI agent (facts + docstrings)."
   }
  ],
- "displaced": [
-  {
-   "key": "C-b",
-   "was": "backward-char",
-   "use": "<left>"
-  },
-  {
-   "key": "C-w",
-   "was": "kill-region",
-   "use": "S-<delete>  or  M-x kill-region"
-  },
-  {
-   "key": "C-q",
-   "was": "quoted-insert",
-   "use": "M-x quoted-insert"
-  },
-  {
-   "key": "C-s",
-   "was": "isearch-forward",
-   "use": "C-M-s (regexp)  or  M-x isearch-forward"
-  },
-  {
-   "key": "C-<tab>",
-   "was": "tab-next (tab-bar)",
-   "use": "M-x tab-next"
-  }
- ],
  "votes": [
   {
    "key": "a",
@@ -2611,9 +2583,9 @@ DATA.stats.forEach(s => stats.append(h('div', { class: 'stat' }, h('b', { text: 
 /* ---------- layout explorer ---------- */
 const ZONES = {
   crumb:  ['Breadcrumbs', 'A header line showing Project › File › Symbol/scope (breadcrumb.el), so you always know where you are without a sidebar.', null],
-  tree:   ['Project tree', 'treemacs docked on the left, 32 columns wide. It follows the current file and project, and shows Git status and nerd-icons.', 'M-1'],
-  struct: ['Structure', 'An outline of symbols in the current buffer (imenu-list), docked on the right, 30 columns wide.', 'M-7'],
-  drawer: ['Bottom drawer', 'Compilation and test output, Flymake diagnostics, terminals, container and Kubernetes logs, Azure and Azure DevOps output and the AI agent all dock here (popper, max 30% of the frame) instead of splitting your editor. Esc returns focus to the code.', 'M-4  ·  M-6 problems  ·  M-0 terminal  ·  C-` cycle'],
+  tree:   ['Project tree', 'treemacs docked on the left, 32 columns wide. It follows the current file and project, and shows Git status and nerd-icons.', 'C-c w 1'],
+  struct: ['Structure', 'An outline of symbols in the current buffer (imenu-list), docked on the right, 30 columns wide.', 'C-c w 7'],
+  drawer: ['Bottom drawer', 'Compilation and test output, Flymake diagnostics, terminals, container and Kubernetes logs, Azure and Azure DevOps output and the AI agent all dock here (popper, max 30% of the frame) instead of splitting your editor. Esc returns focus to the code.', 'C-c w 4  ·  C-c w 6 problems  ·  C-c w 0 terminal  ·  C-` cycle'],
   status: ['Mode line', 'doom-modeline: Git branch, Flymake diagnostics, encoding, major mode and the LSP server in use.', null],
 };
 const zoneInfo = $('#zoneinfo');
@@ -2634,7 +2606,7 @@ const togglePane = name => setPane(name, $('.z-' + name).hidden);
 
 /* ---------- keybinding explorer ---------- */
 const CTX = {
-  'minuet-active-mode-map': 'inline suggestion', 'corfu-map': 'completion popup', 'magit-status-mode-map': 'Magit status',
+  'minuet-active-mode-map': 'inline suggestion', 'prog-mode-map': 'programming modes', 'corfu-map': 'completion popup', 'magit-status-mode-map': 'Magit status',
   'magit-azdo-pr-section-map': 'PR row in Magit', 'magit-azdo-wi-section-map': 'work-item row in Magit',
   'azdo-review-mode-map': 'PR diff', 'azdo-threads-mode-map': 'threads list', 'azdo-compose-mode-map': 'comment buffer',
 };
@@ -2677,8 +2649,6 @@ renderKeys();
 /* deep link: index.html?q=text#keys pre-fills the search */
 const qParam = new URLSearchParams(location.search).get('q');
 if (qParam) { kbQuery = qParam; $('#kbsearch').value = qParam; renderKeys(); }
-const tb = $('#displaced');
-DATA.displaced.forEach(d => tb.append(h('tr', {}, h('td', {}, keycaps(d.key)), h('td', {}, h('code', { text: d.was })), h('td', {}, d.use.split('  or  ').map((u, i) => [i ? ' or ' : '', u.startsWith('M-x') ? h('code', { text: u }) : keycaps(u)])))));
 
 /* ---------- try keys (which-key style) ---------- */
 let tryOn = false, seq = [], lastEsc = 0;
@@ -2741,7 +2711,7 @@ const onTryKey = e => {
 const setTry = on => {
   tryOn = on; seq = [];
   [$('#trykeys'), $('#trykeys-nav')].forEach(b => { b.setAttribute('aria-pressed', String(on)); b.textContent = on ? 'Trying keys… (Esc Esc to stop)' : 'Try keys'; });
-  tryOut.textContent = on ? 'Press a chord — for example M-1, C-b or C-c d o.' : '';
+  tryOut.textContent = on ? 'Press a chord — for example C-c w 1, M-. or C-c d o.' : '';
   if (!on) $$('.kbrow').forEach(r => r.classList.remove('hit', 'cand'));
   if (on) $('#keys').scrollIntoView({ behavior: 'smooth' });
 };

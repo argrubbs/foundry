@@ -319,11 +319,11 @@ while the core and user manifests still merge."
 
 (ert-deftest test-keybindings ()
   "IDE keys resolve to the expected commands."
-  (should (eq (key-binding (kbd "M-1")) 'ide-toggle-project-tree))
-  (should (eq (key-binding (kbd "M-7")) 'ide-toggle-structure))
-  (should (eq (key-binding (kbd "M-9")) 'magit-status))
-  (should (eq (key-binding (kbd "C-b")) 'xref-find-definitions))
-  (should (eq (key-binding (kbd "M-RET")) 'eglot-code-actions))
+  (should (eq (key-binding (kbd "C-c w 1")) 'ide-toggle-project-tree))
+  (should (eq (key-binding (kbd "C-c w 7")) 'ide-toggle-structure))
+  (should (eq (key-binding (kbd "C-c w 9")) 'magit-status))
+  (should (eq (key-binding (kbd "M-.")) 'xref-find-definitions))
+  (should (eq (lookup-key prog-mode-map (kbd "M-RET")) 'eglot-code-actions))
   (should (eq (key-binding (kbd "C-c d o")) 'azdo-dispatch)))
 
 (ert-deftest test-mise-helpers ()

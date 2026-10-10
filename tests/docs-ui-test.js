@@ -38,7 +38,6 @@ JSDOM.fromFile(file, {
   ok($$('#fgrid article').length >= 20, 'feature cards render');
   ok($$('#tooltable tr').length === DATA.tools.length, 'one row per tool');
   ok($$('#modtable tr').length === DATA.modules.length, 'one row per module');
-  ok($$('#displaced tr').length === 5, 'displaced rows');
 
   // search + category filters
   const search = $('#kbsearch');
@@ -75,13 +74,14 @@ JSDOM.fromFile(file, {
   // try-keys mode
   $('#trykeys').click();
   ok($('#trykeys').getAttribute('aria-pressed') === 'true', 'try mode on');
-  let e = key('Digit1', { altKey: true, key: '¡' });
-  ok(e.defaultPrevented, 'M-1 default prevented in try mode');
-  ok($('#tryout').textContent.includes('ide-toggle-project-tree'), 'M-1 resolves to project tree: ' + $('#tryout').textContent);
-  ok($('.z-tree').hidden, 'M-1 toggled the tree in the diagram');
-  key('Digit1', { altKey: true, key: '¡' }); ok(!$('.z-tree').hidden, 'M-1 again re-shows tree');
-  key('KeyB', { ctrlKey: true });
-  ok($('#tryout').textContent.includes('xref-find-definitions'), 'C-b resolves');
+  key('KeyC', { ctrlKey: true }); key('KeyW');
+  let e = key('Digit1');
+  ok(e.defaultPrevented, 'C-c w 1 default prevented in try mode');
+  ok($('#tryout').textContent.includes('ide-toggle-project-tree'), 'C-c w 1 resolves to project tree: ' + $('#tryout').textContent);
+  ok($('.z-tree').hidden, 'C-c w 1 toggled the tree in the diagram');
+  key('KeyC', { ctrlKey: true }); key('KeyW'); key('Digit1'); ok(!$('.z-tree').hidden, 'C-c w 1 again re-shows tree');
+  key('Period', { altKey: true, key: '≥' });
+  ok($('#tryout').textContent.includes('xref-find-definitions'), 'M-. resolves');
   key('KeyC', { ctrlKey: true });
   ok(/then/.test($('#tryout').textContent) && $('#tryout').textContent.includes('Docker'), 'C-c shows which-key candidates');
   key('KeyD'); ok($('#tryout').textContent.includes('Kubernetes') && $('#tryout').textContent.includes('Azure DevOps center'), 'C-c d lists next keys');

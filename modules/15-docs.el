@@ -75,6 +75,7 @@ CALLBACK is called once with (REPLY-STRING ERROR); REPLY-STRING is nil on failur
 (defvar ide-docs-contextual-maps
   '((minuet-active-mode-map minuet ".")
     (corfu-map corfu "\\`corfu-insert\\'")
+    (prog-mode-map prog-mode "\\`eglot-code-actions\\'")
     (magit-status-mode-map devops-azdo-magit "\\`azdo-")
     (magit-azdo-pr-section-map devops-azdo-magit ".")
     (magit-azdo-wi-section-map devops-azdo-magit ".")
@@ -84,7 +85,7 @@ CALLBACK is called once with (REPLY-STRING ERROR); REPLY-STRING is nil on failur
   "Contextual keymaps to document: (MAP FEATURE COMMAND-REGEXP).")
 
 (defvar ide-docs-extra-global-keys
-  '(("C-." embark) ("C-;" embark) ("[left-fringe mouse-1]" dap-mode)
+  '(("C-." embark) ("C-;" embark) ("M-." xref) ("M-?" xref) ("[left-fringe mouse-1]" dap-mode)
     ("C-c o a" org) ("C-c o n" org) ("C-c o c" org-confluence))
   "Global keys bound outside `ide-keys-mode-map': (KEYS FEATURE).")
 

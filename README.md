@@ -57,7 +57,7 @@ walkthroughs, workflows, feature catalogue and architecture.
 | `C-c h s` | `ide-docs-search` | Open the keybinding explorer filtered by a query |
 | `C-c h c` | `ide-docs-for-command` | Look a command up in the docs |
 | `C-c h u` | `ide-docs-update` | Sync the page with the live config (`C-u` = dry run) |
-| `M-8 h` / `M-8 H` | | Same open / update from the Services menu |
+| `C-c w 8 h` / `C-c w 8 H` | | Same open / update from the Services menu |
 
 ### Keeping it current (`M-x ide-docs-update`)
 
@@ -91,8 +91,8 @@ by [mise](https://mise.jdx.dev) into `var/mise/`:
 
 | Command | What it does |
 |---|---|
-| `M-x ide-mise-setup` (or `M-8 m`) | Downloads a checksum-verified mise into the sandbox if none is on PATH, then runs `mise install` in the bottom drawer and refreshes PATH |
-| `M-x ide-mise-doctor` (or `M-8 M`) | Lists every expected executable and where it was found |
+| `M-x ide-mise-setup` (or `C-c w 8 m`) | Downloads a checksum-verified mise into the sandbox if none is on PATH, then runs `mise install` in the bottom drawer and refreshes PATH |
+| `M-x ide-mise-doctor` (or `C-c w 8 M`) | Lists every expected executable and where it was found |
 | `M-x ide-mise-edit-manifest` | Edit `mise.toml` to add/remove tools |
 | `make tools` / `make doctor` | Same, headless (CI, new machines) |
 

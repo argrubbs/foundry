@@ -62,7 +62,7 @@
 ;; the unrelated foundry.el package.
 (setq frame-title-format '("Foundry — " (:eval (if buffer-file-name (abbreviate-file-name buffer-file-name) "%b")))
       icon-title-format frame-title-format
-      initial-scratch-message ";; Foundry — a full-featured Emacs IDE\n;; C-c h d  documentation    M-8  Services & DevOps    C-c a M  AI model\n\n")
+      initial-scratch-message ";; Foundry — a full-featured Emacs IDE\n;; C-c h d  documentation    C-c w 8  Services & DevOps    C-c a M  AI model\n\n")
 
 ;; Startup re-evaluates `scroll-bar-mode' after early-init; assert it again.
 (when (fboundp 'scroll-bar-mode) (scroll-bar-mode -1))
@@ -80,8 +80,10 @@
     "C-c a" "ai"
     "C-c d" "devops"
     "C-c h" "help/docs"
+    "C-c l" "code (lsp)"
     "C-c o" "org"
-    "C-c u" "user config")
+    "C-c u" "user config"
+    "C-c w" "tool windows")
   (which-key-mode 1))
 
 (provide '01-ui)

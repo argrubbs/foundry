@@ -1,8 +1,11 @@
 ;;; 10-keybindings.el --- IDE muscle-memory keymap -*- lexical-binding: t; -*-
 
 ;;; Commentary:
-;; Tool-window toggles on M-<digit>, editor actions on C-b / M-RET etc.
-;; Everything lives in `ide-keys-mode-map' so it can be turned off as a unit.
+;; Tool-window toggles on C-c w <digit>, editor actions under C-c l and M-s.
+;; Nothing here shadows a standard Emacs editing key: only C-c <letter> (reserved
+;; for users), M-s (the search prefix, where `consult' puts its commands), C-=,
+;; and function keys are used.  Everything lives in `ide-keys-mode-map' so it can
+;; be turned off as a unit.
 
 ;;; Code:
 
@@ -131,32 +134,29 @@
 (defvar ide-keys-mode-map
   (let ((m (make-sparse-keymap)))
     ;; Tool windows
-    (define-key m (kbd "M-1") #'ide-toggle-project-tree)
-    (define-key m (kbd "M-4") #'ide-toggle-run-window)
-    (define-key m (kbd "M-5") #'ide-toggle-debug-window)
-    (define-key m (kbd "M-6") #'ide-toggle-problems)
-    (define-key m (kbd "M-7") #'ide-toggle-structure)
-    (define-key m (kbd "M-8") #'ide-services-dispatch)
-    (define-key m (kbd "M-9") #'magit-status)
-    (define-key m (kbd "M-0") #'ide-toggle-terminal)
+    (define-key m (kbd "C-c w 1") #'ide-toggle-project-tree)
+    (define-key m (kbd "C-c w 4") #'ide-toggle-run-window)
+    (define-key m (kbd "C-c w 5") #'ide-toggle-debug-window)
+    (define-key m (kbd "C-c w 6") #'ide-toggle-problems)
+    (define-key m (kbd "C-c w 7") #'ide-toggle-structure)
+    (define-key m (kbd "C-c w 8") #'ide-services-dispatch)
+    (define-key m (kbd "C-c w 9") #'magit-status)
+    (define-key m (kbd "C-c w 0") #'ide-toggle-terminal)
     (define-key m (kbd "M-<f12>") #'ide-toggle-terminal)
-    ;; Editor
-    (define-key m (kbd "M-RET") #'eglot-code-actions)
-    (define-key m (kbd "C-b") #'xref-find-definitions)
+    (define-key m (kbd "C-c w e") #'ide-escape)
+    (define-key m (kbd "C-`") #'popper-cycle)
+    (define-key m (kbd "C-c w t") #'popper-toggle-type)
+    ;; Editor.  Go to definition / usages are the standard M-. and M-?.
     (define-key m (kbd "<f12>") #'xref-find-definitions)
-    (define-key m (kbd "C-M-b") #'xref-find-references)
-    (define-key m (kbd "C-M-l") #'ide-reformat-buffer)
-    (define-key m (kbd "C-q") #'eldoc-box-help-at-point)
-    (define-key m (kbd "C-w") #'ide-smart-expand)
+    (define-key m (kbd "C-c l f") #'ide-reformat-buffer)
+    (define-key m (kbd "C-c l h") #'eldoc-box-help-at-point)
+    (define-key m (kbd "C-=") #'ide-smart-expand)
     (define-key m (kbd "S-<f10>") #'ide-run-current)
     (define-key m (kbd "S-<f9>") #'ide-debug-current)
-    (define-key m (kbd "M-o") #'ide-search-everywhere)
-    (define-key m (kbd "C-s") #'consult-line)
+    (define-key m (kbd "M-s f") #'ide-search-everywhere)
+    (define-key m (kbd "M-s l") #'consult-line)
+    (define-key m (kbd "M-s b") #'consult-buffer)
     (define-key m (kbd "C-S-f") #'consult-ripgrep)
-    (define-key m (kbd "C-<tab>") #'consult-buffer)
-    (define-key m (kbd "<escape>") #'ide-escape)
-    (define-key m (kbd "C-`") #'popper-cycle)
-    (define-key m (kbd "M-`") #'popper-toggle-type)
     ;; DevOps / AI / Org prefixes
     (define-key m (kbd "C-c d d") #'docker)
     (define-key m (kbd "C-c d k") #'kubel)
@@ -175,6 +175,10 @@
     m)
   "Keymap of `ide-keys-mode'.")
 
+;; Code actions live on M-RET in programming modes only, so Org, Markdown and
+;; comint keep their own M-RET.
+(define-key prog-mode-map (kbd "M-RET") #'eglot-code-actions)
+
 (defgroup ide-keys nil "IDE-style keybindings." :group 'convenience)
 
 (define-minor-mode ide-keys-mode
@@ -182,12 +186,6 @@
   :group 'ide-keys
   :global t :keymap ide-keys-mode-map :lighter nil)
 (ide-keys-mode 1)
-
-;; Magit binds M-1..M-4 to section levels, which would shadow tool windows.
-(with-eval-after-load 'magit-section
-  (dolist (k '("M-1" "M-2" "M-3" "M-4"))
-    (define-key magit-section-mode-map (kbd k) nil)))
-;; Same for treemacs/imenu-list digits are unbound; popper/embark are unaffected.
 
 (with-eval-after-load 'popper
   (define-key popper-mode-map (kbd "C-`") nil))
