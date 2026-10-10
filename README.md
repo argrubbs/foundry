@@ -27,6 +27,24 @@ free for you) and dock a tool's buffers with `(ide-add-drawer-buffer REGEXP)`.
 Examples (Rust, Elfeed, settings, Org extras, a GitHub package, extra tools) and short
 recipes are in the docs page (`C-c h d`, "Make it yours").
 
+## Juice
+
+Visual polish lives in `modules/17-juice.el` and is built to be backed out of. The house theme
+(`doom-ember`, warm charcoal with ember orange) is in `lisp/themes/`; the rest are independent
+*effects* you can switch on and off at runtime. Choices persist in `var/juice.eld`.
+
+| Key | Command | |
+|---|---|---|
+| `C-c j j` | `ide-juice-toggle` | Toggle one effect (font, ligatures, frame, modeline, pulse, scroll, bell, indent-guides, todo, cursorline, splash, theme, transparency) |
+| `C-c j t` / `C-c j n` | `ide-juice-pick-theme` / `ide-juice-next-theme` | Pick a theme with live preview / cycle |
+| `C-c j m` | `ide-juice-mode` | Master switch: undo every effect, or bring them back |
+| `C-c j s` | `ide-juice-splash` | The start screen |
+| `C-c j r` | `ide-juice-reset` | Forget your choices and use the defaults |
+
+Ways out, gentlest first: toggle one effect; `C-c j m`; `./launch.sh --plain` (or `IDE_NO_JUICE=1`),
+which gives stock doom-one with nothing extra; `git switch main` if you keep this on its own branch.
+`transparency` is off by default (needs a compositor).
+
 ## Ansible
 
 YAML that looks like Ansible (a playbook, role, `group_vars`/`host_vars`, or a file with

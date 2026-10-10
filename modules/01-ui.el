@@ -5,6 +5,8 @@
 
 ;;; Code:
 
+(declare-function ide-juice-initial-theme "17-juice")
+
 (use-package nerd-icons :demand t)
 
 (use-package doom-themes
@@ -12,7 +14,8 @@
   :config
   (setq doom-themes-enable-bold t
         doom-themes-enable-italic t)
-  (load-theme 'doom-one t)
+  ;; 17-juice picks the theme (doom-ember by default); IDE_NO_JUICE=1 keeps doom-one.
+  (load-theme (if (fboundp 'ide-juice-initial-theme) (ide-juice-initial-theme) 'doom-one) t)
   (doom-themes-org-config))
 
 ;; Clear contrast between active and inactive windows.

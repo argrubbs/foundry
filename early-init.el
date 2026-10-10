@@ -40,10 +40,13 @@
   (startup-redirect-eln-cache
    (expand-file-name ".cache/eln-cache/" user-emacs-directory)))
 
-;; doom-one background, so the first frame does not flash white before the
-;; theme is activated asynchronously.
-(push '(background-color . "#282c34") default-frame-alist)
-(push '(foreground-color . "#bbc2cf") default-frame-alist)
+;; Theme background, so the first frame does not flash white before the theme is
+;; activated asynchronously: doom-ember (modules/17-juice.el), or doom-one when
+;; juice is off (IDE_NO_JUICE=1 / `./launch.sh --plain').
+(let ((plain (let ((v (getenv "IDE_NO_JUICE"))) (and v (not (string-empty-p v))))))
+  (push `(background-color . ,(if plain "#282c34" "#1c1815")) default-frame-alist)
+  (push `(foreground-color . ,(if plain "#bbc2cf" "#e3d9ca")) default-frame-alist)
+  (unless plain (push '(internal-border-width . 14) default-frame-alist)))
 (push '(tool-bar-lines . 0) default-frame-alist)
 (push '(menu-bar-lines . 0) default-frame-alist)
 (push '(vertical-scroll-bars) default-frame-alist)

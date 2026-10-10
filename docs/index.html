@@ -438,7 +438,7 @@ make doctor</pre></div>
    "l": "to first frame"
   },
   {
-   "v": "74",
+   "v": "80",
    "l": "documented keybindings"
   },
   {
@@ -446,11 +446,11 @@ make doctor</pre></div>
    "l": "CLIs and servers via mise"
   },
   {
-   "v": "28",
+   "v": "29",
    "l": "Emacs Lisp modules"
   },
   {
-   "v": "187",
+   "v": "198",
    "l": "automated tests"
   }
  ],
@@ -1068,6 +1068,54 @@ make doctor</pre></div>
    "title": "Add a package",
    "desc": "Add a package to user/packages.el and install it; a prefix loads it at startup.",
    "cat": "Customize",
+   "ctx": "global"
+  },
+  {
+   "keys": "C-c j r",
+   "cmd": "ide-juice-reset",
+   "title": "Juice Reset",
+   "desc": "Forget every remembered choice (effects and theme) and apply the defaults",
+   "cat": "Other",
+   "ctx": "global"
+  },
+  {
+   "keys": "C-c j s",
+   "cmd": "ide-juice-splash",
+   "title": "Juice Splash",
+   "desc": "Show the start screen",
+   "cat": "Other",
+   "ctx": "global"
+  },
+  {
+   "keys": "C-c j n",
+   "cmd": "ide-juice-next-theme",
+   "title": "Juice Next Theme",
+   "desc": "Cycle to the next theme in `ide-juice-themes' and remember it",
+   "cat": "Other",
+   "ctx": "global"
+  },
+  {
+   "keys": "C-c j t",
+   "cmd": "ide-juice-pick-theme",
+   "title": "Juice Pick Theme",
+   "desc": "Choose a theme with live preview and remember it",
+   "cat": "Other",
+   "ctx": "global"
+  },
+  {
+   "keys": "C-c j m",
+   "cmd": "ide-juice-mode",
+   "title": "Juice Mode",
+   "desc": "Master switch for the juice effects; turning it off undoes them all",
+   "cat": "Other",
+   "ctx": "global"
+  },
+  {
+   "keys": "C-c j j",
+   "cmd": "ide-juice-toggle",
+   "title": "Juice Toggle",
+   "desc": "Toggle the juice effect NAME and remember the choice",
+   "cat": "Other",
    "ctx": "global"
   }
  ],
@@ -2035,7 +2083,7 @@ make doctor</pre></div>
    "ico": "…",
    "title": "Other commands",
    "body": "Further commands: update the docs without an agent, or hand the task to gptel-agent.",
-   "cmds": ["ide-docs-update-facts-only", "ide-docs-update-with-agent"]
+   "cmds": ["ide-docs-update-facts-only", "ide-docs-update-with-agent", "ide-juice-apply"]
   }
  ],
  "modules": [
@@ -2158,6 +2206,10 @@ make doctor</pre></div>
   {
    "file": "modules/16-user.el",
    "desc": "User extension point: your packages, tools and config"
+  },
+  {
+   "file": "modules/17-juice.el",
+   "desc": "Juice: theme, motion and a forge-lit start screen"
   }
  ],
  "tools": [
