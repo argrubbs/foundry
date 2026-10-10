@@ -318,6 +318,19 @@ while the core and user manifests still merge."
   (should (cl-some (lambda (e) (string-prefix-p "MISE_TRUSTED_CONFIG_PATHS=" e)) (ide-mise--env)))
   (should (string-match-p "ide-user-load-all" (with-temp-buffer (insert-file-contents (expand-file-name "init.el" user-emacs-directory)) (buffer-string)))))
 
+(ert-deftest test-two-space-indent-policy ()
+  "YAML (and other offset-less modes) indent by 2; Python keeps PEP 8's 4."
+  (should (= 2 standard-indent))
+  (with-temp-buffer
+    (yaml-ts-mode)
+    (should (= 2 tab-width))
+    (insert "a:\n")
+    (indent-for-tab-command)
+    (should (= 2 (current-column))))
+  (with-temp-buffer
+    (python-ts-mode)
+    (should (= 4 python-indent-offset))))
+
 (ert-deftest test-keybindings ()
   "IDE keys resolve to the expected commands."
   (should (eq (key-binding (kbd "C-c w 1")) 'ide-toggle-project-tree))

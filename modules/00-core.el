@@ -39,7 +39,18 @@
       treesit-extra-load-path (list (expand-file-name "tree-sitter/" ide-var-dir)))
 
 (setq-default indent-tabs-mode nil
-              fill-column 100)
+              fill-column 100
+              standard-indent 2)
+
+;; Indentation policy: 2 spaces, unless the language's own style guide says
+;; otherwise.  Python keeps PEP 8's 4 (`python-indent-offset'), Go keeps gofmt's
+;; tabs (lang-go.el) and Rust keeps rustfmt's 4.  Modes without an offset
+;; variable (YAML, shell, ...) take it from `tab-width', which is also what
+;; Eglot sends to language servers as the formatting `tabSize'.
+(setq sh-basic-offset 2)
+(dolist (hook '(yaml-ts-mode-hook yaml-mode-hook json-ts-mode-hook json-mode-hook
+                bash-ts-mode-hook sh-mode-hook terraform-mode-hook hcl-mode-hook))
+  (add-hook hook (lambda () (setq-local tab-width 2))))
 (setq ring-bell-function #'ignore
       use-short-answers t
       confirm-kill-processes nil
