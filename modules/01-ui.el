@@ -67,5 +67,22 @@
 ;; Startup re-evaluates `scroll-bar-mode' after early-init; assert it again.
 (when (fboundp 'scroll-bar-mode) (scroll-bar-mode -1))
 
+;; which-key (built in since Emacs 30): show the continuations of a pending prefix.
+(use-package which-key
+  :ensure nil
+  :demand t
+  :custom
+  (which-key-idle-delay 0.6)
+  (which-key-idle-secondary-delay 0.05)
+  (which-key-sort-order #'which-key-key-order-alpha)
+  :config
+  (which-key-add-key-based-replacements
+    "C-c a" "ai"
+    "C-c d" "devops"
+    "C-c h" "help/docs"
+    "C-c o" "org"
+    "C-c u" "user config")
+  (which-key-mode 1))
+
 (provide '01-ui)
 ;;; 01-ui.el ends here
