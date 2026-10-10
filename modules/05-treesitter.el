@@ -16,6 +16,19 @@
         (dockerfile "https://github.com/camdencheek/tree-sitter-dockerfile")
         (bash       "https://github.com/tree-sitter/tree-sitter-bash")
         (json       "https://github.com/tree-sitter/tree-sitter-json")
+        (rust       "https://github.com/tree-sitter/tree-sitter-rust")
+        (javascript "https://github.com/tree-sitter/tree-sitter-javascript")
+        (typescript "https://github.com/tree-sitter/tree-sitter-typescript" "master" "typescript/src")
+        (tsx        "https://github.com/tree-sitter/tree-sitter-typescript" "master" "tsx/src")
+        (css        "https://github.com/tree-sitter/tree-sitter-css")
+        (html       "https://github.com/tree-sitter/tree-sitter-html")
+        (lua        "https://github.com/tree-sitter-grammars/tree-sitter-lua")
+        (nix        "https://github.com/nix-community/tree-sitter-nix")
+        (toml       "https://github.com/tree-sitter/tree-sitter-toml")
+        (markdown   "https://github.com/tree-sitter-grammars/tree-sitter-markdown" "split_parser"
+                    "tree-sitter-markdown/src")
+        (markdown-inline "https://github.com/tree-sitter-grammars/tree-sitter-markdown" "split_parser"
+                         "tree-sitter-markdown-inline/src")
         ;; Jinja regions inside Ansible YAML (used by lisp/ansible-intelligence).
         (jinja      "https://github.com/cathaysia/tree-sitter-jinja"
                     "v0.13.0" "tree-sitter-jinja/src")))
@@ -42,7 +55,17 @@
         (js-json-mode . json-ts-mode)
         (yaml-mode . yaml-ts-mode)
         (dockerfile-mode . dockerfile-ts-mode)
-        (go-mode . go-ts-mode)))
+        (go-mode . go-ts-mode)
+        (js-mode . js-ts-mode)
+        (javascript-mode . js-ts-mode)
+        (typescript-mode . typescript-ts-mode)
+        (css-mode . css-ts-mode)
+        (html-mode . html-ts-mode)
+        (mhtml-mode . html-ts-mode)
+        (lua-mode . lua-ts-mode)
+        (toml-mode . toml-ts-mode)
+        (conf-toml-mode . toml-ts-mode)
+        (markdown-mode . markdown-ts-mode)))
 
 (add-to-list 'auto-mode-alist '("/go\\.mod\\'" . go-mod-ts-mode))
 (add-to-list 'auto-mode-alist '("\\.go\\'" . go-ts-mode))

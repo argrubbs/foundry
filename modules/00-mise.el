@@ -34,6 +34,25 @@ Set to nil to use the CLI's default (~/.azure) and share logins with your shell.
 An AZURE_CONFIG_DIR already set in the environment always wins."
   :type '(choice (const nil) directory))
 
+(defcustom ide-contain-tool-state t
+  "When non-nil, keep the toolchains' own homes and caches inside this directory.
+Cargo, rustup, the Go module and build caches, uv, npm and pip would otherwise
+write to ~/.cargo, ~/.rustup, ~/go, ~/.cache/... and ~/.npm.  A variable that is
+already set in the environment always wins."
+  :type 'boolean)
+
+(defun ide-mise-contained-env ()
+  "Alist of (VARIABLE . DIRECTORY) that keeps tool state in the sandbox."
+  (let ((tools (expand-file-name "var/tools/" user-emacs-directory))
+        (cache (expand-file-name ".cache/" user-emacs-directory)))
+    `(("CARGO_HOME" . ,(expand-file-name "cargo/" tools))
+      ("RUSTUP_HOME" . ,(expand-file-name "rustup/" tools))
+      ("GOMODCACHE" . ,(expand-file-name "go-mod/" tools))
+      ("GOCACHE" . ,(expand-file-name "go-build/" cache))
+      ("UV_CACHE_DIR" . ,(expand-file-name "uv/" cache))
+      ("npm_config_cache" . ,(expand-file-name "npm/" cache))
+      ("PIP_CACHE_DIR" . ,(expand-file-name "pip/" cache)))))
+
 (defvar ide-mise-dir (expand-file-name "mise/" (expand-file-name "var/" user-emacs-directory))
   "Sandboxed mise directory.")
 (defvar ide-mise-manifest (expand-file-name "mise.toml" user-emacs-directory)
@@ -66,7 +85,8 @@ An AZURE_CONFIG_DIR already set in the environment always wins."
 (defun ide-mise--env ()
   "Environment entries that keep mise entirely inside the sandbox."
   (let ((root (expand-file-name ".cache/mise/" user-emacs-directory)))
-    (list (concat "MISE_DATA_DIR=" (expand-file-name "data/" ide-mise-dir))
+    (append
+     (list (concat "MISE_DATA_DIR=" (expand-file-name "data/" ide-mise-dir))
           (concat "MISE_STATE_DIR=" (expand-file-name "state/" ide-mise-dir))
           (concat "MISE_CONFIG_DIR=" (expand-file-name "config/" ide-mise-dir))
           (concat "MISE_CACHE_DIR=" root)
@@ -77,7 +97,10 @@ An AZURE_CONFIG_DIR already set in the environment always wins."
           ;; so tools from the user's unrelated home configuration never leak in.
           (concat "MISE_CEILING_PATHS="
                   (directory-file-name (file-name-directory (directory-file-name (expand-file-name user-emacs-directory)))))
-          "MISE_YES=1" "MISE_NO_ANALYTICS=1")))
+          "MISE_YES=1" "MISE_NO_ANALYTICS=1")
+     (when ide-contain-tool-state
+       (cl-loop for (var . dir) in (ide-mise-contained-env)
+                unless (getenv var) collect (concat var "=" dir))))))
 
 (defun ide-mise-executable ()
   "Return the mise executable (sandbox copy first, then PATH), or nil."
@@ -294,6 +317,12 @@ CALLBACK is called with t on success, nil on failure."
 ;;;; Startup ----------------------------------------------------------------------
 
 (ide-mise-load-cached-path)
+
+(when ide-contain-tool-state
+  (pcase-dolist (`(,var . ,dir) (ide-mise-contained-env))
+    (unless (getenv var)
+      (make-directory dir t)
+      (setenv var dir))))
 
 (when (and ide-azure-config-dir (not (getenv "AZURE_CONFIG_DIR")))
   (make-directory ide-azure-config-dir t)

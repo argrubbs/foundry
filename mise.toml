@@ -34,3 +34,48 @@ ruff                                    = "latest"
 terraform-ls                            = "latest"
 "go:golang.org/x/tools/gopls"           = "latest"
 "go:github.com/go-delve/delve/cmd/dlv"  = "latest"
+
+# Rust (rustup-managed inside the sandbox) and TOML
+rust   = { version = "stable", profile = "minimal", components = "rust-analyzer,clippy,rustfmt,rust-src" }
+"aqua:nextest-rs/nextest/cargo-nextest" = "latest"
+taplo  = "latest"
+
+# Web: TypeScript / JavaScript / HTML / CSS
+"npm:typescript"                    = "latest"
+"npm:typescript-language-server"    = "latest"
+"npm:vscode-langservers-extracted"  = "latest"
+"npm:prettier"                      = "latest"
+"npm:eslint"                        = "latest"
+"npm:tsx"                           = "latest"
+
+# SQL
+"go:github.com/sqls-server/sqls" = "latest"
+"pypi:sqlfluff"                  = "latest"
+"npm:sql-formatter"              = "latest"
+
+# Lua
+lua-language-server = "latest"
+stylua              = "latest"
+
+# Nix tooling.  The language server (nil) needs a working `nix` to build, so it is
+# installed on demand by `M-x ide-nix-install-lsp`; Nix itself is a system package.
+"github:kamadorueda/alejandra"         = "latest"
+"cargo:statix"                         = "latest"
+"cargo:deadnix"                        = "latest"
+
+# PowerShell
+powershell = "latest"
+
+# DevOps: Kubernetes / Helm, linters and scanners
+helm-ls      = "latest"
+kubeconform  = "latest"
+kube-linter  = "latest"
+shellcheck   = "latest"
+shfmt        = "latest"
+hadolint     = "latest"
+tflint       = "latest"
+actionlint   = "latest"
+trivy        = "latest"
+"pypi:yamllint"         = "latest"
+marksman             = "latest"
+"npm:markdownlint-cli2" = "latest"

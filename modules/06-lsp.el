@@ -41,9 +41,13 @@
               eldoc-echo-area-use-multiline-p 1))
 
 ;; Format-on-save through the language server when it supports it.
+(defvar-local ide-eglot-format-on-save t
+  "When nil, Eglot does not format this buffer on save (another formatter owns it).")
+
 (defun ide--eglot-format-on-save ()
   "Format the buffer with Eglot before saving."
-  (when (and (bound-and-true-p eglot--managed-mode)
+  (when (and ide-eglot-format-on-save
+             (bound-and-true-p eglot--managed-mode)
              (eglot-server-capable :documentFormattingProvider))
     (eglot-format-buffer)))
 (add-hook 'eglot-managed-mode-hook
