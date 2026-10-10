@@ -15,7 +15,10 @@
         (yaml       "https://github.com/tree-sitter-grammars/tree-sitter-yaml")
         (dockerfile "https://github.com/camdencheek/tree-sitter-dockerfile")
         (bash       "https://github.com/tree-sitter/tree-sitter-bash")
-        (json       "https://github.com/tree-sitter/tree-sitter-json")))
+        (json       "https://github.com/tree-sitter/tree-sitter-json")
+        ;; Jinja regions inside Ansible YAML (used by lisp/ansible-intelligence).
+        (jinja      "https://github.com/cathaysia/tree-sitter-jinja"
+                    "v0.13.0" "tree-sitter-jinja/src")))
 
 (setq treesit-font-lock-level 4)
 

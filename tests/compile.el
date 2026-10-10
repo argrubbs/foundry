@@ -9,11 +9,13 @@
 
 (require 'cl-lib)
 (elpaca-wait)
+(add-to-list 'load-path (expand-file-name "lisp/ansible-intelligence/" user-emacs-directory))
 
 (let* ((root user-emacs-directory)
        (files (append (list (expand-file-name "early-init.el" root)
                             (expand-file-name "init.el" root))
-                      (directory-files-recursively (expand-file-name "modules/" root) "\\.el\\'")))
+                      (directory-files-recursively (expand-file-name "modules/" root) "\\.el\\'")
+                      (directory-files-recursively (expand-file-name "lisp/" root) "\\.el\\'")))
        (byte-compile-error-on-warn t)
        (failed nil))
   (dolist (f files)

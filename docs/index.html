@@ -450,7 +450,7 @@ make doctor</pre></div>
    "l": "Emacs Lisp modules"
   },
   {
-   "v": "119",
+   "v": "187",
    "l": "automated tests"
   }
  ],
@@ -1788,6 +1788,25 @@ make doctor</pre></div>
      "d": "gptel-agent loads Agent Skills (SKILL.md) from ~/.claude/skills, the project's .claude/skills and installed Claude Code plugins, and pulls one in only when a task matches its description."
     }
    ]
+  },
+  {
+   "id": "ansible-vars",
+   "title": "Follow an Ansible variable",
+   "blurb": "Works beside the language server.",
+   "steps": [
+    {
+     "t": "Jump to the definition.",
+     "d": "Put point on a variable inside a Jinja expression in a playbook or role and press {{M-.}}. ansible-intelligence answers for variables, role defaults, vars files and static includes. For anything else, such as a module name, the language server answers as usual."
+    },
+    {
+     "t": "Find usages.",
+     "d": "Press {{M-?}} on a variable to list where it is referenced."
+    },
+    {
+     "t": "Complete and check.",
+     "d": "Variables in scope complete after the language server's own candidates, and Flymake flags variables that nothing defines."
+    }
+   ]
   }
  ],
  "features": [
@@ -1914,8 +1933,8 @@ make doctor</pre></div>
    "cat": "Cloud & infra",
    "ico": "⛭",
    "title": "Terraform, Packer, Ansible",
-   "body": "terraform-mode and hcl-mode with terraform-ls, packer files, the iac-dispatch runner, ansible minor mode, ansible-doc and ansible-language-server.",
-   "cmds": ["iac-dispatch", "ansible-doc", "ide-ansible-doc-at-point"]
+   "body": "terraform-mode and hcl-mode with terraform-ls, packer files, the iac-dispatch runner, ansible minor mode, ansible-doc and ansible-language-server. ansible-intelligence runs beside the language server and follows Ansible variables: definitions, references, Jinja completion and diagnostics.",
+   "cmds": ["iac-dispatch", "ansible-doc", "ide-ansible-doc-at-point", "ansible-intelligence-mode"]
   },
   {
    "cat": "Languages",
@@ -2090,7 +2109,7 @@ make doctor</pre></div>
   },
   {
    "file": "modules/11-languages/lang-ansible.el",
-   "desc": "Ansible mode, docs, language server."
+   "desc": "Ansible mode, docs, language server; enables lisp/ansible-intelligence."
   },
   {
    "file": "modules/12-devops/devops-docker.el",
@@ -2361,7 +2380,8 @@ make doctor</pre></div>
   ["│   ├─ 11-languages/  python go iac ansible", "n"],
   ["│   ├─ 12-devops/  docker k8s azure azdo (+lib/)", "n"],
   ["│   └─ 14-org/  core roam babel confluence", "n"],
-  ["├─ tests/  smoke-test.el  compile.el  docs-check.el", "n"],
+  ["├─ lisp/  ansible-intelligence/ (variable navigation, vendored)", "n"],
+  ["├─ tests/  smoke-test.el  compile.el  docs-check.el  ansible-*.el", "n"],
   ["├─ docs/  index.html  (this page)", "n"],
   ["├─ elpaca/  packages, sources, builds", "d"],
   ["├─ .cache/  backups, auto-save, locks, eln, mise cache", "d"],

@@ -27,6 +27,20 @@ free for you) and dock a tool's buffers with `(ide-add-drawer-buffer REGEXP)`.
 Examples (Rust, Elfeed, settings, Org extras, a GitHub package, extra tools) and short
 recipes are in the docs page (`C-c h d`, "Make it yours").
 
+## Ansible
+
+YAML that looks like Ansible (a playbook, role, `group_vars`/`host_vars`, or a file with
+`hosts:`/`tasks:`/`roles:`) gets `ansible-language-server` through Eglot, `ansible-doc`,
+and **ansible-intelligence** (`lisp/ansible-intelligence/`), which follows variables:
+
+- `M-.` / `M-?` on a Jinja variable jump to its definition (play vars, role defaults, vars files,
+  `register`, `set_fact`, static includes) or list its references. Elsewhere the language server answers.
+- Variable completion (after Eglot's candidates), Eldoc, Imenu and conservative Flymake diagnostics.
+- It needs the `jinja` tree-sitter grammar (installed with the other grammars; `M-x ide-treesit-install-grammars`).
+  Without it, it falls back to a lexical parser and reports no unresolved-variable diagnostics.
+- Tests: `tests/ansible-intelligence-tests.el` (the package) and `tests/ansible-integration-test.el` (the wiring
+  with Eglot), both run by `make test`.
+
 ## AI
 
 - Inline ghost-text completion: minuet (Ollama by default; `M-x ide-ai-switch-backend`).

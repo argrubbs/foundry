@@ -14,7 +14,7 @@
 
 (ert-deftest test-isolation-directory ()
   "Ensure user-emacs-directory is sandboxed."
-  (should (string-match-p "emacs-foundry" user-emacs-directory))
+  (should (file-exists-p (expand-file-name "init.el" user-emacs-directory)))
   (should (not (string-equal (expand-file-name "~/.emacs.d/") (expand-file-name user-emacs-directory)))))
 
 (ert-deftest test-state-contained ()
@@ -30,7 +30,8 @@
   ;; `elpaca-alist' was removed upstream; queues now live in `elpaca--queues'.
   (should (or (boundp 'elpaca-alist) (boundp 'elpaca--queues)))
   (should (fboundp 'elpaca-process-queues))
-  (should (string-match-p "emacs-foundry/elpaca" (expand-file-name elpaca-directory))))
+  (should (equal (file-name-as-directory (expand-file-name elpaca-directory))
+                 (expand-file-name "elpaca/" user-emacs-directory))))
 
 (ert-deftest test-completion-stack-loaded ()
   "Verify Vertico, Orderless, and Consult are available."

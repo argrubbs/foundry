@@ -17,6 +17,8 @@ compile:
 test:
 	$(RUN) --batch -l init.el -l tests/smoke-test.el
 	$(RUN) --batch -l init.el -l tests/ai-test.el
+	$(RUN) --batch -L lisp/ansible-intelligence -l init.el -l tests/ansible-intelligence-tests.el -f ert-run-tests-batch-and-exit
+	$(RUN) --batch -l init.el -l tests/ansible-integration-test.el
 
 docs-check:
 	IDE_NO_USER=1 $(RUN) --batch -l init.el -l tests/docs-check.el
