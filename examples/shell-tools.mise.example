@@ -1,0 +1,5 @@
+# Extra command-line tools through mise
+# Adds shellcheck and shfmt to your mise installs; they are put on PATH for Emacs.
+[tools]
+shellcheck = "latest"
+shfmt = "latest"

@@ -1,0 +1,22 @@
+;;; rust.el --- Rust with rust-analyzer and tree-sitter -*- lexical-binding: t; -*-
+
+;;; Commentary:
+;; A whole language in one file: the built-in tree-sitter mode, the language server
+;; through Eglot, and format-on-save through the server.  Install the toolchain
+;; and server with the companion rust.mise.example (`M-x ide-user-install-example').
+;; The grammar is fetched automatically on the next start.
+
+;;; Code:
+
+(add-to-list 'treesit-language-source-alist
+             '(rust "https://github.com/tree-sitter/tree-sitter-rust"))
+(add-to-list 'auto-mode-alist '("\\.rs\\'" . rust-ts-mode))
+
+(with-eval-after-load 'eglot
+  (add-to-list 'eglot-server-programs '(rust-ts-mode . ("rust-analyzer"))))
+
+(add-hook 'rust-ts-mode-hook #'eglot-ensure)
+(add-hook 'rust-ts-mode-hook (lambda () (setq-local tab-width 4 indent-tabs-mode nil)))
+
+(provide 'user-rust)
+;;; rust.el ends here

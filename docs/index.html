@@ -1,0 +1,2877 @@
+<!doctype html>
+<html lang="en" data-theme="auto">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Foundry — a full-featured Emacs IDE</title>
+<meta name="description" content="Documentation and interactive explorer for Foundry, the sandboxed Emacs IDE: keybindings, tool windows, Azure DevOps, Kubernetes, Docker, IaC, AI and Org.">
+<style>
+:root{
+  --bg:#1b1e25; --surface:#232730; --surface2:#2b303b; --line:#3a4050;
+  --text:#d9dee8; --muted:#9ba5b7; --accent:#61afef; --accent-ink:#0f1722;
+  --green:#98be65; --amber:#ecbe7b; --purple:#c678dd; --red:#ff6c6b; --cyan:#46d9ff;
+  --kbd-bg:#2f3542; --kbd-line:#4a5266; --shadow:0 1px 0 rgba(0,0,0,.35),0 8px 24px rgba(0,0,0,.25);
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --radius:10px; color-scheme:dark;
+}
+:root[data-theme="light"]{
+  --bg:#fbfbfd; --surface:#ffffff; --surface2:#f0f2f6; --line:#d5dae3;
+  --text:#1d2330; --muted:#566074; --accent:#0b5fc4; --accent-ink:#ffffff;
+  --green:#2d6a1e; --amber:#8a5a00; --purple:#7a2fa0; --red:#b3261e; --cyan:#006b86;
+  --kbd-bg:#eef1f6; --kbd-line:#b9c1d0; --shadow:0 1px 0 rgba(20,30,50,.06),0 8px 24px rgba(20,30,50,.08);
+  color-scheme:light;
+}
+@media (prefers-color-scheme:light){
+  :root[data-theme="auto"]{
+    --bg:#fbfbfd; --surface:#ffffff; --surface2:#f0f2f6; --line:#d5dae3;
+    --text:#1d2330; --muted:#566074; --accent:#0b5fc4; --accent-ink:#ffffff;
+    --green:#2d6a1e; --amber:#8a5a00; --purple:#7a2fa0; --red:#b3261e; --cyan:#006b86;
+    --kbd-bg:#eef1f6; --kbd-line:#b9c1d0; --shadow:0 1px 0 rgba(20,30,50,.06),0 8px 24px rgba(20,30,50,.08);
+    color-scheme:light;
+  }
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:1.25rem}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{animation:none!important;transition:none!important}}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.6 var(--sans);-webkit-font-smoothing:antialiased}
+a{color:var(--accent)}
+a:hover{text-decoration-thickness:2px}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px;border-radius:4px}
+code,kbd,pre,samp{font-family:var(--mono)}
+code{background:var(--surface2);border:1px solid var(--line);border-radius:5px;padding:.08em .38em;font-size:.88em;overflow-wrap:anywhere}
+kbd{display:inline-block;min-width:1.7em;text-align:center;background:var(--kbd-bg);border:1px solid var(--kbd-line);border-bottom-width:2px;border-radius:6px;padding:.05em .45em;font-size:.84em;line-height:1.5;color:var(--text);white-space:nowrap}
+.keys{display:inline-flex;flex-wrap:wrap;gap:.25rem;align-items:center}
+.keys .then{color:var(--muted);font-size:.8em}
+.skip{position:absolute;left:-999px;top:0;background:var(--accent);color:var(--accent-ink);padding:.6rem 1rem;z-index:100;border-radius:0 0 8px 0}
+.skip:focus{left:0}
+.shell{display:grid;grid-template-columns:260px minmax(0,1fr);min-height:100vh}
+nav.side{position:sticky;top:0;align-self:start;height:100vh;overflow:auto;padding:1.4rem 1rem;border-right:1px solid var(--line);background:var(--surface)}
+.brand{display:flex;gap:.6rem;align-items:center;font-weight:700;letter-spacing:.2px;margin-bottom:1.2rem;text-decoration:none;color:var(--text)}
+.brand .logo{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,var(--purple),var(--accent));display:grid;place-items:center;color:#fff;font:700 15px var(--mono)}
+nav.side ol{list-style:none;margin:0;padding:0;display:grid;gap:2px}
+nav.side a{display:flex;justify-content:space-between;gap:.5rem;padding:.42rem .65rem;border-radius:8px;text-decoration:none;color:var(--muted);font-size:.93rem}
+nav.side a:hover{background:var(--surface2);color:var(--text)}
+nav.side a[aria-current="true"]{background:var(--surface2);color:var(--text);box-shadow:inset 3px 0 0 var(--accent)}
+nav.side .grp{margin:1rem .65rem .3rem;font-size:.72rem;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+.tools{display:flex;gap:.5rem;margin-top:1.2rem;padding:0 .3rem;flex-wrap:wrap}
+main{padding:0 clamp(1rem,4vw,3.5rem) 6rem;max-width:1180px;width:100%}
+section{padding-top:3.6rem}
+h1,h2,h3{line-height:1.2;margin:0 0 .6rem}
+h2{font-size:1.75rem;letter-spacing:-.01em}
+h2 .num{color:var(--accent);font:600 .8rem var(--mono);display:block;margin-bottom:.35rem;letter-spacing:.08em}
+h3{font-size:1.1rem}
+.lede{color:var(--muted);max-width:68ch;margin:.2rem 0 1.4rem}
+.btn{appearance:none;border:1px solid var(--line);background:var(--surface2);color:var(--text);padding:.45rem .8rem;border-radius:8px;font:inherit;font-size:.9rem;cursor:pointer}
+.btn:hover{border-color:var(--accent)}
+.btn[aria-pressed="true"],.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600}
+.chip{appearance:none;border:1px solid var(--line);background:transparent;color:var(--muted);padding:.28rem .7rem;border-radius:999px;font:inherit;font-size:.85rem;cursor:pointer}
+.chip:hover{color:var(--text);border-color:var(--muted)}
+.chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:1.1rem 1.2rem;box-shadow:var(--shadow)}
+.grid{display:grid;gap:1rem}
+.g2{grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr))}
+.g3{grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr))}
+.hero{padding-top:3rem}
+.hero h1{font-size:clamp(2.1rem,5vw,3.4rem);letter-spacing:-.02em;margin-bottom:.8rem}
+.hero h1 em{font-style:normal;background:linear-gradient(90deg,var(--purple),var(--accent),var(--cyan));-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero p{font-size:1.12rem;color:var(--muted);max-width:62ch}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:.8rem;margin:1.6rem 0}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:.9rem 1rem}
+.stat b{display:block;font:700 1.7rem var(--mono);color:var(--accent)}
+.stat span{color:var(--muted);font-size:.86rem}
+pre{margin:0;background:var(--surface2);border:1px solid var(--line);border-radius:var(--radius);padding:.9rem 1rem;overflow:auto;font-size:.88rem;line-height:1.55}
+.codebox{position:relative}
+.codebox .copy{position:absolute;top:.5rem;right:.5rem;font-size:.78rem;padding:.2rem .55rem}
+.codebox.stacked{display:flex;flex-direction:column}
+.codebox.stacked .copy{position:static;align-self:flex-end;margin-bottom:.3rem}
+.cm{color:var(--muted)}
+.callout{border-left:4px solid var(--amber);background:var(--surface);border-radius:0 var(--radius) var(--radius) 0;padding:.8rem 1rem;margin:1rem 0}
+.callout.info{border-color:var(--accent)} .callout.ok{border-color:var(--green)} .callout.bad{border-color:var(--red)}
+.callout strong:first-child{display:block;margin-bottom:.15rem}
+table{width:100%;border-collapse:collapse;font-size:.93rem}
+th,td{text-align:left;padding:.55rem .7rem;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:.76rem;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.tablewrap{overflow:auto;border:1px solid var(--line);border-radius:var(--radius);background:var(--surface)}
+/* layout explorer */
+.ide{display:grid;grid-template-columns:auto 1fr auto;grid-template-rows:auto 1fr auto auto;gap:0;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--bg);min-height:430px;box-shadow:var(--shadow)}
+.ide button.zone{appearance:none;border:0;border-right:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--surface);color:var(--text);text-align:left;font:inherit;font-size:.82rem;padding:.55rem .65rem;cursor:pointer;position:relative}
+.ide button.zone:hover{background:var(--surface2)}
+.ide button.zone[aria-pressed="true"]{outline:2px solid var(--accent);outline-offset:-2px}
+.zone .zt{display:flex;justify-content:space-between;gap:.4rem;font-weight:600;margin-bottom:.35rem}
+.zone .ft{color:var(--muted);font-family:var(--mono);font-size:.78rem}
+.z-crumb{grid-column:1/4;grid-row:1}
+.z-tree{grid-column:1;grid-row:2/4;width:190px}
+.z-code{grid-column:2;grid-row:2;cursor:default!important;background:var(--bg)!important;padding:0!important;border-bottom:1px solid var(--line)}
+.z-struct{grid-column:3;grid-row:2/4;width:170px;border-right:0!important}
+.z-drawer{grid-column:2;grid-row:3}
+.z-status{grid-column:1/4;grid-row:4;border-bottom:0!important;border-right:0!important;font-family:var(--mono);font-size:.76rem!important;color:var(--muted)}
+.ide [hidden]{display:none!important}
+.codeview{font:.8rem/1.55 var(--mono);padding:.8rem 1rem;color:var(--text);white-space:pre;overflow:hidden}
+.codeview .k{color:var(--purple)} .codeview .f{color:var(--accent)} .codeview .s{color:var(--green)} .codeview .c{color:var(--muted)} .codeview .g{color:var(--amber)}
+.gutter{display:inline-block;width:2.2em;color:var(--muted);text-align:right;margin-right:.9em;user-select:none}
+.bp{color:var(--red)}
+.tabs-mini{display:flex;gap:.25rem;margin-bottom:.4rem;flex-wrap:wrap}
+.tabs-mini span{padding:.05rem .45rem;border-radius:5px;background:var(--surface2);font-size:.74rem;color:var(--muted)}
+.tabs-mini span.on{background:var(--accent);color:var(--accent-ink);font-weight:600}
+.infopanel{margin-top:.9rem;min-height:5.2rem}
+.togglebar{display:flex;gap:.5rem;flex-wrap:wrap;margin:.8rem 0}
+@media (max-width:720px){.ide{grid-template-columns:1fr}.z-tree,.z-struct,.z-drawer,.z-crumb,.z-status{grid-column:1;grid-row:auto;width:auto}}
+/* keybind explorer */
+.toolbar{display:flex;flex-wrap:wrap;gap:.6rem;align-items:center;margin-bottom:.9rem}
+.search{flex:1 1 260px;display:flex;align-items:center;gap:.5rem;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:.15rem .7rem}
+.search:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 30%,transparent)}
+.search input{flex:1;background:transparent;border:0;color:var(--text);font:inherit;padding:.55rem 0;outline:none;min-width:0}
+.chips{display:flex;gap:.4rem;flex-wrap:wrap}
+.kbrow{display:grid;grid-template-columns:minmax(120px,170px) 1fr auto;gap:.2rem .9rem;align-items:center;padding:.5rem .9rem;border-bottom:1px solid var(--line)}
+.kbrow:last-child{border-bottom:0}
+.kbrow .what b{margin-right:.35rem}
+.kbrow .what small{display:block;color:var(--muted);font-size:.86rem}
+.kbrow .what code{font-size:.76rem}
+.kbrow .meta{display:flex;gap:.4rem;flex-wrap:wrap;align-items:center;justify-content:flex-end}
+.kbrow .meta .chip{padding:.1rem .55rem;font-size:.76rem}
+.badge{font-size:.72rem;border:1px solid var(--line);border-radius:999px;padding:.05rem .5rem;color:var(--muted);white-space:nowrap}
+.badge.equiv{border-color:var(--purple);color:var(--purple)}
+.badge.ctx{border-color:var(--cyan);color:var(--cyan)}
+.kbrow.hit{animation:flash 1.4s ease-out;background:color-mix(in srgb,var(--accent) 22%,transparent)}
+.kbrow.cand{background:color-mix(in srgb,var(--amber) 14%,transparent)}
+@keyframes flash{from{background:color-mix(in srgb,var(--accent) 55%,transparent)}}
+.kblist{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
+.kbgroup{padding:.5rem .9rem;background:var(--surface2);font-size:.76rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--line)}
+.empty{padding:1.4rem;color:var(--muted);text-align:center}
+.trybox{border:1px dashed var(--kbd-line);border-radius:var(--radius);padding:.8rem 1rem;margin-bottom:.9rem;background:var(--surface)}
+.trybox .live{font-family:var(--mono);min-height:1.6rem;margin-top:.5rem}
+.copy{cursor:pointer}
+@media (max-width:720px){.kbrow{grid-template-columns:1fr}.kbrow .meta{justify-content:flex-start}}
+/* menu simulator */
+.menu-sim{display:grid;grid-template-columns:minmax(180px,230px) 1fr;gap:1rem}
+.menu-list{display:grid;gap:.4rem;align-content:start}
+.menu-list .chip{text-align:left;border-radius:8px}
+.menu-win{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:1rem 1.1rem;min-height:260px}
+.menu-path{font-family:var(--mono);font-size:.84rem;color:var(--muted);margin-bottom:.7rem;display:flex;flex-wrap:wrap;gap:.35rem;align-items:center}
+.menu-cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:1rem}
+.menu-cols h4{margin:.1rem 0 .4rem;font-size:.78rem;letter-spacing:.07em;text-transform:uppercase;color:var(--accent)}
+.mi{display:flex;gap:.6rem;width:100%;text-align:left;background:transparent;border:0;border-radius:7px;padding:.3rem .4rem;color:var(--text);font:inherit;font-size:.92rem;cursor:pointer;align-items:baseline}
+.mi:hover,.mi:focus-visible{background:var(--surface2)}
+.mi .go{margin-left:auto;color:var(--muted);font-size:.8rem}
+.menu-out{margin-top:.9rem;border-top:1px dashed var(--line);padding-top:.7rem;color:var(--muted);min-height:3rem}
+.menu-out code{color:var(--text)}
+@media (max-width:760px){.menu-sim{grid-template-columns:1fr}}
+/* workflows */
+.tablist{display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:1rem}
+.steps{counter-reset:s;list-style:none;margin:0;padding:0;display:grid;gap:.7rem}
+.steps li{counter-increment:s;position:relative;padding:.8rem 1rem .8rem 3.2rem;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius)}
+.steps li::before{content:counter(s);position:absolute;left:.9rem;top:.75rem;width:1.7rem;height:1.7rem;border-radius:50%;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;font:700 .85rem var(--mono)}
+.steps .note{display:block;color:var(--muted);font-size:.88rem;margin-top:.2rem}
+/* features */
+.fcard{display:flex;flex-direction:column;gap:.5rem}
+.fcard h3{display:flex;gap:.5rem;align-items:center}
+.fcard .ico{width:1.9rem;height:1.9rem;border-radius:8px;display:grid;place-items:center;background:var(--surface2);font-size:1rem}
+.fcard p{margin:0;color:var(--muted);font-size:.93rem}
+.cmds{display:flex;flex-wrap:wrap;gap:.3rem;margin-top:auto;padding-top:.4rem}
+.cmds code{cursor:pointer;font-size:.78rem}
+.cmds code:hover{border-color:var(--accent)}
+.tree{font-family:var(--mono);font-size:.84rem;line-height:1.6}
+.tree .d{color:var(--accent)} .tree .n{color:var(--muted)}
+.fname{display:flex;justify-content:space-between;align-items:center;gap:.6rem;font:600 .82rem var(--mono);color:var(--muted);margin:.9rem 0 .35rem}
+.exblurb{color:var(--muted);max-width:75ch;margin:.2rem 0 .4rem}
+.recipe h3{font-size:1rem;margin-bottom:.15rem}
+.recipe p{margin:0 0 .5rem;color:var(--muted);font-size:.92rem}
+.recipe pre{white-space:pre-wrap;overflow-wrap:anywhere}
+footer{border-top:1px solid var(--line);margin-top:4rem;padding-top:1.4rem;color:var(--muted);font-size:.88rem}
+@media (max-width:980px){
+  .shell{grid-template-columns:1fr}
+  nav.side{position:static;height:auto;border-right:0;border-bottom:1px solid var(--line)}
+  nav.side ol{grid-template-columns:repeat(auto-fit,minmax(130px,1fr))}
+}
+@media print{nav.side,.tools,.trybox,.toolbar,.copy{display:none!important}.shell{display:block}body{background:#fff;color:#000}}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<div class="shell">
+<nav class="side" aria-label="Sections">
+  <a class="brand" href="#top"><span class="logo" aria-hidden="true">F</span><span>Foundry<br><small style="font-weight:400;color:var(--muted)">Emacs IDE</small></span></a>
+  <ol id="navlist">
+    <li class="grp" role="presentation">Start</li>
+    <li><a href="#overview">Overview</a></li>
+    <li><a href="#quickstart">Quick start</a></li>
+    <li class="grp" role="presentation">Explore</li>
+    <li><a href="#layout">Tool windows</a></li>
+    <li><a href="#keys">Keybindings</a></li>
+    <li><a href="#menus">Command menus</a></li>
+    <li><a href="#workflows">Workflows</a></li>
+    <li><a href="#features">Feature catalogue</a></li>
+    <li><a href="#extend">Make it yours</a></li>
+    <li class="grp" role="presentation">Reference</li>
+    <li><a href="#architecture">Architecture</a></li>
+    <li><a href="#tools">Tools (mise)</a></li>
+    <li><a href="#setup">Setup &amp; credentials</a></li>
+    <li><a href="#status">Status &amp; limits</a></li>
+  </ol>
+  <div class="tools">
+    <button class="btn" id="theme" type="button" aria-label="Change colour theme">Theme: auto</button>
+    <button class="btn" id="trykeys-nav" type="button">Try keys</button>
+  </div>
+</nav>
+
+<main id="main" tabindex="-1">
+<noscript><div class="callout bad"><strong>JavaScript is off.</strong> The explorer sections are rendered from embedded data and need JavaScript. The same information is in <code>README.md</code> and <code>modules/10-keybindings.el</code>.</div></noscript>
+
+<header class="hero" id="top">
+  <p style="margin:0 0 .6rem;font:600 .8rem var(--mono);color:var(--accent);letter-spacing:.1em">FOUNDRY · SANDBOXED · PORTABLE · KEYBOARD-FIRST</p>
+  <h1>The modern IDE workflow,<br><em>inside Emacs.</em></h1>
+  <p>Foundry is a modular Emacs configuration with IDE-style tool windows, a first-class Azure DevOps forge in Magit, Kubernetes, Docker and Terraform porcelains, inline AI completion and a literate Org knowledge base — installed entirely under one directory and launched next to your daily-driver setup.</p>
+  <div class="stats" id="stats" aria-label="Project at a glance"></div>
+</header>
+
+<section id="overview" aria-labelledby="h-overview">
+  <h2 id="h-overview"><span class="num">01</span>Overview</h2>
+  <p class="lede">Four ideas hold the design together.</p>
+  <div class="grid g2">
+    <div class="card"><h3>Tool windows, not split chaos</h3><p>Compilation output, terminals, diagnostics, container logs and cloud consoles dock into a single bottom drawer (<code>popper</code> + <code>display-buffer-alist</code>). The project tree sits left, the structure outline right. <kbd>Esc</kbd> always returns focus to your code.</p></div>
+    <div class="card"><h3>Zero dotfile pollution</h3><p>Everything — packages, caches, auto-saves, databases, even the installed CLIs and Azure login state — lives inside <code>~/.config/emacs-foundry/</code>. Your <code>~/.emacs.d</code> is never touched.</p></div>
+    <div class="card"><h3>No browser required for DevOps</h3><p>Pull requests, review threads, votes, completion, Boards work items and pipeline status are driven through the Azure DevOps REST API and surfaced as Magit sections and transient menus.</p></div>
+    <div class="card"><h3>Portable tooling</h3><p>One <code>mise.toml</code> declares 24 CLIs and language servers. <code>M-x ide-mise-setup</code> (or <code>make tools</code>) bootstraps a checksum-verified <code>mise</code> and installs them into the sandbox on any Linux or macOS machine.</p></div>
+  </div>
+</section>
+
+<section id="quickstart" aria-labelledby="h-quick">
+  <h2 id="h-quick"><span class="num">02</span>Quick start</h2>
+  <p class="lede">Requires Emacs 29.1+ (developed on 31.1), <code>git</code> and <code>curl</code>. Packages install themselves on first launch.</p>
+  <div class="grid g2">
+    <div>
+      <div class="codebox"><button class="btn copy" type="button" data-copy-target="qs1">Copy</button>
+<pre id="qs1"><span class="cm"># 1. launch beside your normal Emacs</span>
+cd ~/.config/emacs-foundry
+./launch.sh
+
+<span class="cm"># 2. optional: add it to your application menu</span>
+make desktop
+
+<span class="cm"># 3. install the CLIs and language servers (≈2 GB)</span>
+make tools
+
+<span class="cm"># 4. see what is available</span>
+make doctor</pre></div>
+    </div>
+    <div>
+      <div class="callout info"><strong>macOS tip</strong>The <kbd>M-</kbd> bindings need Option to act as Meta. Add <code>(setq ns-alternate-modifier 'meta)</code> to <code>custom.el</code>.</div>
+      <div class="callout"><strong>First terminal</strong>The terminal (<kbd>M-0</kbd>, ghostel) downloads a small prebuilt native module the first time you open it, and asks before doing so. Nothing is fetched at startup.</div>
+      <div class="callout ok"><strong>Verify anything, any time</strong><code>make compile</code> (strict byte-compile) and <code>make test</code> (ERT suite) run headless against the sandbox.</div>
+    </div>
+  </div>
+</section>
+
+<section id="layout" aria-labelledby="h-layout">
+  <h2 id="h-layout"><span class="num">03</span>Tool windows</h2>
+  <p class="lede">An interactive model of the workspace. Select a region to read about it, and use the toggles — or the real keys in <em>Try keys</em> mode — to open and close windows the way you will in the editor.</p>
+  <div class="togglebar" role="group" aria-label="Show or hide tool windows">
+    <button class="chip" type="button" data-toggle="tree" aria-pressed="true">Project <kbd>M-1</kbd></button>
+    <button class="chip" type="button" data-toggle="struct" aria-pressed="true">Structure <kbd>M-7</kbd></button>
+    <button class="chip" type="button" data-toggle="drawer" aria-pressed="true">Drawer <kbd>M-4</kbd></button>
+  </div>
+  <div class="ide" id="ide" role="group" aria-label="Interactive IDE layout">
+    <button class="zone z-crumb" type="button" data-zone="crumb" aria-pressed="false"><span class="zt">Breadcrumbs <span class="ft">header line</span></span>my-service › src › handlers.py › <b>create_order</b></button>
+    <button class="zone z-tree" type="button" data-zone="tree" aria-pressed="false"><span class="zt">Project <span class="ft">M-1</span></span><span class="ft" style="display:block;line-height:1.7">▾ my-service<br>&nbsp;▾ src<br>&nbsp;&nbsp;&nbsp;handlers.py<br>&nbsp;&nbsp;&nbsp;models.py<br>&nbsp;▸ tests<br>&nbsp;&nbsp;&nbsp;pyproject.toml</span></button>
+    <div class="zone z-code" data-zone="code" aria-hidden="true"><div class="codeview"><span class="gutter">12</span><span class="k">def</span> <span class="f">create_order</span>(req: Request) -&gt; Order:
+<span class="gutter bp">● 13</span>    items = <span class="f">parse_items</span>(req.body)
+<span class="gutter">14</span>    total = <span class="f">sum</span>(i.price <span class="g">*</span> i.qty <span class="k">for</span> i <span class="k">in</span> items)
+<span class="gutter">15</span>    <span class="c"># ghost text from the inline completion appears here ▒▒▒▒▒▒</span>
+<span class="gutter">16</span>    <span class="k">return</span> Order(items=items, total=total)</div></div>
+    <button class="zone z-struct" type="button" data-zone="struct" aria-pressed="false"><span class="zt">Structure <span class="ft">M-7</span></span><span class="ft" style="display:block;line-height:1.7">ƒ create_order<br>ƒ parse_items<br>ƒ cancel_order<br>C Order<br>&nbsp;&nbsp;ƒ total</span></button>
+    <button class="zone z-drawer" type="button" data-zone="drawer" aria-pressed="false"><span class="tabs-mini" aria-hidden="true"><span class="on">*compilation*</span><span>Flymake</span><span>*ghostel*</span><span>*docker-logs*</span><span>*azdo-threads*</span></span><span class="zt">Bottom drawer <span class="ft">M-4 · M-6 · M-0</span></span><span class="ft">$ python -m pytest tests/ -q<br>..........  10 passed in 0.42s</span></button>
+    <button class="zone z-status" type="button" data-zone="status" aria-pressed="false">main ✓ · Flymake 0 errors · UTF-8 · Python · Eglot: pyright</button>
+  </div>
+  <div class="card infopanel" id="zoneinfo" aria-live="polite"></div>
+</section>
+
+<section id="keys" aria-labelledby="h-keys">
+  <h2 id="h-keys"><span class="num">04</span>Keybindings</h2>
+  <p class="lede">Every binding below is read from the live configuration and checked by a script (<code>make docs-check</code>). <kbd>M-</kbd> is Alt (Option on macOS). Press <kbd>/</kbd> to search.</p>
+  <div class="trybox" id="trybox">
+    <div style="display:flex;gap:.6rem;flex-wrap:wrap;align-items:center">
+      <button class="btn" id="trykeys" type="button" aria-pressed="false">Try keys</button>
+      <span style="color:var(--muted);font-size:.92rem">Turn on, then press real key chords on this page. Prefixes like <kbd>C-c</kbd> show what can follow, like which-key. <kbd>Esc</kbd> twice to leave.</span>
+    </div>
+    <div class="live" id="tryout" role="status" aria-live="polite"></div>
+  </div>
+  <div class="toolbar">
+    <label class="search"><span aria-hidden="true">⌕</span><span class="sr" style="position:absolute;left:-999px">Search keybindings</span>
+      <input id="kbsearch" type="search" placeholder="Search keys, commands or what you want to do…" autocomplete="off"></label>
+    <div class="chips" id="kbchips" role="group" aria-label="Filter by category"></div>
+  </div>
+  <div class="kblist" id="kblist"></div>
+  <div class="callout" style="margin-top:1.2rem"><strong>Defaults these bindings replace</strong>
+    Following familiar IDE muscle memory displaces a few Emacs classics. They remain available through <code>M-x</code>:
+    <table style="margin-top:.5rem"><tbody id="displaced"></tbody></table>
+  </div>
+</section>
+
+<section id="menus" aria-labelledby="h-menus">
+  <h2 id="h-menus"><span class="num">05</span>Command menus</h2>
+  <p class="lede">Dispatchers are <code>transient</code> menus: a key opens the menu, then single letters pick actions. Walk them here — click an entry or press its key.</p>
+  <div class="menu-sim">
+    <div class="menu-list" id="menulist" role="group" aria-label="Choose a menu"></div>
+    <div class="menu-win" id="menuwin" aria-live="polite"></div>
+  </div>
+</section>
+
+<section id="workflows" aria-labelledby="h-wf">
+  <h2 id="h-wf"><span class="num">06</span>Workflows</h2>
+  <p class="lede">End-to-end recipes. Each step names the key and the underlying command.</p>
+  <div class="tablist" id="wftabs" role="tablist" aria-label="Workflows"></div>
+  <div id="wfbody" role="tabpanel" tabindex="0"></div>
+</section>
+
+<section id="features" aria-labelledby="h-feat">
+  <h2 id="h-feat"><span class="num">07</span>Feature catalogue</h2>
+  <p class="lede">Everything the setup can do, by area. Click a command to copy its <code>M-x</code> invocation.</p>
+  <div class="toolbar"><div class="chips" id="fchips" role="group" aria-label="Filter features"></div></div>
+  <div class="grid g3" id="fgrid"></div>
+</section>
+
+<section id="extend" aria-labelledby="h-extend">
+  <h2 id="h-extend"><span class="num">08</span>Make it yours</h2>
+  <p class="lede">Add your own packages, tools and settings without touching the IDE's core. Everything of yours lives in <code>user/</code>, loads last, and is never overwritten.</p>
+  <div class="grid g2" style="grid-template-columns:repeat(auto-fit,minmax(min(100%,430px),1fr))">
+    <div class="card"><h3>Where things go</h3>
+      <div class="tree"><div class="d">user/</div><div class="n">├─ packages.el&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:var(--muted)">← written by C-c u a</span></div><div class="n">├─ 10-rust.el&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:var(--muted)">← any *.el, loaded alphabetically</span></div><div class="n">├─ settings.el</div><div class="n">└─ mise.toml&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:var(--muted)">← extra CLI tools for M-x ide-mise-setup</span></div>
+      <div class="d" style="margin-top:.4rem">examples/</div><div class="n">└─ shipped samples you can copy into user/</div></div></div>
+    <div class="card"><h3>Safe by design</h3>
+      <ul style="margin:.3rem 0 0;padding-left:1.1rem;color:var(--muted)">
+        <li>Core files are never edited, and core updates never touch <code>user/</code>.</li>
+        <li>A broken file shows a warning and the rest still load. Start <b>Foundry (safe mode)</b> from your launcher, or run <code>./launch.sh --safe</code>, to skip them all.</li>
+        <li>Packages install into the sandbox like the built-in ones; tools from <code>user/mise.toml</code> go into <code>var/mise/</code>.</li>
+        <li><code>make compile</code> and <code>make test</code> ignore <code>user/</code>.</li>
+      </ul></div>
+    <div class="card"><h3>Three ways in</h3>
+      <table><tbody>
+        <tr><td style="white-space:nowrap;vertical-align:top"><span class="keys" style="flex-wrap:nowrap"><kbd>C-c</kbd><kbd>u</kbd><kbd>a</kbd></span></td><td><code>ide-user-add-package</code>: a name (and optionally a GitHub repo) is appended to <code>user/packages.el</code> and installed in the background. A prefix argument loads it at startup.</td></tr>
+        <tr><td style="white-space:nowrap;vertical-align:top"><span class="keys" style="flex-wrap:nowrap"><kbd>C-c</kbd><kbd>u</kbd><kbd>i</kbd></span></td><td><code>ide-user-install-example</code>: copy a shipped example into <code>user/</code>.</td></tr>
+        <tr><td style="white-space:nowrap;vertical-align:top"><span class="keys" style="flex-wrap:nowrap"><kbd>C-c</kbd><kbd>u</kbd><kbd>n</kbd></span></td><td><code>ide-user-new-file</code>, or just create any <code>user/*.el</code> yourself. <kbd>C-c u e</kbd> opens the folder and <kbd>C-c u r</kbd> reloads without a restart.</td></tr>
+      </tbody></table></div>
+    <div class="card"><h3>Conventions that keep it tidy</h3>
+      <ul style="margin:.3rem 0 0;padding-left:1.1rem;color:var(--muted)">
+        <li>Keep data in the sandbox with <code>ide-var-dir</code> (<code>var/</code>) and <code>ide-cache-dir</code> (<code>.cache/</code>).</li>
+        <li>Put your keys on <code>ide-keys-mode-map</code>; <kbd>C-c x</kbd> is free for you.</li>
+        <li>Dock a tool's buffers in the bottom drawer with <code>(ide-add-drawer-buffer "\\*name\\*")</code>.</li>
+        <li>Adjust a core package inside <code>with-eval-after-load</code>; run things that need everything loaded from <code>elpaca-after-init-hook</code>.</li>
+        <li>Prefix file names (<code>10-</code>, <code>20-</code>) to control load order.</li>
+      </ul></div>
+  </div>
+  <h3 style="margin-top:1.6rem">Shipped examples</h3>
+  <p class="lede" style="margin-bottom:.8rem">Install one with <code>M-x ide-user-install-example</code>; these are the real files from <code>examples/</code>.</p>
+  <div class="tablist" id="extabs" role="tablist" aria-label="Examples"></div>
+  <div id="exbody" role="tabpanel" tabindex="0"></div>
+  <h3 style="margin-top:1.6rem">Recipes</h3>
+  <p class="lede" style="margin-bottom:.8rem">Small, copy-ready snippets. Each one is parsed by the documentation check.</p>
+  <div class="grid g2" id="recipes" style="grid-template-columns:repeat(auto-fit,minmax(min(100%,430px),1fr))"></div>
+</section>
+
+<section id="architecture" aria-labelledby="h-arch">
+  <h2 id="h-arch"><span class="num">09</span>Architecture</h2>
+  <p class="lede">Modules load in numeric order from <code>init.el</code>; each is small and independently readable. Packages are managed by <code>elpaca</code> and installed asynchronously after the first frame appears.</p>
+  <div class="grid g2">
+    <div class="card"><h3>Directory layout</h3><div class="tree" id="dirtree"></div></div>
+    <div class="card"><h3>How startup stays fast</h3>
+      <ul style="margin:.4rem 0 0;padding-left:1.1rem;color:var(--muted)">
+        <li>First frame in roughly <b style="color:var(--text)">85 ms</b> (measured in a terminal session): <code>early-init.el</code> raises GC limits and suppresses UI chrome, <code>init.el</code> only queues packages.</li>
+        <li>Packages install and activate in the background; <code>use-package</code> defers everything not needed immediately.</li>
+        <li>The config's own files are byte-compiled but deliberately <b style="color:var(--text)">not</b> native-compiled, because the background compiler cannot see our macros.</li>
+        <li>The mise tool <code>PATH</code> is cached in <code>var/mise/path.eld</code> — startup never spawns mise.</li>
+        <li>Batch runs (<code>make test</code>, <code>make tools</code>) wait for packages so results are deterministic.</li>
+      </ul></div>
+  </div>
+  <h3 style="margin-top:1.6rem">Module map</h3>
+  <div class="tablewrap"><table><thead><tr><th>File</th><th>Responsibility</th></tr></thead><tbody id="modtable"></tbody></table></div>
+</section>
+
+<section id="tools" aria-labelledby="h-tools">
+  <h2 id="h-tools"><span class="num">10</span>Tools via mise</h2>
+  <p class="lede">Declared in <code>mise.toml</code>, installed by <code>M-x ide-mise-setup</code> into <code>var/mise/</code>. mise's data, state and cache are redirected into the sandbox; an existing mise on your <code>PATH</code> is used but never modified, and mise never reads configuration from parent directories such as <code>~/.tool-versions</code>.</p>
+  <div class="toolbar"><div class="chips" id="tchips" role="group" aria-label="Filter tools"></div></div>
+  <div class="tablewrap"><table><thead><tr><th>Executable</th><th>Purpose</th><th>mise spec</th></tr></thead><tbody id="tooltable"></tbody></table></div>
+  <div class="grid g3" style="margin-top:1rem">
+    <div class="card"><h3><code>ide-mise-setup</code></h3><p style="margin:0;color:var(--muted)">Bootstrap mise if missing, run <code>mise install</code> in the drawer, refresh <code>PATH</code>, add the <code>azure-devops</code> az extension and tree-sitter grammars.</p></div>
+    <div class="card"><h3><code>ide-mise-doctor</code></h3><p style="margin:0;color:var(--muted)">Lists every expected executable and where it was found, or what is missing.</p></div>
+    <div class="card"><h3>Pin for supply-chain safety</h3><p style="margin:0;color:var(--muted)">Set <code>ide-mise-version</code> and <code>ide-mise-sha256</code> to verify the bootstrap binary against a checksum you obtained independently.</p></div>
+  </div>
+</section>
+
+<section id="setup" aria-labelledby="h-setup">
+  <h2 id="h-setup"><span class="num">11</span>Setup &amp; credentials</h2>
+  <div class="grid g2">
+    <div class="card"><h3>Azure DevOps</h3>
+      <p style="color:var(--muted);margin:.2rem 0 .6rem">The organization, project and repository are inferred from the git remote (https, ssh and <code>visualstudio.com</code> forms). Authentication, first match wins:</p>
+      <ol style="margin:0;padding-left:1.2rem"><li><code>AZURE_DEVOPS_EXT_PAT</code> environment variable</li><li>An auth-source entry for host <code>dev.azure.com</code></li><li><code>az login</code> (Entra token, cached 50 minutes)</li></ol>
+      <p style="color:var(--muted);margin:.6rem 0 0">Azure CLI state lives in <code>var/azure/</code>, so log in once inside the IDE. Set <code>ide-azure-config-dir</code> to <code>nil</code> to share <code>~/.azure</code>.</p></div>
+    <div class="card"><h3>Confluence Cloud</h3>
+      <p style="color:var(--muted);margin:.2rem 0 .6rem">Set <code>confluence-site</code> (the part before <code>.atlassian.net</code>) and provide credentials:</p>
+      <ul style="margin:0;padding-left:1.2rem"><li><code>CONFLUENCE_EMAIL</code> and <code>CONFLUENCE_API_TOKEN</code>, or</li><li>an auth-source entry for <code>&lt;site&gt;.atlassian.net</code></li></ul></div>
+    <div class="card"><h3>Inline AI completion</h3>
+      <p style="color:var(--muted);margin:.2rem 0 0">Default backend is a local Ollama at <code>localhost:11434</code> with <code>qwen2.5-coder:7b</code>. Switch with <code>M-x ide-ai-switch-backend</code> to <code>gemini</code> (<code>GEMINI_API_KEY</code>) or an OpenAI-compatible FIM endpoint. Files matching <code>ide-ai-private-file-regexps</code> (<code>.env</code>, <code>*.tfvars</code>, keys, kubeconfig, secrets) are never sent to hosted models; <code>M-x ide-ai-mark-private</code> protects any other buffer. Chat and <code>gptel-agent</code> also use <code>ANTHROPIC_API_KEY</code> if set. Pick the chat and agent model with <kbd>C-c a M</kbd>, or fix a default with <code>ide-ai-default-model</code> such as <code>(claude . claude-sonnet-5-5)</code>; point <code>gptel-agent-skill-dirs</code> at extra skill folders (~/.claude/skills and installed Claude Code plugins are found automatically).</p></div>
+    <div class="card"><h3>Keeping this page current</h3>
+      <p style="color:var(--muted);margin:.2rem 0 .6rem"><kbd>C-c h u</kbd> (<code>M-x ide-docs-update</code>) compares this page with the running configuration. Keys, menus, tools, modules, make targets and counts are rewritten from facts, so they cannot drift. Only new or changed items go to your configured AI agent (gptel by default) for wording, as validated JSON &mdash; the agent never writes HTML.</p>
+      <p style="color:var(--muted);margin:0">The result is checked in a fresh Emacs and replaces the page only if it passes; the previous page is backed up. <code>make docs-update</code> does the factual part without an agent, and <code>M-x ide-docs-update-with-agent</code> starts a gptel-agent session with the task, which you review and send.</p></div>
+    <div class="card"><h3>Make targets</h3>
+      <table><tbody id="maketable"></tbody></table></div>
+  </div>
+</section>
+
+<section id="status" aria-labelledby="h-status">
+  <h2 id="h-status"><span class="num">12</span>Status &amp; limits</h2>
+  <p class="lede">What has actually been exercised, and what has not.</p>
+  <div class="grid g2">
+    <div class="callout ok" style="margin:0"><strong>Verified</strong><ul id="verified" style="margin:.3rem 0 0;padding-left:1.1rem"></ul></div>
+    <div class="callout" style="margin:0"><strong>Configured but not exercised end-to-end</strong><ul id="unverified" style="margin:.3rem 0 0;padding-left:1.1rem"></ul></div>
+  </div>
+</section>
+
+<footer>Documentation for Foundry, the sandboxed Emacs IDE. Source of truth: the <code>modules/</code> directory. Run <code>make docs-check</code> to confirm this page still matches the configuration.</footer>
+</main>
+</div>
+<script type="application/json" id="ide-data">
+{
+ "stats": [
+  {
+   "v": "≈85 ms",
+   "l": "to first frame"
+  },
+  {
+   "v": "74",
+   "l": "documented keybindings"
+  },
+  {
+   "v": "24",
+   "l": "CLIs and servers via mise"
+  },
+  {
+   "v": "28",
+   "l": "Emacs Lisp modules"
+  },
+  {
+   "v": "119",
+   "l": "automated tests"
+  }
+ ],
+ "keybinds": [
+  {
+   "keys": "M-1",
+   "cmd": "ide-toggle-project-tree",
+   "title": "Project tree",
+   "desc": "Toggle the left project drawer (treemacs, follows the current file).",
+   "cat": "Tool windows",
+   "ctx": "global",
+   "equiv": "Alt+1 Project"
+  },
+  {
+   "keys": "M-4",
+   "cmd": "ide-toggle-run-window",
+   "title": "Run drawer",
+   "desc": "Show or hide the bottom compilation / run output.",
+   "cat": "Tool windows",
+   "ctx": "global",
+   "equiv": "Alt+4 Run"
+  },
+  {
+   "keys": "M-5",
+   "cmd": "ide-toggle-debug-window",
+   "title": "Debug panes",
+   "desc": "Toggle sessions, locals and breakpoints panes.",
+   "cat": "Tool windows",
+   "ctx": "global",
+   "equiv": "Alt+5 Debug"
+  },
+  {
+   "keys": "M-6",
+   "cmd": "ide-toggle-problems",
+   "title": "Problems",
+   "desc": "Flymake diagnostics for the current buffer in the drawer.",
+   "cat": "Tool windows",
+   "ctx": "global",
+   "equiv": "Alt+6 Problems"
+  },
+  {
+   "keys": "M-7",
+   "cmd": "ide-toggle-structure",
+   "title": "Structure outline",
+   "desc": "Toggle the right symbol outline (imenu-list).",
+   "cat": "Tool windows",
+   "ctx": "global",
+   "equiv": "Alt+7 Structure"
+  },
+  {
+   "keys": "M-8",
+   "cmd": "ide-services-dispatch",
+   "title": "Services & DevOps",
+   "desc": "Menu for Docker, Kubernetes, Azure, Azure DevOps, IaC and tool setup.",
+   "cat": "Tool windows",
+   "ctx": "global",
+   "equiv": "Alt+8 Services"
+  },
+  {
+   "keys": "M-9",
+   "cmd": "magit-status",
+   "title": "Git (Magit)",
+   "desc": "Open Magit status, including Azure DevOps sections.",
+   "cat": "Tool windows",
+   "ctx": "global",
+   "equiv": "Alt+9 Git"
+  },
+  {
+   "keys": "M-0",
+   "cmd": "ide-toggle-terminal",
+   "title": "Terminal drawer",
+   "desc": "Open or hide a ghostel terminal rooted in the project.",
+   "cat": "Tool windows",
+   "ctx": "global",
+   "equiv": "Alt+F12 Terminal"
+  },
+  {
+   "keys": "M-<f12>",
+   "cmd": "ide-toggle-terminal",
+   "title": "Terminal drawer (alt)",
+   "desc": "Same as M-0, for Alt+F12 muscle memory.",
+   "cat": "Tool windows",
+   "ctx": "global",
+   "equiv": "Alt+F12 Terminal"
+  },
+  {
+   "keys": "C-`",
+   "cmd": "popper-cycle",
+   "title": "Cycle drawer buffers",
+   "desc": "Step through buffers docked in the bottom drawer.",
+   "cat": "Tool windows",
+   "ctx": "global"
+  },
+  {
+   "keys": "M-`",
+   "cmd": "popper-toggle-type",
+   "title": "Promote / demote popup",
+   "desc": "Switch the current buffer between popup and regular window.",
+   "cat": "Tool windows",
+   "ctx": "global"
+  },
+  {
+   "keys": "<escape>",
+   "cmd": "ide-escape",
+   "title": "Back to the editor",
+   "desc": "Quit prompts, clear the region, or close popups and return focus to code.",
+   "cat": "Tool windows",
+   "ctx": "global",
+   "equiv": "Esc"
+  },
+  {
+   "keys": "C-b",
+   "cmd": "xref-find-definitions",
+   "title": "Go to definition",
+   "desc": "Jump to the definition of the symbol at point.",
+   "cat": "Code & editing",
+   "ctx": "global",
+   "equiv": "Ctrl+B"
+  },
+  {
+   "keys": "<f12>",
+   "cmd": "xref-find-definitions",
+   "title": "Go to definition (alt)",
+   "desc": "Same as C-b.",
+   "cat": "Code & editing",
+   "ctx": "global"
+  },
+  {
+   "keys": "C-M-b",
+   "cmd": "xref-find-references",
+   "title": "Find usages",
+   "desc": "List references to the symbol at point.",
+   "cat": "Code & editing",
+   "ctx": "global",
+   "equiv": "Ctrl+Alt+B"
+  },
+  {
+   "keys": "M-RET",
+   "cmd": "eglot-code-actions",
+   "title": "Intentions",
+   "desc": "Show quick fixes and refactorings from the language server.",
+   "cat": "Code & editing",
+   "ctx": "global",
+   "equiv": "Alt+Enter"
+  },
+  {
+   "keys": "C-q",
+   "cmd": "eldoc-box-help-at-point",
+   "title": "Quick documentation",
+   "desc": "Hover documentation in a child frame.",
+   "cat": "Code & editing",
+   "ctx": "global",
+   "equiv": "Ctrl+Q"
+  },
+  {
+   "keys": "C-M-l",
+   "cmd": "ide-reformat-buffer",
+   "title": "Reformat buffer",
+   "desc": "Format via the language server, or apheleia, or indent.",
+   "cat": "Code & editing",
+   "ctx": "global",
+   "equiv": "Ctrl+Alt+L"
+  },
+  {
+   "keys": "C-w",
+   "cmd": "ide-smart-expand",
+   "title": "Expand selection",
+   "desc": "Grow the selection structurally (expand-region).",
+   "cat": "Code & editing",
+   "ctx": "global",
+   "equiv": "Ctrl+W"
+  },
+  {
+   "keys": "S-<f10>",
+   "cmd": "ide-run-current",
+   "title": "Run current file",
+   "desc": "Runs the file, its test, or the project target in the drawer.",
+   "cat": "Code & editing",
+   "ctx": "global",
+   "equiv": "Shift+F10"
+  },
+  {
+   "keys": "S-<f9>",
+   "cmd": "ide-debug-current",
+   "title": "Debug current",
+   "desc": "Start a dap-mode debug session.",
+   "cat": "Code & editing",
+   "ctx": "global",
+   "equiv": "Shift+F9"
+  },
+  {
+   "keys": "[left-fringe mouse-1]",
+   "cmd": "dap-mode-mouse-set-clear-breakpoint",
+   "title": "Toggle breakpoint",
+   "desc": "Click the left fringe next to a line (dap-mode's handler).",
+   "cat": "Code & editing",
+   "ctx": "global",
+   "equiv": "Gutter click"
+  },
+  {
+   "keys": "C-s",
+   "cmd": "consult-line",
+   "title": "Find in file",
+   "desc": "Live search of the current buffer (replaces isearch).",
+   "cat": "Search & navigate",
+   "ctx": "global",
+   "equiv": "Ctrl+F"
+  },
+  {
+   "keys": "C-S-f",
+   "cmd": "consult-ripgrep",
+   "title": "Find in project",
+   "desc": "ripgrep across the project with live preview.",
+   "cat": "Search & navigate",
+   "ctx": "global",
+   "equiv": "Ctrl+Shift+F"
+  },
+  {
+   "keys": "M-o",
+   "cmd": "ide-search-everywhere",
+   "title": "Search everywhere",
+   "desc": "Project files via fd, falling back to find or buffers.",
+   "cat": "Search & navigate",
+   "ctx": "global",
+   "equiv": "Double Shift"
+  },
+  {
+   "keys": "C-<tab>",
+   "cmd": "consult-buffer",
+   "title": "Switch buffer",
+   "desc": "Buffers, recent files and bookmarks in one list.",
+   "cat": "Search & navigate",
+   "ctx": "global",
+   "equiv": "Ctrl+Tab"
+  },
+  {
+   "keys": "C-.",
+   "cmd": "embark-act",
+   "title": "Act on candidate",
+   "desc": "Context actions on whatever is selected in a completion list.",
+   "cat": "Search & navigate",
+   "ctx": "global"
+  },
+  {
+   "keys": "C-;",
+   "cmd": "embark-dwim",
+   "title": "Do what I mean",
+   "desc": "Run the default action for the thing at point.",
+   "cat": "Search & navigate",
+   "ctx": "global"
+  },
+  {
+   "keys": "C-c d d",
+   "cmd": "docker",
+   "title": "Docker",
+   "desc": "Containers, images, volumes and networks.",
+   "cat": "DevOps & cloud",
+   "ctx": "global"
+  },
+  {
+   "keys": "C-c d k",
+   "cmd": "kubel",
+   "title": "Kubernetes",
+   "desc": "Pods, deployments, services, events, logs.",
+   "cat": "DevOps & cloud",
+   "ctx": "global"
+  },
+  {
+   "keys": "C-c d a",
+   "cmd": "azure-dispatch",
+   "title": "Azure CLI center",
+   "desc": "Subscriptions, resource discovery, AKS credentials.",
+   "cat": "DevOps & cloud",
+   "ctx": "global"
+  },
+  {
+   "keys": "C-c d o",
+   "cmd": "azdo-dispatch",
+   "title": "Azure DevOps center",
+   "desc": "Pull requests and Boards.",
+   "cat": "DevOps & cloud",
+   "ctx": "global"
+  },
+  {
+   "keys": "C-c d i",
+   "cmd": "iac-dispatch",
+   "title": "Terraform / Packer",
+   "desc": "init, validate, fmt, plan, apply, build.",
+   "cat": "DevOps & cloud",
+   "ctx": "global"
+  },
+  {
+   "keys": "C-c a i",
+   "cmd": "gptel",
+   "title": "Chat",
+   "desc": "Conversational chat buffer.",
+   "cat": "AI",
+   "ctx": "global"
+  },
+  {
+   "keys": "C-c a m",
+   "cmd": "gptel-menu",
+   "title": "Chat menu",
+   "desc": "Pick model, backend and options.",
+   "cat": "AI",
+   "ctx": "global"
+  },
+  {
+   "keys": "C-c a r",
+   "cmd": "ide-ai-region-action",
+   "title": "Refactor / explain / tests",
+   "desc": "Run an AI action on the region or buffer.",
+   "cat": "AI",
+   "ctx": "global"
+  },
+  {
+   "keys": "C-c a a",
+   "cmd": "ide-ai-agent",
+   "title": "Agent session",
+   "desc": "Start a gptel-agent session: it edits files and runs tools (asking first) and can use your skills.",
+   "cat": "AI",
+   "ctx": "global"
+  },
+  {
+   "keys": "C-c a c",
+   "cmd": "ide-ai-add-project-context",
+   "title": "Add project context",
+   "desc": "Add project files to the chat context.",
+   "cat": "AI",
+   "ctx": "global"
+  },
+  {
+   "keys": "C-c a M",
+   "cmd": "ide-ai-set-model",
+   "title": "Pick provider & model",
+   "desc": "Choose Ollama, Claude or Gemini and a model. In a chat or agent buffer it changes that session; elsewhere it sets the remembered default.",
+   "cat": "AI",
+   "ctx": "global"
+  },
+  {
+   "keys": "C-c o r",
+   "cmd": "org-roam-node-find",
+   "title": "Find note",
+   "desc": "Find or create an Org-roam note.",
+   "cat": "Org & knowledge",
+   "ctx": "global"
+  },
+  {
+   "keys": "C-c o i",
+   "cmd": "org-roam-node-insert",
+   "title": "Insert link",
+   "desc": "Link to another note from the current one.",
+   "cat": "Org & knowledge",
+   "ctx": "global"
+  },
+  {
+   "keys": "C-c o b",
+   "cmd": "org-roam-buffer-toggle",
+   "title": "Backlinks",
+   "desc": "Toggle the backlinks side window.",
+   "cat": "Org & knowledge",
+   "ctx": "global"
+  },
+  {
+   "keys": "C-c o a",
+   "cmd": "org-agenda",
+   "title": "Agenda",
+   "desc": "Daily, milestone, Azure DevOps and waiting views.",
+   "cat": "Org & knowledge",
+   "ctx": "global"
+  },
+  {
+   "keys": "C-c o n",
+   "cmd": "org-capture",
+   "title": "Capture",
+   "desc": "Note, task, snippet or post-mortem template.",
+   "cat": "Org & knowledge",
+   "ctx": "global"
+  },
+  {
+   "keys": "C-c o c",
+   "cmd": "confluence-search",
+   "title": "Confluence search",
+   "desc": "Search pages live, open as Org.",
+   "cat": "Org & knowledge",
+   "ctx": "global"
+  },
+  {
+   "keys": "TAB",
+   "cmd": "minuet-accept-suggestion",
+   "title": "Accept ghost text",
+   "desc": "Accept the full inline suggestion.",
+   "cat": "Contextual",
+   "ctx": "minuet-active-mode-map"
+  },
+  {
+   "keys": "M-f",
+   "cmd": "minuet-accept-suggestion-word",
+   "title": "Accept next word",
+   "desc": "Accept one word of the suggestion.",
+   "cat": "Contextual",
+   "ctx": "minuet-active-mode-map"
+  },
+  {
+   "keys": "M-e",
+   "cmd": "minuet-accept-suggestion-line",
+   "title": "Accept next line",
+   "desc": "Accept one line of the suggestion.",
+   "cat": "Contextual",
+   "ctx": "minuet-active-mode-map"
+  },
+  {
+   "keys": "M-]",
+   "cmd": "minuet-next-suggestion",
+   "title": "Next suggestion",
+   "desc": "Cycle to the next candidate.",
+   "cat": "Contextual",
+   "ctx": "minuet-active-mode-map"
+  },
+  {
+   "keys": "M-[",
+   "cmd": "minuet-previous-suggestion",
+   "title": "Previous suggestion",
+   "desc": "Cycle to the previous candidate.",
+   "cat": "Contextual",
+   "ctx": "minuet-active-mode-map"
+  },
+  {
+   "keys": "C-g",
+   "cmd": "minuet-dismiss-suggestion",
+   "title": "Dismiss suggestion",
+   "desc": "Discard the current ghost text.",
+   "cat": "Contextual",
+   "ctx": "minuet-active-mode-map"
+  },
+  {
+   "keys": "RET",
+   "cmd": "corfu-insert",
+   "title": "Insert completion",
+   "desc": "Accept the selected item in the completion popup.",
+   "cat": "Contextual",
+   "ctx": "corfu-map"
+  },
+  {
+   "keys": "O",
+   "cmd": "azdo-dispatch",
+   "title": "Azure DevOps menu",
+   "desc": "From a Magit status buffer.",
+   "cat": "Contextual",
+   "ctx": "magit-status-mode-map"
+  },
+  {
+   "keys": "RET",
+   "cmd": "azdo-visit-pr-section",
+   "title": "Review pull request",
+   "desc": "On a PR in Magit status: fetch the merge ref and open the diff.",
+   "cat": "Contextual",
+   "ctx": "magit-azdo-pr-section-map"
+  },
+  {
+   "keys": "RET",
+   "cmd": "azdo-visit-wi-section",
+   "title": "Open work item",
+   "desc": "On a Boards item: description and acceptance criteria in Org.",
+   "cat": "Contextual",
+   "ctx": "magit-azdo-wi-section-map"
+  },
+  {
+   "keys": "c",
+   "cmd": "azdo-pr-comment-at-point",
+   "title": "Comment on this line",
+   "desc": "In a PR diff: write an inline review comment.",
+   "cat": "Contextual",
+   "ctx": "azdo-review-mode-map"
+  },
+  {
+   "keys": "T",
+   "cmd": "azdo-pr-threads",
+   "title": "Discussion threads",
+   "desc": "In a PR diff: list threads.",
+   "cat": "Contextual",
+   "ctx": "azdo-review-mode-map"
+  },
+  {
+   "keys": "V",
+   "cmd": "azdo-pr-vote",
+   "title": "Vote",
+   "desc": "In a PR diff: approve, suggest, wait, reject, reset.",
+   "cat": "Contextual",
+   "ctx": "azdo-review-mode-map"
+  },
+  {
+   "keys": "r",
+   "cmd": "azdo-thread-reply",
+   "title": "Reply",
+   "desc": "In the threads list.",
+   "cat": "Contextual",
+   "ctx": "azdo-threads-mode-map"
+  },
+  {
+   "keys": "x",
+   "cmd": "azdo-thread-resolve",
+   "title": "Resolve",
+   "desc": "Mark the thread resolved.",
+   "cat": "Contextual",
+   "ctx": "azdo-threads-mode-map"
+  },
+  {
+   "keys": "a",
+   "cmd": "azdo-thread-activate",
+   "title": "Reactivate",
+   "desc": "Mark the thread active.",
+   "cat": "Contextual",
+   "ctx": "azdo-threads-mode-map"
+  },
+  {
+   "keys": "RET",
+   "cmd": "azdo-thread-show",
+   "title": "Show conversation",
+   "desc": "Open the full thread.",
+   "cat": "Contextual",
+   "ctx": "azdo-threads-mode-map"
+  },
+  {
+   "keys": "g",
+   "cmd": "azdo-threads-refresh",
+   "title": "Refresh",
+   "desc": "Reload threads from Azure DevOps.",
+   "cat": "Contextual",
+   "ctx": "azdo-threads-mode-map"
+  },
+  {
+   "keys": "C-c C-c",
+   "cmd": "azdo-compose-finish",
+   "title": "Submit",
+   "desc": "In a comment / PR description buffer.",
+   "cat": "Contextual",
+   "ctx": "azdo-compose-mode-map"
+  },
+  {
+   "keys": "C-c C-k",
+   "cmd": "azdo-compose-abort",
+   "title": "Cancel",
+   "desc": "Discard the comment / description.",
+   "cat": "Contextual",
+   "ctx": "azdo-compose-mode-map"
+  },
+  {
+   "keys": "C-c h u",
+   "cmd": "ide-docs-update",
+   "title": "Update documentation",
+   "desc": "Sync this page with the live config; an AI agent words only the new items. C-u previews.",
+   "cat": "Help & docs",
+   "ctx": "global"
+  },
+  {
+   "keys": "C-c h c",
+   "cmd": "ide-docs-for-command",
+   "title": "Docs for a command",
+   "desc": "Look up any command in the documentation.",
+   "cat": "Help & docs",
+   "ctx": "global"
+  },
+  {
+   "keys": "C-c h s",
+   "cmd": "ide-docs-search",
+   "title": "Search documentation",
+   "desc": "Open the keybinding explorer pre-filtered by your query.",
+   "cat": "Help & docs",
+   "ctx": "global"
+  },
+  {
+   "keys": "C-c h d",
+   "cmd": "ide-docs-open",
+   "title": "Open documentation",
+   "desc": "Open this page in Emacs (or your browser); C-u picks a section.",
+   "cat": "Help & docs",
+   "ctx": "global"
+  },
+  {
+   "keys": "C-c u r",
+   "cmd": "ide-user-reload",
+   "title": "Reload user config",
+   "desc": "Reload your user files and install newly declared packages, no restart needed.",
+   "cat": "Customize",
+   "ctx": "global"
+  },
+  {
+   "keys": "C-c u e",
+   "cmd": "ide-user-open",
+   "title": "Open user folder",
+   "desc": "Open user/, where your own packages and settings live.",
+   "cat": "Customize",
+   "ctx": "global"
+  },
+  {
+   "keys": "C-c u n",
+   "cmd": "ide-user-new-file",
+   "title": "New user file",
+   "desc": "Create user/NAME.el from a template and open it.",
+   "cat": "Customize",
+   "ctx": "global"
+  },
+  {
+   "keys": "C-c u i",
+   "cmd": "ide-user-install-example",
+   "title": "Install an example",
+   "desc": "Copy a shipped example (a language, a tool, settings) into user/.",
+   "cat": "Customize",
+   "ctx": "global"
+  },
+  {
+   "keys": "C-c u a",
+   "cmd": "ide-user-add-package",
+   "title": "Add a package",
+   "desc": "Add a package to user/packages.el and install it; a prefix loads it at startup.",
+   "cat": "Customize",
+   "ctx": "global"
+  }
+ ],
+ "menus": [
+  {
+   "id": "services",
+   "top": true,
+   "name": "Services & DevOps",
+   "prefix": "ide-services-dispatch",
+   "open": "M-8",
+   "blurb": "The Services tool window: containers, clusters, clouds and tool setup.",
+   "groups": [
+    {
+     "title": "Containers",
+     "items": [
+      {
+       "key": "d",
+       "label": "Docker",
+       "does": "Containers, images, volumes and networks; start, stop, logs.",
+       "cmd": "docker"
+      },
+      {
+       "key": "s",
+       "label": "Shell in container",
+       "does": "Pick a running container and open an interactive shell in a ghostel terminal.",
+       "cmd": "ide-docker-shell"
+      },
+      {
+       "key": "l",
+       "label": "Container logs",
+       "does": "Stream docker logs -f into the bottom drawer.",
+       "cmd": "ide-docker-logs"
+      }
+     ]
+    },
+    {
+     "title": "Cluster",
+     "items": [
+      {
+       "key": "k",
+       "label": "Kubernetes (kubel)",
+       "does": "Browse pods, deployments, services and events.",
+       "cmd": "kubel"
+      },
+      {
+       "key": "p",
+       "label": "Pod logs",
+       "does": "Stream kubectl logs -f for a chosen pod into the drawer.",
+       "cmd": "ide-kubectl-logs"
+      }
+     ]
+    },
+    {
+     "title": "Cloud",
+     "items": [
+      {
+       "key": "a",
+       "label": "Azure",
+       "does": "Open the Azure CLI command center.",
+       "cmd": "azure-dispatch",
+       "menu": "azure"
+      },
+      {
+       "key": "o",
+       "label": "Azure DevOps",
+       "does": "Open the Azure DevOps command center.",
+       "cmd": "azdo-dispatch",
+       "menu": "azdo"
+      },
+      {
+       "key": "i",
+       "label": "IaC (terraform/packer)",
+       "does": "Open the Terraform / Packer runner.",
+       "cmd": "iac-dispatch",
+       "menu": "iac"
+      }
+     ]
+    },
+    {
+     "title": "Tools (mise)",
+     "items": [
+      {
+       "key": "m",
+       "label": "Install / update tools",
+       "does": "Bootstrap mise and install every tool in mise.toml.",
+       "cmd": "ide-mise-setup"
+      },
+      {
+       "key": "M",
+       "label": "Tool doctor",
+       "does": "Report which expected executables are present.",
+       "cmd": "ide-mise-doctor"
+      }
+     ]
+    },
+    {
+     "title": "Extend",
+     "items": [
+      {
+       "key": "A",
+       "label": "Add a package",
+       "does": "Add a package to user/packages.el and install it in the background.",
+       "cmd": "ide-user-add-package"
+      },
+      {
+       "key": "E",
+       "label": "Edit user config",
+       "does": "Open the user/ folder.",
+       "cmd": "ide-user-open"
+      },
+      {
+       "key": "R",
+       "label": "Reload user config",
+       "does": "Reload user files without restarting; new packages start installing.",
+       "cmd": "ide-user-reload"
+      }
+     ]
+    },
+    {
+     "title": "Help",
+     "items": [
+      {
+       "key": "h",
+       "label": "Open documentation",
+       "does": "Open this documentation page in your browser.",
+       "cmd": "ide-docs-open"
+      },
+      {
+       "key": "H",
+       "label": "Update documentation",
+       "does": "Sync the documentation with the live configuration; an AI agent words new items.",
+       "cmd": "ide-docs-update"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "azdo",
+   "top": true,
+   "name": "Azure DevOps",
+   "prefix": "azdo-dispatch",
+   "open": "C-c d o  ·  O in Magit status",
+   "blurb": "Command center for pull requests and Boards.",
+   "groups": [
+    {
+     "title": "Pull Requests",
+     "items": [
+      {
+       "key": "p",
+       "label": "PR menu",
+       "does": "Open the full pull-request menu.",
+       "cmd": "azdo-pr-dispatch",
+       "menu": "azdo-pr"
+      },
+      {
+       "key": "c",
+       "label": "Create PR",
+       "does": "Infer source and target, prompt for title, draft, reviewers, work items, then a description buffer.",
+       "cmd": "azdo-pr-create"
+      },
+      {
+       "key": "l",
+       "label": "List PRs",
+       "does": "Choose All Active, Created by Me or Needs My Review, then pick one and act on it.",
+       "cmd": "azdo-pr-list"
+      }
+     ]
+    },
+    {
+     "title": "Boards",
+     "items": [
+      {
+       "key": "b",
+       "label": "Boards menu",
+       "does": "Open the Boards menu.",
+       "cmd": "azdo-boards-dispatch",
+       "menu": "azdo-boards"
+      },
+      {
+       "key": "w",
+       "label": "Browse work items",
+       "does": "Pick one of your active items and open it as an Org buffer.",
+       "cmd": "azdo-work-item-list"
+      }
+     ]
+    },
+    {
+     "title": "Misc",
+     "items": [
+      {
+       "key": "g",
+       "label": "Refresh cached data",
+       "does": "Clear the PR / Boards / pipeline caches so the next Magit refresh refetches. (An inline command, not a named one.)"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "azdo-pr",
+   "name": "Azure DevOps · Pull requests",
+   "prefix": "azdo-pr-dispatch",
+   "open": "C-c d o, then p",
+   "blurb": "Full pull-request lifecycle without leaving Emacs.",
+   "groups": [
+    {
+     "title": "Pull Requests",
+     "items": [
+      {
+       "key": "c",
+       "label": "Create",
+       "does": "Open a new PR from the current branch; offers to push first.",
+       "cmd": "azdo-pr-create"
+      },
+      {
+       "key": "l",
+       "label": "List / filter",
+       "does": "Browse active PRs with author, status and branches.",
+       "cmd": "azdo-pr-list"
+      },
+      {
+       "key": "o",
+       "label": "Checkout",
+       "does": "Check out the source branch as a tracking branch, or the detached merge ref.",
+       "cmd": "azdo-pr-checkout"
+      },
+      {
+       "key": "r",
+       "label": "Review diff",
+       "does": "Fetch refs/pull/N/merge and open the PR diff in Magit with review keys.",
+       "cmd": "azdo-pr-review"
+      },
+      {
+       "key": "t",
+       "label": "Threads",
+       "does": "List discussion threads: reply, resolve, reactivate.",
+       "cmd": "azdo-pr-threads"
+      }
+     ]
+    },
+    {
+     "title": "Decide",
+     "items": [
+      {
+       "key": "v",
+       "label": "Vote (a/s/w/r/0)",
+       "does": "Choose a vote with a single key.",
+       "cmd": "azdo-pr-vote",
+       "menu": "votes"
+      },
+      {
+       "key": "m",
+       "label": "Complete / merge",
+       "does": "Pick squash, rebase or merge; delete source branch; bypass policy with a reason; confirm.",
+       "cmd": "azdo-pr-complete"
+      },
+      {
+       "key": "x",
+       "label": "Abandon",
+       "does": "Close the PR without merging (asks to confirm).",
+       "cmd": "azdo-pr-abandon"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "votes",
+   "name": "Vote picker",
+   "prefix": null,
+   "verify": "votes",
+   "open": "V in a PR diff, or v in the PR menu",
+   "blurb": "A one-key prompt, not a menu. Each key maps to an Azure DevOps vote value.",
+   "groups": [
+    {
+     "title": "Vote",
+     "items": [
+      {
+       "key": "a",
+       "label": "Approve",
+       "does": "vote 10"
+      },
+      {
+       "key": "s",
+       "label": "Approve with suggestions",
+       "does": "vote 5"
+      },
+      {
+       "key": "w",
+       "label": "Waiting for author",
+       "does": "vote -5"
+      },
+      {
+       "key": "r",
+       "label": "Reject",
+       "does": "vote -10"
+      },
+      {
+       "key": "0",
+       "label": "Reset vote",
+       "does": "vote 0"
+      }
+     ]
+    }
+   ],
+   "top": true
+  },
+  {
+   "id": "azdo-boards",
+   "name": "Azure DevOps · Boards",
+   "prefix": "azdo-boards-dispatch",
+   "open": "C-c d o, then b",
+   "blurb": "Browse, create and transition work items.",
+   "groups": [
+    {
+     "title": "Work Items",
+     "items": [
+      {
+       "key": "l",
+       "label": "Browse assigned",
+       "does": "Pick an active item assigned to you and open it.",
+       "cmd": "azdo-work-item-list"
+      },
+      {
+       "key": "n",
+       "label": "Create",
+       "does": "Choose a type (Task, Bug, User Story, Feature) and title; assigned to you.",
+       "cmd": "azdo-work-item-create"
+      },
+      {
+       "key": "t",
+       "label": "Transition state",
+       "does": "Move an item to Active, Resolved, Closed, Done, …",
+       "cmd": "azdo-work-item-transition"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "azure",
+   "top": true,
+   "name": "Azure CLI",
+   "prefix": "azure-dispatch",
+   "open": "C-c d a  ·  M-8, then a",
+   "blurb": "Wraps az; output lands in the bottom drawer. Requires az (install with mise).",
+   "groups": [
+    {
+     "title": "Account",
+     "items": [
+      {
+       "key": "s",
+       "label": "Switch subscription",
+       "does": "Pick a subscription and make it active.",
+       "cmd": "azure-subscription-switch"
+      },
+      {
+       "key": "l",
+       "label": "Login",
+       "does": "Run az login in the drawer. (An inline command, not a named one.)"
+      }
+     ]
+    },
+    {
+     "title": "Discover",
+     "items": [
+      {
+       "key": "g",
+       "label": "Resource groups",
+       "does": "az group list as a table.",
+       "cmd": "azure-resource-groups"
+      },
+      {
+       "key": "k",
+       "label": "AKS clusters",
+       "does": "az aks list.",
+       "cmd": "azure-aks-list"
+      },
+      {
+       "key": "c",
+       "label": "Container Apps",
+       "does": "az containerapp list.",
+       "cmd": "azure-containerapps-list"
+      },
+      {
+       "key": "t",
+       "label": "Storage accounts",
+       "does": "az storage account list.",
+       "cmd": "azure-storage-list"
+      },
+      {
+       "key": "v",
+       "label": "Key Vaults",
+       "does": "az keyvault list.",
+       "cmd": "azure-keyvaults-list"
+      },
+      {
+       "key": "q",
+       "label": "Resource Graph query",
+       "does": "Run an Azure Resource Graph query.",
+       "cmd": "azure-resource-query"
+      }
+     ]
+    },
+    {
+     "title": "Act",
+     "items": [
+      {
+       "key": "a",
+       "label": "AKS get-credentials",
+       "does": "Import cluster credentials into kubeconfig so kubel sees the cluster.",
+       "cmd": "azure-aks-get-credentials"
+      },
+      {
+       "key": "L",
+       "label": "Container App logs",
+       "does": "Follow logs of a Container App in the drawer.",
+       "cmd": "azure-containerapp-logs"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "iac",
+   "top": true,
+   "name": "Terraform & Packer",
+   "prefix": "iac-dispatch",
+   "open": "C-c d i  ·  M-8, then i",
+   "blurb": "Runs in the project root; output in the drawer (*iac-terraform*, *iac-packer*).",
+   "groups": [
+    {
+     "title": "Terraform",
+     "items": [
+      {
+       "key": "i",
+       "label": "init",
+       "does": "terraform init"
+      },
+      {
+       "key": "v",
+       "label": "validate",
+       "does": "terraform validate"
+      },
+      {
+       "key": "f",
+       "label": "fmt",
+       "does": "terraform fmt -recursive"
+      },
+      {
+       "key": "p",
+       "label": "plan",
+       "does": "terraform plan"
+      },
+      {
+       "key": "a",
+       "label": "apply",
+       "does": "terraform apply — asks yes-or-no first."
+      }
+     ]
+    },
+    {
+     "title": "Packer",
+     "items": [
+      {
+       "key": "P i",
+       "label": "init",
+       "does": "packer init ."
+      },
+      {
+       "key": "P v",
+       "label": "validate",
+       "does": "packer validate ."
+      },
+      {
+       "key": "P b",
+       "label": "build",
+       "does": "packer build ."
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "push",
+   "top": true,
+   "name": "Magit push menu (additions)",
+   "prefix": "magit-push",
+   "open": "M-9, then P",
+   "blurb": "P keeps opening Magit's push menu. Two Azure DevOps entries are added to it, so P c and P l work.",
+   "groups": [
+    {
+     "title": "Azure DevOps",
+     "items": [
+      {
+       "key": "c",
+       "label": "Azure DevOps: create pull request",
+       "does": "Same as azdo-pr-create.",
+       "cmd": "azdo-pr-create"
+      },
+      {
+       "key": "l",
+       "label": "Azure DevOps: list / checkout pull requests",
+       "does": "Same as azdo-pr-list.",
+       "cmd": "azdo-pr-list"
+      }
+     ]
+    }
+   ]
+  }
+ ],
+ "workflows": [
+  {
+   "id": "review",
+   "title": "Review an Azure DevOps PR",
+   "blurb": "From the Magit status buffer to a vote, entirely in Emacs.",
+   "steps": [
+    {
+     "t": "Authenticate once.",
+     "d": "Set [[AZURE_DEVOPS_EXT_PAT]], or run [[az login]] from the Azure menu ({{C-c d a}} then {{l}}; it opens a browser once)."
+    },
+    {
+     "t": "Open Magit in the repository.",
+     "d": "Press {{M-9}}. Besides the usual sections you get Azure DevOps Pull Requests, Azure Boards: Assigned to Me and Azure Pipelines (this branch). They fill in the background and are cached for 60 seconds."
+    },
+    {
+     "t": "Open a pull request.",
+     "d": "Move to a PR row and press {{RET}}. The merge ref is fetched and the PR diff opens in Magit with review keys active."
+    },
+    {
+     "t": "Comment on a line.",
+     "d": "Put point on a diff line and press {{c}}. Write the comment, then {{C-c C-c}}. Added and context lines attach to the new file, removed lines to the old."
+    },
+    {
+     "t": "Work through threads.",
+     "d": "Press {{T}}. In the list: {{r}} reply, {{x}} resolve, {{a}} reactivate, {{RET}} read."
+    },
+    {
+     "t": "Vote.",
+     "d": "Press {{V}} then one of {{a}} approve, {{s}} suggestions, {{w}} waiting, {{r}} reject, {{0}} reset."
+    },
+    {
+     "t": "Complete the PR.",
+     "d": "Run [[azdo-pr-complete]] ({{C-c d o}}, {{p}}, {{m}}). Choose squash, rebase or merge, whether to delete the source branch, and optionally bypass policies with a reason. You confirm before anything is sent."
+    }
+   ]
+  },
+  {
+   "id": "open",
+   "title": "Open a PR from your branch",
+   "blurb": "Create, link Boards items and fill a template.",
+   "steps": [
+    {
+     "t": "Start from Magit.",
+     "d": "{{M-9}}, then {{P}} (push menu) and {{c}}. Or {{C-c d o}} then {{c}}."
+    },
+    {
+     "t": "Answer the prompts.",
+     "d": "Target branch (defaults to the remote HEAD), title (prefilled from your last commit), draft?, required reviewers by email."
+    },
+    {
+     "t": "Link work items.",
+     "d": "Pick your assigned items one at a time; an empty answer finishes. Titles with commas are fine."
+    },
+    {
+     "t": "Push if needed.",
+     "d": "If the branch has no upstream you are offered a push first."
+    },
+    {
+     "t": "Write the description.",
+     "d": "A buffer opens, prefilled from [[pull_request_template.md]] if the repo has one. {{C-c C-c}} creates the PR and opens its diff."
+    }
+   ]
+  },
+  {
+   "id": "commit",
+   "title": "Link commits to Boards work items",
+   "blurb": "Autocomplete work item IDs while writing a commit message.",
+   "steps": [
+    {
+     "t": "Commit as usual.",
+     "d": "From Magit press {{c}} {{c}} to open the commit message buffer."
+    },
+    {
+     "t": "Type a hash.",
+     "d": "Type {{#}}. A completion popup lists your active work items, for example [[#48291 Fix ingress routing timeout]]."
+    },
+    {
+     "t": "Pick one.",
+     "d": "The ID is inserted, linking the commit to the work item on push. Data is served from the cache and refreshed asynchronously, so typing never waits on the network."
+    }
+   ]
+  },
+  {
+   "id": "debug",
+   "title": "Run and debug a test",
+   "blurb": "IDE style.",
+   "steps": [
+    {
+     "t": "Run.",
+     "d": "Open a test file and press {{S-<f10>}}. Python runs pytest, Go runs go test, output opens in the bottom drawer. Toggle it with {{M-4}}."
+    },
+    {
+     "t": "Set a breakpoint.",
+     "d": "Click the left fringe next to a line."
+    },
+    {
+     "t": "Debug.",
+     "d": "Press {{S-<f9>}} to start a dap-mode session (debugpy for Python, delve for Go)."
+    },
+    {
+     "t": "Inspect.",
+     "d": "{{M-5}} toggles the sessions, locals and breakpoints panes."
+    }
+   ]
+  },
+  {
+   "id": "infra",
+   "title": "Change infrastructure",
+   "blurb": "Terraform with language-server help.",
+   "steps": [
+    {
+     "t": "Edit.",
+     "d": "Open a .tf file. terraform-ls gives completion, schema validation and hover docs through Eglot; format-on-save is on."
+    },
+    {
+     "t": "Open the runner.",
+     "d": "{{C-c d i}}."
+    },
+    {
+     "t": "Run.",
+     "d": "{{i}} init, {{v}} validate, {{f}} fmt, {{p}} plan. {{a}} apply asks for confirmation first. Output streams into the drawer."
+    },
+    {
+     "t": "Packer.",
+     "d": "{{P}} {{b}} builds, {{P}} {{v}} validates (HCL2 files are recognised)."
+    }
+   ]
+  },
+  {
+   "id": "cluster",
+   "title": "Investigate a cluster",
+   "blurb": "From subscription to pod logs.",
+   "steps": [
+    {
+     "t": "Pick the subscription.",
+     "d": "{{C-c d a}}, then {{s}}."
+    },
+    {
+     "t": "Import credentials.",
+     "d": "{{a}} (AKS get-credentials) so your kubeconfig knows the cluster."
+    },
+    {
+     "t": "Browse.",
+     "d": "{{C-c d k}} opens kubel: contexts, namespaces, pods, deployments, services, events."
+    },
+    {
+     "t": "Tail logs.",
+     "d": "{{M-8}} then {{p}} streams a pod's logs into the drawer. {{M-8}} {{s}} opens a shell inside a Docker container."
+    }
+   ]
+  },
+  {
+   "id": "runbook",
+   "title": "Write a runbook and publish it",
+   "blurb": "Literate DevOps with Org Babel and Confluence.",
+   "steps": [
+    {
+     "t": "Capture.",
+     "d": "{{C-c o n}} and choose the post-mortem or snippet template, or create an Org-roam note with {{C-c o r}}."
+    },
+    {
+     "t": "Execute.",
+     "d": "Source blocks for Python, Go, shell, SQL, JS, HTTP (restclient) and Elisp run with {{C-c C-c}}. Executable languages always ask for confirmation."
+    },
+    {
+     "t": "Bring in a page.",
+     "d": "{{C-c o c}} searches Confluence live; the chosen page opens as Org."
+    },
+    {
+     "t": "Publish.",
+     "d": "Run [[confluence-publish-buffer]] to create or update the page. Set [[confluence-site]] and credentials first."
+    }
+   ]
+  },
+  {
+   "id": "ai",
+   "title": "Work with the AI assistant",
+   "blurb": "Ghost text, chat and agent.",
+   "steps": [
+    {
+     "t": "Type.",
+     "d": "In code buffers a gray suggestion appears after a short pause (needs Ollama, or switch backend with [[ide-ai-switch-backend]])."
+    },
+    {
+     "t": "Accept.",
+     "d": "{{TAB}} full, {{M-f}} a word, {{M-e}} a line. {{M-]}} and {{M-[}} cycle candidates; {{C-g}} dismisses."
+    },
+    {
+     "t": "Transform code.",
+     "d": "Select a region and press {{C-c a r}}: refactor, explain or write tests."
+    },
+    {
+     "t": "Give it context.",
+     "d": "{{C-c a c}} adds project files; then chat with {{C-c a i}} or open the agent with {{C-c a a}}."
+    },
+    {
+     "t": "Choose the model.",
+     "d": "{{C-c a M}} picks the provider (Ollama, Claude, Gemini) and a model with completion; you can type any model id. In a chat or agent buffer it changes that session, elsewhere it sets (and remembers) the default for new ones. Use a stronger model for agent work."
+    },
+    {
+     "t": "Let the agent do the work.",
+     "d": "{{C-c a a}} starts a gptel-agent session for the project. It reads and edits files, runs shell commands and Elisp, and searches the web; edits and commands ask for confirmation first."
+    },
+    {
+     "t": "Use skills.",
+     "d": "gptel-agent loads Agent Skills (SKILL.md) from ~/.claude/skills, the project's .claude/skills and installed Claude Code plugins, and pulls one in only when a task matches its description."
+    }
+   ]
+  }
+ ],
+ "features": [
+  {
+   "cat": "Editor",
+   "ico": "▦",
+   "title": "Tool-window layout",
+   "body": "popper docks compilation, tests, diagnostics, REPLs, container and cloud output into a 30%-height bottom drawer. treemacs (32 columns) on the left, imenu-list (30) on the right.",
+   "cmds": [
+    "ide-toggle-project-tree",
+    "ide-toggle-structure",
+    "ide-toggle-run-window",
+    "ide-toggle-problems",
+    "popper-cycle"
+   ]
+  },
+  {
+   "cat": "Editor",
+   "ico": "⌕",
+   "title": "Search & navigation",
+   "body": "Vertico/Orderless minibuffer, Consult for line, ripgrep and buffers, Marginalia annotations, Embark actions and wgrep for editing results in place.",
+   "cmds": ["consult-line", "consult-ripgrep", "consult-buffer", "ide-search-everywhere", "embark-act"]
+  },
+  {
+   "cat": "Editor",
+   "ico": "✎",
+   "title": "Completion & snippets",
+   "body": "Corfu popup at point (0.1 s delay) with documentation preview, Cape sources (LSP, files, buffer words) and YASnippet.",
+   "cmds": ["yas-insert-snippet"]
+  },
+  {
+   "cat": "Editor",
+   "ico": "🌳",
+   "title": "Tree-sitter",
+   "body": "Built-in treesit modes for Python, Go, go.mod, HCL, YAML, Dockerfile, Bash and JSON; grammars install into the sandbox. Combobulate for structural editing, treesit-fold in the gutter.",
+   "cmds": ["ide-treesit-install-grammars", "er/expand-region"]
+  },
+  {
+   "cat": "Editor",
+   "ico": "💡",
+   "title": "Language servers",
+   "body": "Eglot with inlay hints, Flymake underlines, eldoc-box hover and format-on-save. Servers: pyright, gopls, terraform-ls, ansible-language-server, yaml, bash, dockerfile.",
+   "cmds": ["eglot", "eglot-code-actions", "eglot-format-buffer", "eldoc-box-help-at-point"]
+  },
+  {
+   "cat": "Editor",
+   "ico": "🐞",
+   "title": "Debugging",
+   "body": "dap-mode with debugpy and delve adapters, fringe breakpoints and panes routed to side and bottom slots.",
+   "cmds": ["dap-debug", "dap-breakpoint-toggle", "ide-toggle-debug-window"]
+  },
+  {
+   "cat": "Git & Azure DevOps",
+   "ico": "⎇",
+   "title": "Magit",
+   "body": "Status, diffs, logs and the usual workflow, with diff-hl fringe marks, git-timemachine, and Git Credential Manager used non-interactively when installed. Azure DevOps remotes get the PR merge-ref refspec added automatically.",
+   "cmds": ["magit-status", "magit-dispatch", "ide-vcs-ensure-azdo-pr-refspec"]
+  },
+  {
+   "cat": "Git & Azure DevOps",
+   "ico": "⇄",
+   "title": "Azure DevOps pull requests",
+   "body": "Create, list, checkout, review in a Magit diff, comment inline, discuss, vote, complete (squash / rebase / merge) and abandon.",
+   "cmds": [
+    "azdo-dispatch",
+    "azdo-pr-dispatch",
+    "azdo-pr-create",
+    "azdo-pr-list",
+    "azdo-pr-checkout",
+    "azdo-pr-review",
+    "azdo-pr-comment-at-point",
+    "azdo-pr-threads",
+    "azdo-pr-vote",
+    "azdo-pr-complete",
+    "azdo-pr-abandon"
+   ]
+  },
+  {
+   "cat": "Git & Azure DevOps",
+   "ico": "☰",
+   "title": "Azure Boards & Pipelines",
+   "body": "Magit status sections for your active work items and the builds for the current branch; browse, create and transition items; #ID completion in commit messages.",
+   "cmds": [
+    "azdo-boards-dispatch",
+    "azdo-work-item-list",
+    "azdo-work-item-open",
+    "azdo-work-item-create",
+    "azdo-work-item-transition"
+   ]
+  },
+  {
+   "cat": "Cloud & infra",
+   "ico": "☁",
+   "title": "Azure CLI center",
+   "body": "Switch subscription, list resource groups, AKS, Container Apps, storage and Key Vaults, run Resource Graph queries, import AKS credentials, follow Container App logs.",
+   "cmds": [
+    "azure-dispatch",
+    "azure-subscription-switch",
+    "azure-resource-groups",
+    "azure-aks-list",
+    "azure-containerapps-list",
+    "azure-storage-list",
+    "azure-keyvaults-list",
+    "azure-aks-get-credentials",
+    "azure-containerapp-logs",
+    "azure-resource-query"
+   ]
+  },
+  {
+   "cat": "Cloud & infra",
+   "ico": "⎈",
+   "title": "Kubernetes",
+   "body": "kubel for contexts, namespaces and resources; stream pod logs into the drawer.",
+   "cmds": ["kubel", "kubel-set-context", "kubel-set-namespace", "ide-kubectl-logs"]
+  },
+  {
+   "cat": "Cloud & infra",
+   "ico": "🐳",
+   "title": "Docker",
+   "body": "docker.el for containers, images, volumes and networks; live logs and interactive shells inside containers; Dockerfile and Compose editing.",
+   "cmds": ["docker", "ide-docker-shell", "ide-docker-logs"]
+  },
+  {
+   "cat": "Cloud & infra",
+   "ico": "⛭",
+   "title": "Terraform, Packer, Ansible",
+   "body": "terraform-mode and hcl-mode with terraform-ls, packer files, the iac-dispatch runner, ansible minor mode, ansible-doc and ansible-language-server.",
+   "cmds": ["iac-dispatch", "ansible-doc", "ide-ansible-doc-at-point"]
+  },
+  {
+   "cat": "Languages",
+   "ico": "🐍",
+   "title": "Python",
+   "body": "pyright, ruff formatting through apheleia, pytest runner, direnv (envrc), automatic virtualenv discovery with pet and pyvenv.",
+   "cmds": ["python-pytest-dispatch", "pyvenv-activate", "apheleia-format-buffer"]
+  },
+  {
+   "cat": "Languages",
+   "ico": "Go",
+   "title": "Go",
+   "body": "gopls with static checks and hints, organise imports on save, gotest and test generation, delve for debugging.",
+   "cmds": ["go-test-current-test", "go-test-current-file", "go-test-current-project", "go-gen-test-dwim"]
+  },
+  {
+   "cat": "AI",
+   "ico": "✦",
+   "title": "Inline completion",
+   "body": "minuet ghost text with debouncing. Local Ollama (qwen2.5-coder) or Gemini / OpenAI-compatible FIM endpoints.",
+   "cmds": ["ide-ai-switch-backend", "ide-ai-apply-fim-backend", "minuet-auto-suggestion-mode"]
+  },
+  {
+   "cat": "AI",
+   "ico": "💬",
+   "title": "Chat & agents",
+   "body": "gptel chat with Ollama, Claude or Gemini, region actions (refactor, explain, tests), project files as context, and gptel-agent: an autonomous agent with file, shell, Elisp and web tools, sub-agents and Agent Skills. Pick the provider and model with completion (C-c a M). Files that look private (.env, *.tfvars, keys, kubeconfig, secrets) are never sent to hosted models, and sending a whole buffer to one asks first.",
+   "cmds": [
+    "gptel",
+    "gptel-menu",
+    "gptel-rewrite",
+    "ide-ai-region-action",
+    "ide-ai-add-project-context",
+    "ide-ai-agent",
+    "ide-ai-chat",
+    "gptel-agent",
+    "ide-ai-set-model",
+    "ide-ai-mark-private"
+   ]
+  },
+  {
+   "cat": "Knowledge",
+   "ico": "✎",
+   "title": "Org, agenda, capture",
+   "body": "org-modern styling, agenda views for daily tasks, milestones and Azure DevOps issues, capture templates for notes, tasks, snippets and post-mortems.",
+   "cmds": ["org-agenda", "org-capture"]
+  },
+  {
+   "cat": "Knowledge",
+   "ico": "🕸",
+   "title": "Org-roam",
+   "body": "Zettelkasten notes with the database at var/org-roam.db, backlinks in a right side window, and org-roam-ui for the graph.",
+   "cmds": [
+    "org-roam-node-find",
+    "org-roam-node-insert",
+    "org-roam-buffer-toggle",
+    "org-roam-capture",
+    "org-roam-db-sync"
+   ]
+  },
+  {
+   "cat": "Knowledge",
+   "ico": "⚙",
+   "title": "Org Babel",
+   "body": "Executable runbooks: Python, Go, shell, SQL, JS, HTTP (restclient), Elisp. Executable languages always confirm.",
+   "cmds": []
+  },
+  {
+   "cat": "Knowledge",
+   "ico": "📄",
+   "title": "Confluence Cloud",
+   "body": "Live search with consult, ingest pages (storage XHTML to Org, via pandoc when present) and publish Org back, creating or updating pages.",
+   "cmds": ["confluence-search", "confluence-open-page", "confluence-publish-buffer"]
+  },
+  {
+   "cat": "Tooling",
+   "ico": "⬇",
+   "title": "mise tool manager",
+   "body": "Portable CLI and language-server installation into the sandbox, with a path cache and a doctor report.",
+   "cmds": [
+    "ide-mise-setup",
+    "ide-mise-doctor",
+    "ide-mise-edit-manifest",
+    "ide-mise-refresh-path",
+    "ide-mise-bootstrap",
+    "ide-docs-open"
+   ]
+  },
+  {
+   "cat": "Tooling",
+   "ico": ">_",
+   "title": "Terminal",
+   "body": "ghostel (libghostty) terminal in the drawer, project-rooted; shells into containers.",
+   "cmds": ["ghostel", "ide-project-terminal"]
+  },
+  {
+   "cat": "Tooling",
+   "ico": "…",
+   "title": "Other commands",
+   "body": "Further commands: update the docs without an agent, or hand the task to gptel-agent.",
+   "cmds": ["ide-docs-update-facts-only", "ide-docs-update-with-agent"]
+  }
+ ],
+ "modules": [
+  {
+   "file": "early-init.el",
+   "desc": "GC limits, UI suppression, sandbox paths, native-compile deny-list."
+  },
+  {
+   "file": "init.el",
+   "desc": "elpaca bootstrap, loads early-init in batch, loads modules in order."
+  },
+  {
+   "file": "modules/00-core.el",
+   "desc": "Defaults, state redirected into the sandbox, bounded-subprocess helper."
+  },
+  {
+   "file": "modules/00-mise.el",
+   "desc": "mise bootstrap, install, PATH cache, doctor, Azure CLI state redirect."
+  },
+  {
+   "file": "modules/01-ui.el",
+   "desc": "doom theme, solaire, modeline, breadcrumbs, folding, diff-hl."
+  },
+  {
+   "file": "modules/02-layout.el",
+   "desc": "popper drawer, display-buffer rules, treemacs, imenu-list."
+  },
+  {
+   "file": "modules/03-completion.el",
+   "desc": "Vertico, Orderless, Marginalia, Consult, Embark, wgrep."
+  },
+  {
+   "file": "modules/04-corfu.el",
+   "desc": "Corfu, Cape, YASnippet."
+  },
+  {
+   "file": "modules/05-treesitter.el",
+   "desc": "Grammar sources, mode remapping, Combobulate."
+  },
+  {
+   "file": "modules/06-lsp.el",
+   "desc": "Eglot, Flymake, eldoc-box, format-on-save."
+  },
+  {
+   "file": "modules/07-dap.el",
+   "desc": "dap-mode, debug panes, fringe breakpoints."
+  },
+  {
+   "file": "modules/08-vcs.el",
+   "desc": "Magit, credentials, PR refspec."
+  },
+  {
+   "file": "modules/09-project.el",
+   "desc": "project.el, ripgrep, ghostel terminal."
+  },
+  {
+   "file": "modules/10-keybindings.el",
+   "desc": "The IDE keymap and the services menu."
+  },
+  {
+   "file": "modules/11-languages/lang-python.el",
+   "desc": "Pyright, ruff, pytest, envrc."
+  },
+  {
+   "file": "modules/11-languages/lang-go.el",
+   "desc": "gopls, delve, gotest."
+  },
+  {
+   "file": "modules/11-languages/lang-iac.el",
+   "desc": "Terraform, HCL, Packer, iac-dispatch."
+  },
+  {
+   "file": "modules/11-languages/lang-ansible.el",
+   "desc": "Ansible mode, docs, language server."
+  },
+  {
+   "file": "modules/12-devops/devops-docker.el",
+   "desc": "docker.el, shells and logs."
+  },
+  {
+   "file": "modules/12-devops/devops-k8s.el",
+   "desc": "kubel, k8s-mode, pod logs."
+  },
+  {
+   "file": "modules/12-devops/devops-azure.el",
+   "desc": "az command center."
+  },
+  {
+   "file": "modules/12-devops/devops-azdo.el",
+   "desc": "Azure DevOps REST client, PRs, Boards, threads, commit completion."
+  },
+  {
+   "file": "modules/12-devops/lib/devops-azdo-magit.el",
+   "desc": "Magit status sections (loaded after Magit)."
+  },
+  {
+   "file": "modules/13-ai.el",
+   "desc": "minuet, gptel, gptel-agent and Agent Skills discovery."
+  },
+  {
+   "file": "modules/14-org/org-core.el",
+   "desc": "Org, agenda, capture."
+  },
+  {
+   "file": "modules/14-org/org-roam.el",
+   "desc": "Org-roam with sandboxed database."
+  },
+  {
+   "file": "modules/14-org/org-babel.el",
+   "desc": "Babel languages and confirmation policy."
+  },
+  {
+   "file": "modules/14-org/org-confluence.el",
+   "desc": "Confluence search, ingest, publish."
+  },
+  {
+   "file": "modules/15-docs.el",
+   "desc": "Documentation viewer and AI-assisted updater"
+  },
+  {
+   "file": "modules/16-user.el",
+   "desc": "User extension point: your packages, tools and config"
+  }
+ ],
+ "tools": [
+  {
+   "exe": "python",
+   "desc": "Python runtime",
+   "cat": "Runtime",
+   "spec": "python"
+  },
+  {
+   "exe": "node",
+   "desc": "Node.js runtime (npm language servers)",
+   "cat": "Runtime",
+   "spec": "node"
+  },
+  {
+   "exe": "go",
+   "desc": "Go toolchain",
+   "cat": "Runtime",
+   "spec": "go"
+  },
+  {
+   "exe": "uv",
+   "desc": "Python package manager",
+   "cat": "Runtime",
+   "spec": "uv"
+  },
+  {
+   "exe": "rg",
+   "desc": "ripgrep — project search",
+   "cat": "Search",
+   "spec": "ripgrep"
+  },
+  {
+   "exe": "fd",
+   "desc": "fd — file finder",
+   "cat": "Search",
+   "spec": "fd"
+  },
+  {
+   "exe": "jq",
+   "desc": "JSON processor",
+   "cat": "Search",
+   "spec": "jq"
+  },
+  {
+   "exe": "pandoc",
+   "desc": "HTML to Org conversion for Confluence",
+   "cat": "Search",
+   "spec": "pandoc"
+  },
+  {
+   "exe": "direnv",
+   "desc": "Per-directory environments (envrc)",
+   "cat": "Search",
+   "spec": "direnv"
+  },
+  {
+   "exe": "az",
+   "desc": "Azure CLI",
+   "cat": "Cloud",
+   "spec": "pypi:azure-cli"
+  },
+  {
+   "exe": "kubectl",
+   "desc": "Kubernetes CLI",
+   "cat": "Cloud",
+   "spec": "kubectl"
+  },
+  {
+   "exe": "helm",
+   "desc": "Helm",
+   "cat": "Cloud",
+   "spec": "helm"
+  },
+  {
+   "exe": "terraform",
+   "desc": "Terraform",
+   "cat": "Cloud",
+   "spec": "terraform"
+  },
+  {
+   "exe": "packer",
+   "desc": "Packer",
+   "cat": "Cloud",
+   "spec": "packer"
+  },
+  {
+   "exe": "ansible",
+   "desc": "Ansible",
+   "cat": "Cloud",
+   "spec": "pypi:ansible-core"
+  },
+  {
+   "exe": "ruff",
+   "desc": "Python lint / format",
+   "cat": "Language servers",
+   "spec": "ruff"
+  },
+  {
+   "exe": "pyright-langserver",
+   "desc": "Python language server",
+   "cat": "Language servers",
+   "spec": "npm:pyright"
+  },
+  {
+   "exe": "yaml-language-server",
+   "desc": "YAML language server",
+   "cat": "Language servers",
+   "spec": "npm:yaml-language-server"
+  },
+  {
+   "exe": "bash-language-server",
+   "desc": "Bash language server",
+   "cat": "Language servers",
+   "spec": "npm:bash-language-server"
+  },
+  {
+   "exe": "docker-langserver",
+   "desc": "Dockerfile language server",
+   "cat": "Language servers",
+   "spec": "npm:dockerfile-language-server-nodejs"
+  },
+  {
+   "exe": "ansible-language-server",
+   "desc": "Ansible language server",
+   "cat": "Language servers",
+   "spec": "npm:@ansible/ansible-language-server"
+  },
+  {
+   "exe": "terraform-ls",
+   "desc": "Terraform language server",
+   "cat": "Language servers",
+   "spec": "terraform-ls"
+  },
+  {
+   "exe": "gopls",
+   "desc": "Go language server",
+   "cat": "Language servers",
+   "spec": "go:golang.org/x/tools/gopls"
+  },
+  {
+   "exe": "dlv",
+   "desc": "Go debugger (delve)",
+   "cat": "Language servers",
+   "spec": "go:github.com/go-delve/delve/cmd/dlv"
+  }
+ ],
+ "make": [
+  {
+   "cmd": "make compile",
+   "desc": "Strict byte-compile of every file (warnings are errors)."
+  },
+  {
+   "cmd": "make test",
+   "desc": "Run the ERT suite headless."
+  },
+  {
+   "cmd": "make docs-check",
+   "desc": "Verify this page against the live configuration."
+  },
+  {
+   "cmd": "make tools",
+   "desc": "Install CLIs and language servers with mise."
+  },
+  {
+   "cmd": "make doctor",
+   "desc": "Report which tools are present."
+  },
+  {
+   "cmd": "make docs-ui",
+   "desc": "Drive this page in jsdom to test the interactive explorer (installs jsdom into .cache/)."
+  },
+  {
+   "cmd": "make desktop",
+   "desc": "Install the application-menu launcher."
+  },
+  {
+   "cmd": "make packages",
+   "desc": "Install / update Emacs packages headlessly."
+  },
+  {
+   "cmd": "make docs-update",
+   "desc": "Refresh docs/index.html from the live config without an AI agent (facts + docstrings)."
+  }
+ ],
+ "displaced": [
+  {
+   "key": "C-b",
+   "was": "backward-char",
+   "use": "<left>"
+  },
+  {
+   "key": "C-w",
+   "was": "kill-region",
+   "use": "S-<delete>  or  M-x kill-region"
+  },
+  {
+   "key": "C-q",
+   "was": "quoted-insert",
+   "use": "M-x quoted-insert"
+  },
+  {
+   "key": "C-s",
+   "was": "isearch-forward",
+   "use": "C-M-s (regexp)  or  M-x isearch-forward"
+  },
+  {
+   "key": "C-<tab>",
+   "was": "tab-next (tab-bar)",
+   "use": "M-x tab-next"
+  }
+ ],
+ "votes": [
+  {
+   "key": "a",
+   "label": "Approve",
+   "value": 10
+  },
+  {
+   "key": "s",
+   "label": "Approve with suggestions",
+   "value": 5
+  },
+  {
+   "key": "w",
+   "label": "Waiting for author",
+   "value": -5
+  },
+  {
+   "key": "r",
+   "label": "Reject",
+   "value": -10
+  },
+  {
+   "key": "0",
+   "label": "Reset vote",
+   "value": 0
+  }
+ ],
+ "tree": [
+  ["~/.config/emacs-foundry/", "d"],
+  ["├─ early-init.el  init.el  custom.el", "n"],
+  ["├─ mise.toml  Makefile  launch.sh  README.md", "n"],
+  ["├─ modules/", "d"],
+  ["│   ├─ 00-core … 10-keybindings, 13-ai", "n"],
+  ["│   ├─ 11-languages/  python go iac ansible", "n"],
+  ["│   ├─ 12-devops/  docker k8s azure azdo (+lib/)", "n"],
+  ["│   └─ 14-org/  core roam babel confluence", "n"],
+  ["├─ tests/  smoke-test.el  compile.el  docs-check.el", "n"],
+  ["├─ docs/  index.html  (this page)", "n"],
+  ["├─ elpaca/  packages, sources, builds", "d"],
+  ["├─ .cache/  backups, auto-save, locks, eln, mise cache", "d"],
+  ["└─ var/  recentf, org-roam.db, transient, azure/, mise/", "d"]
+ ],
+ "verified": [
+  "Strict byte-compile of all modules is clean.",
+  "The ERT suite passes headless, including real Magit diffs for inline-comment positions and request-body shapes.",
+  "mise bootstrap with checksum verification, and the full 24-tool install, end to end.",
+  "Interactive startup in a terminal: no errors, prompts or hangs; first frame ≈85 ms.",
+  "Every keybinding and menu entry on this page matches the live configuration (make docs-check)."
+ ],
+ "unverified": [
+  "Azure DevOps REST calls against a real organization — bodies match the API schema and are unit-tested, but PR completion, voting and threads have not run against a live service.",
+  "Confluence search, ingest and publish against a real site.",
+  "Ollama / Gemini inline completion with real models.",
+  "dap-mode debugging end to end (adapters configured; dap-mode is lsp-mode based and used here with Eglot).",
+  "The graphical (GUI) frame; development was in a terminal and headless.",
+  "gptel-agent sessions against a real model, and skills beyond discovery (34 skills from an installed plugin are found; their bodies and scripts are only as useful as the model that follows them).",
+  "Switching providers and models against the real Claude, Gemini and Ollama services: the picker, key handling, Ollama model discovery and remembering are tested with stubs only."
+ ],
+ "recipes": [
+  {
+   "title": "Add a package from MELPA",
+   "desc": "Declare it with use-package; it installs into the sandbox on the next start (or run C-c u r).",
+   "lang": "elisp",
+   "code": "(use-package rainbow-mode\n  :hook (css-mode . rainbow-mode))\n"
+  },
+  {
+   "title": "Install a package straight from GitHub",
+   "desc": "For packages that are not on MELPA or ELPA. M-x ide-user-add-package does this for you.",
+   "lang": "elisp",
+   "code": "(use-package some-package\n  :ensure (:host github :repo \"owner/some-package\")\n  :commands some-package-run)\n"
+  },
+  {
+   "title": "Add your own key",
+   "desc": "Use the IDE keymap, and keep to the C-c x prefix, which the core leaves free.",
+   "lang": "elisp",
+   "code": "(define-key ide-keys-mode-map (kbd \"C-c x b\") #'magit-blame-addition)\n"
+  },
+  {
+   "title": "Keep a package's data in the sandbox",
+   "desc": "Point its directories at ide-var-dir (state) or ide-cache-dir (caches), never at ~/.",
+   "lang": "elisp",
+   "code": "(setq some-package-data-dir (expand-file-name \"some-package/\" ide-var-dir)\n      some-package-cache-file (expand-file-name \"some-package.cache\" ide-cache-dir))\n"
+  },
+  {
+   "title": "Dock a tool's buffers in the bottom drawer",
+   "desc": "Buffers matching the regexp then behave like the built-in compilation, terminal and log windows.",
+   "lang": "elisp",
+   "code": "(ide-add-drawer-buffer \"\\\\*my-tool.*\\\\*\")\n"
+  },
+  {
+   "title": "Add a language server",
+   "desc": "Register the server with Eglot and start it for the mode. Install the server itself with the next recipe.",
+   "lang": "elisp",
+   "code": "(with-eval-after-load 'eglot\n  (add-to-list 'eglot-server-programs '(toml-ts-mode . (\"taplo\" \"lsp\" \"stdio\"))))\n(add-hook 'toml-ts-mode-hook #'eglot-ensure)\n"
+  },
+  {
+   "title": "Add a command-line tool",
+   "desc": "Put it in user/mise.toml, then run M-x ide-mise-setup (or make tools). It lands in var/mise and on Emacs's PATH.",
+   "lang": "toml",
+   "code": "[tools]\ntaplo = \"latest\"\nshellcheck = \"latest\"\n"
+  },
+  {
+   "title": "Turn off a core feature",
+   "desc": "Remove its hook once everything has loaded; here, the inline AI suggestions.",
+   "lang": "elisp",
+   "code": "(add-hook 'elpaca-after-init-hook\n          (lambda () (remove-hook 'prog-mode-hook #'minuet-auto-suggestion-mode)))\n"
+  },
+  {
+   "title": "Run something once the IDE is fully up",
+   "desc": "elpaca-after-init-hook runs when every package has been installed and activated.",
+   "lang": "elisp",
+   "code": "(add-hook 'elpaca-after-init-hook\n          (lambda () (message \"IDE ready: %d packages\" (length (elpaca--queued)))))\n"
+  }
+ ],
+ "examples": [
+  {
+   "id": "settings",
+   "title": "Personal settings",
+   "blurb": "Ordinary Emacs customisation layered on top of the IDE: theme, font, a different local AI model and an extra key.  User files load last, so these win over the defaults.",
+   "files": [
+    {
+     "path": "user/settings.el",
+     "code": ";;; settings.el --- Personal settings -*- lexical-binding: t; -*-\n\n;;; Commentary:\n;; Ordinary Emacs customisation layered on top of the IDE: theme, font, a different\n;; local AI model and an extra key.  User files load last, so these win over the defaults.\n\n;;; Code:\n\n;; Theme: the IDE loads doom-one asynchronously, so switch once everything is up.\n(add-hook 'elpaca-after-init-hook (lambda () (load-theme 'doom-palenight t)))\n\n;; Font size (height is in 1/10 pt).\n(set-face-attribute 'default nil :height 140)\n\n;; Use a larger local model for inline completion.\n(setq ide-ai-ollama-model \"qwen2.5-coder:14b\")\n\n;; Default provider and model for chat and gptel-agent (pick interactively with\n;; C-c a M, which remembers the choice).  Claude needs ANTHROPIC_API_KEY.\n(setq ide-ai-default-model '(claude . claude-sonnet-5-5))\n\n;; Extra key on the IDE keymap (kept apart from the built-in IDE keys).\n(with-eval-after-load '10-keybindings\n  (define-key ide-keys-mode-map (kbd \"C-c x t\") #'toggle-truncate-lines))\n\n;; Highlight the current line in code buffers.\n(add-hook 'prog-mode-hook #'hl-line-mode)\n\n(provide 'user-settings)\n;;; settings.el ends here\n"
+    }
+   ]
+  },
+  {
+   "id": "elfeed",
+   "title": "Read RSS feeds with Elfeed",
+   "blurb": "A tool unrelated to coding: the Elfeed feed reader.  Its database lives in the sandbox (ide-var-dir), `C-c x f' opens it, and its log docks in the bottom drawer.",
+   "files": [
+    {
+     "path": "user/elfeed.el",
+     "code": ";;; elfeed.el --- Read RSS feeds with Elfeed -*- lexical-binding: t; -*-\n\n;;; Commentary:\n;; A tool unrelated to coding: the Elfeed feed reader.  Its database lives in the\n;; sandbox (ide-var-dir), `C-c x f' opens it, and its log docks in the bottom drawer.\n\n;;; Code:\n\n(use-package elfeed\n  :commands elfeed\n  :bind (\"C-c x f\" . elfeed)\n  :init\n  (setq elfeed-db-directory (expand-file-name \"elfeed/\" ide-var-dir)\n        elfeed-feeds '(\"https://planet.emacslife.com/atom.xml\")))\n\n(ide-add-drawer-buffer \"\\\\*elfeed-log\\\\*\")\n\n(provide 'user-elfeed)\n;;; elfeed.el ends here\n"
+    }
+   ]
+  },
+  {
+   "id": "rust",
+   "title": "Rust with rust-analyzer and tree-sitter",
+   "blurb": "A whole language in one file: the built-in tree-sitter mode, the language server through Eglot, and format-on-save through the server.  Install the toolchain and server with the companion rust.mise.example (`M-x ide-user-install-example'). The grammar is fetched automatically on the next start.",
+   "files": [
+    {
+     "path": "user/rust.el",
+     "code": ";;; rust.el --- Rust with rust-analyzer and tree-sitter -*- lexical-binding: t; -*-\n\n;;; Commentary:\n;; A whole language in one file: the built-in tree-sitter mode, the language server\n;; through Eglot, and format-on-save through the server.  Install the toolchain\n;; and server with the companion rust.mise.example (`M-x ide-user-install-example').\n;; The grammar is fetched automatically on the next start.\n\n;;; Code:\n\n(add-to-list 'treesit-language-source-alist\n             '(rust \"https://github.com/tree-sitter/tree-sitter-rust\"))\n(add-to-list 'auto-mode-alist '(\"\\\\.rs\\\\'\" . rust-ts-mode))\n\n(with-eval-after-load 'eglot\n  (add-to-list 'eglot-server-programs '(rust-ts-mode . (\"rust-analyzer\"))))\n\n(add-hook 'rust-ts-mode-hook #'eglot-ensure)\n(add-hook 'rust-ts-mode-hook (lambda () (setq-local tab-width 4 indent-tabs-mode nil)))\n\n(provide 'user-rust)\n;;; rust.el ends here\n"
+    },
+    {
+     "path": "user/mise.toml",
+     "code": "# Rust toolchain and language server\n# Companion to rust.el.example: installs rustc/cargo and rust-analyzer through mise.\n[tools]\nrust = \"latest\"\nrust-analyzer = \"latest\"\n"
+    }
+   ]
+  },
+  {
+   "id": "org-extras",
+   "title": "Extra Org agenda files and a capture template",
+   "blurb": "Extends the core Org setup instead of replacing it: add your own agenda file and a journal capture template (`C-c o n', then j).",
+   "files": [
+    {
+     "path": "user/org-extras.el",
+     "code": ";;; org-extras.el --- Extra Org agenda files and a capture template -*- lexical-binding: t; -*-\n\n;;; Commentary:\n;; Extends the core Org setup instead of replacing it: add your own agenda file and\n;; a journal capture template (`C-c o n', then j).\n\n;;; Code:\n\n(with-eval-after-load 'org\n  (add-to-list 'org-agenda-files (expand-file-name \"~/Documents/work.org\") t)\n  (add-to-list 'org-capture-templates\n               `(\"j\" \"Journal\" entry\n                 (file+datetree ,(expand-file-name \"~/Documents/journal.org\"))\n                 \"* %?\\n  %U\\n\") t))\n\n(provide 'user-org-extras)\n;;; org-extras.el ends here\n"
+    }
+   ]
+  },
+  {
+   "id": "github-package",
+   "title": "A package that is not on MELPA",
+   "blurb": "Template for installing a package straight from a git repository.  Replace OWNER/some-package and the command names.  Equivalent: `M-x ide-user-add-package' and enter owner/name when asked for the git repo.",
+   "files": [
+    {
+     "path": "user/github-package.el",
+     "code": ";;; github-package.el --- A package that is not on MELPA -*- lexical-binding: t; -*-\n\n;;; Commentary:\n;; Template for installing a package straight from a git repository.  Replace\n;; OWNER/some-package and the command names.  Equivalent: `M-x ide-user-add-package'\n;; and enter owner/name when asked for the git repo.\n\n;;; Code:\n\n;; (use-package some-package\n;;   :ensure (:host github :repo \"OWNER/some-package\")   ; or (:repo \"https://example.org/x.git\")\n;;   :commands (some-package-run)\n;;   :bind (\"C-c x s\" . some-package-run)\n;;   :init (setq some-package-directory (expand-file-name \"some-package/\" ide-var-dir)))\n\n(provide 'user-github-package)\n;;; github-package.el ends here\n"
+    }
+   ]
+  },
+  {
+   "id": "shell-tools",
+   "title": "Extra command-line tools through mise",
+   "blurb": "Adds shellcheck and shfmt to your mise installs; they are put on PATH for Emacs.",
+   "files": [
+    {
+     "path": "user/mise.toml",
+     "code": "# Extra command-line tools through mise\n# Adds shellcheck and shfmt to your mise installs; they are put on PATH for Emacs.\n[tools]\nshellcheck = \"latest\"\nshfmt = \"latest\"\n"
+    }
+   ]
+  }
+ ]
+}
+</script>
+<script>
+(() => {
+'use strict';
+const DATA = JSON.parse(document.getElementById('ide-data').textContent);
+const $  = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+const h = (tag, props = {}, ...kids) => {
+  const n = document.createElement(tag);
+  for (const [k, v] of Object.entries(props || {})) {
+    if (v == null || v === false) continue;
+    if (k === 'class') n.className = v;
+    else if (k === 'text') n.textContent = v;
+    else if (k.startsWith('on')) n.addEventListener(k.slice(2), v);
+    else n.setAttribute(k, v === true ? '' : v);
+  }
+  for (const c of kids.flat(Infinity)) if (c != null && c !== false) n.append(c.nodeType ? c : document.createTextNode(c));
+  return n;
+};
+const clear = n => { while (n.firstChild) n.removeChild(n.firstChild); return n; };
+/* append that flattens arrays and skips null/false, unlike Node.append */
+const put = (n, ...kids) => { for (const c of kids.flat(Infinity)) if (c != null && c !== false) n.append(c.nodeType ? c : document.createTextNode(String(c))); return n; };
+
+/* ---------- toast + copy ---------- */
+const toast = h('div', { role: 'status', 'aria-live': 'polite', style: 'position:fixed;bottom:1rem;right:1rem;background:var(--accent);color:var(--accent-ink);padding:.5rem .9rem;border-radius:8px;font-size:.9rem;opacity:0;transition:opacity .2s;pointer-events:none;z-index:50' });
+document.body.append(toast);
+let toastT;
+const say = msg => { toast.textContent = msg; toast.style.opacity = 1; clearTimeout(toastT); toastT = setTimeout(() => toast.style.opacity = 0, 1600); };
+const copy = async (text, label) => {
+  try { await navigator.clipboard.writeText(text); }
+  catch { const t = h('textarea', { style: 'position:fixed;left:-999px' }); t.value = text; document.body.append(t); t.select(); try { document.execCommand('copy'); } catch {} t.remove(); }
+  say('Copied ' + (label || text));
+};
+$$('.copy[data-copy-target]').forEach(b => b.addEventListener('click', () => copy($('#' + b.dataset.copyTarget).innerText, 'commands')));
+
+/* ---------- key rendering ---------- */
+const pretty = k => k.replace('<escape>', 'Esc').replace(/<f(\d+)>/g, 'F$1').replace('<tab>', 'Tab').replace('<delete>', 'Del');
+const keycaps = seq => {
+  if (seq.startsWith('[')) return h('span', { class: 'keys' }, h('kbd', { text: 'click left fringe' }));
+  const parts = seq.split(' ');
+  const out = h('span', { class: 'keys', 'aria-label': seq });
+  parts.forEach((p, i) => { if (i) out.append(h('span', { class: 'then', 'aria-hidden': 'true', text: '›' })); out.append(h('kbd', { text: pretty(p) })); });
+  return out;
+};
+const richText = text => {
+  const frag = document.createDocumentFragment();
+  let last = 0;
+  for (const m of text.matchAll(/\{\{(.+?)\}\}|\[\[(.+?)\]\]/g)) {
+    frag.append(text.slice(last, m.index));
+    frag.append(m[1] ? keycaps(m[1]) : h('code', { text: m[2] }));
+    last = m.index + m[0].length;
+  }
+  frag.append(text.slice(last));
+  return frag;
+};
+
+/* ---------- theme ---------- */
+const themes = ['auto', 'dark', 'light'];
+let theme = 'auto';
+try { theme = localStorage.getItem('ide-docs-theme') || 'auto'; } catch {}
+const applyTheme = () => { document.documentElement.dataset.theme = theme; $('#theme').textContent = 'Theme: ' + theme; };
+$('#theme').addEventListener('click', () => { theme = themes[(themes.indexOf(theme) + 1) % 3]; try { localStorage.setItem('ide-docs-theme', theme); } catch {} applyTheme(); });
+applyTheme();
+
+/* ---------- stats ---------- */
+const stats = $('#stats');
+DATA.stats.forEach(s => stats.append(h('div', { class: 'stat' }, h('b', { text: s.v }), h('span', { text: s.l }))));
+
+/* ---------- layout explorer ---------- */
+const ZONES = {
+  crumb:  ['Breadcrumbs', 'A header line showing Project › File › Symbol/scope (breadcrumb.el), so you always know where you are without a sidebar.', null],
+  tree:   ['Project tree', 'treemacs docked on the left, 32 columns wide. It follows the current file and project, and shows Git status and nerd-icons.', 'M-1'],
+  struct: ['Structure', 'An outline of symbols in the current buffer (imenu-list), docked on the right, 30 columns wide.', 'M-7'],
+  drawer: ['Bottom drawer', 'Compilation and test output, Flymake diagnostics, terminals, container and Kubernetes logs, Azure and Azure DevOps output and the AI agent all dock here (popper, max 30% of the frame) instead of splitting your editor. Esc returns focus to the code.', 'M-4  ·  M-6 problems  ·  M-0 terminal  ·  C-` cycle'],
+  status: ['Mode line', 'doom-modeline: Git branch, Flymake diagnostics, encoding, major mode and the LSP server in use.', null],
+};
+const zoneInfo = $('#zoneinfo');
+const showZone = z => {
+  const [t, d, k] = ZONES[z];
+  put(clear(zoneInfo), h('h3', { text: t }), h('p', { style: 'margin:.2rem 0 .5rem;color:var(--muted)', text: d }), k ? h('div', {}, 'Keys: ', keycaps(k.split('  ·  ')[0])) : null);
+  $$('button.zone[data-zone]').forEach(b => b.setAttribute('aria-pressed', b.dataset.zone === z ? 'true' : 'false'));
+};
+$$('button.zone[data-zone]').forEach(b => b.addEventListener('click', () => showZone(b.dataset.zone)));
+showZone('drawer');
+const setPane = (name, on) => {
+  const el = $('.z-' + name), btn = $(`[data-toggle="${name}"]`);
+  if (!el) return;
+  el.hidden = !on; btn.setAttribute('aria-pressed', String(on));
+};
+$$('[data-toggle]').forEach(b => b.addEventListener('click', () => setPane(b.dataset.toggle, b.getAttribute('aria-pressed') !== 'true')));
+const togglePane = name => setPane(name, $('.z-' + name).hidden);
+
+/* ---------- keybinding explorer ---------- */
+const CTX = {
+  'minuet-active-mode-map': 'inline suggestion', 'corfu-map': 'completion popup', 'magit-status-mode-map': 'Magit status',
+  'magit-azdo-pr-section-map': 'PR row in Magit', 'magit-azdo-wi-section-map': 'work-item row in Magit',
+  'azdo-review-mode-map': 'PR diff', 'azdo-threads-mode-map': 'threads list', 'azdo-compose-mode-map': 'comment buffer',
+};
+const CATS = [...new Set(DATA.keybinds.map(k => k.cat))];
+const ctxName = c => CTX[c] || c;
+let kbCat = 'All', kbQuery = '';
+const kbList = $('#kblist');
+const rows = new Map();
+const renderKeys = () => {
+  clear(kbList); rows.clear();
+  const q = kbQuery.trim().toLowerCase();
+  const match = k => !q || [k.keys, pretty(k.keys), k.cmd, k.title, k.desc, k.equiv || '', ctxName(k.ctx)].join(' ').toLowerCase().includes(q);
+  let shown = 0;
+  for (const cat of CATS) {
+    if (kbCat !== 'All' && kbCat !== cat) continue;
+    const items = DATA.keybinds.filter(k => k.cat === cat && match(k));
+    if (!items.length) continue;
+    kbList.append(h('div', { class: 'kbgroup', text: cat }));
+    for (const k of items) {
+      shown++;
+      const row = h('div', { class: 'kbrow' },
+        keycaps(k.keys),
+        h('div', { class: 'what' }, h('div', {}, h('b', { text: k.title }), h('code', { text: k.cmd })), h('small', { text: k.desc })),
+        h('div', { class: 'meta' },
+          k.equiv ? h('span', { class: 'badge equiv', title: 'IDE equivalent', text: k.equiv }) : null,
+          k.ctx !== 'global' ? h('span', { class: 'badge ctx', title: k.ctx, text: 'in: ' + ctxName(k.ctx) }) : null,
+          h('button', { class: 'chip', type: 'button', 'aria-label': 'Copy M-x ' + k.cmd, onclick: () => copy('M-x ' + k.cmd) }, 'M-x')));
+      row.dataset.keys = k.keys; row.dataset.ctx = k.ctx;
+      kbList.append(row);
+      (rows.get(k.keys + '|' + k.ctx) || rows.set(k.keys + '|' + k.ctx, []).get(k.keys + '|' + k.ctx)).push(row);
+    }
+  }
+  if (!shown) kbList.append(h('div', { class: 'empty', text: 'No keybindings match “' + kbQuery + '”.' }));
+};
+const chips = $('#kbchips');
+['All', ...CATS].forEach(c => chips.append(h('button', { class: 'chip', type: 'button', 'aria-pressed': String(c === 'All'), onclick: e => {
+  kbCat = c; $$('.chip', chips).forEach(x => x.setAttribute('aria-pressed', String(x === e.currentTarget))); renderKeys(); } }, c)));
+$('#kbsearch').addEventListener('input', e => { kbQuery = e.target.value; renderKeys(); });
+renderKeys();
+/* deep link: index.html?q=text#keys pre-fills the search */
+const qParam = new URLSearchParams(location.search).get('q');
+if (qParam) { kbQuery = qParam; $('#kbsearch').value = qParam; renderKeys(); }
+const tb = $('#displaced');
+DATA.displaced.forEach(d => tb.append(h('tr', {}, h('td', {}, keycaps(d.key)), h('td', {}, h('code', { text: d.was })), h('td', {}, d.use.split('  or  ').map((u, i) => [i ? ' or ' : '', u.startsWith('M-x') ? h('code', { text: u }) : keycaps(u)])))));
+
+/* ---------- try keys (which-key style) ---------- */
+let tryOn = false, seq = [], lastEsc = 0;
+const tryOut = $('#tryout');
+const BASES = { Escape: '<escape>', Tab: '<tab>', Enter: 'RET', Backquote: '`', BracketLeft: '[', BracketRight: ']', Semicolon: ';', Period: '.', Comma: ',', Slash: '/', Minus: '-', Equal: '=', Space: 'SPC', Backspace: 'DEL', Delete: '<delete>' };
+const chordOf = e => {
+  if (['Control', 'Alt', 'Shift', 'Meta', 'AltGraph'].includes(e.key)) return null;
+  const c = e.code; let base;
+  if (/^Key[A-Z]$/.test(c)) base = c.slice(3).toLowerCase();
+  else if (/^Digit\d$/.test(c)) base = c.slice(5);
+  else if (/^F\d+$/.test(c)) base = `<f${c.slice(1)}>`;
+  else base = BASES[c] || e.key;
+  const special = /^<|^RET$|^DEL$|^SPC$/.test(base);
+  let m = '';
+  if (e.ctrlKey) m += 'C-';
+  if (e.altKey) m += 'M-';
+  if (e.shiftKey && (special || e.ctrlKey || e.altKey) && !/^[^a-z0-9]$/.test(base) || (e.shiftKey && special)) m += 'S-';
+  return m + base;
+};
+const globalRows = () => DATA.keybinds.filter(k => k.ctx === 'global');
+const flash = ks => { $$('.kbrow').forEach(r => r.classList.remove('hit', 'cand'));
+  ks.forEach((k, i) => (rows.get(k.keys + '|' + k.ctx) || []).forEach(r => { r.classList.add(k.exact ? 'hit' : 'cand'); if (i === 0) r.scrollIntoView({ block: 'center', behavior: 'smooth' }); })); };
+const LAYOUT = { 'ide-toggle-project-tree': 'tree', 'ide-toggle-structure': 'struct', 'ide-toggle-run-window': 'drawer', 'ide-toggle-terminal': 'drawer', 'ide-toggle-problems': 'drawer' };
+const onTryKey = e => {
+  if (!tryOn) return;
+  const chord = chordOf(e);
+  if (!chord) return;
+  e.preventDefault(); e.stopPropagation();
+  if (chord === '<escape>') {
+    const now = Date.now();
+    if (seq.length) { seq = []; tryOut.textContent = 'Prefix cancelled.'; return; }
+    if (now - lastEsc < 900) { setTry(false); return; }
+    lastEsc = now;
+  }
+  seq.push(chord);
+  const s = seq.join(' ');
+  const exact = globalRows().filter(k => k.keys === s).map(k => ({ ...k, exact: true }));
+  const next = globalRows().filter(k => k.keys.startsWith(s + ' '));
+  clear(tryOut);
+  if (exact.length) {
+    seq = [];
+    const k = exact[0];
+    put(tryOut, keycaps(k.keys), ' → ', h('b', { text: k.title }), ' ', h('code', { text: k.cmd }), chord === '<escape>' ? ' (press Esc again to leave)' : '');
+    flash(exact);
+    if (LAYOUT[k.cmd]) togglePane(LAYOUT[k.cmd]);
+  } else if (next.length) {
+    put(tryOut, keycaps(s), ' … then: ');
+    const seen = new Set();
+    next.forEach(k => { const nk = k.keys.split(' ')[seq.length]; if (seen.has(nk)) return; seen.add(nk); put(tryOut, keycaps(nk), h('small', { text: ' ' + k.title + (next.filter(x => x.keys.split(' ')[seq.length] === nk).length > 1 ? ' …' : '') + '   ' })); });
+    flash(next);
+  } else {
+    seq = [];
+    const ctxHits = DATA.keybinds.filter(k => k.ctx !== 'global' && k.keys === s);
+    put(tryOut, keycaps(s), ctxHits.length
+      ? [' is not a global binding, but works in: ', ctxHits.map(k => h('span', {}, h('b', { text: ctxName(k.ctx) }), ' (' + k.title + ') '))]
+      : ' is not bound by this configuration (the default Emacs binding applies).');
+    flash(ctxHits.map(k => ({ ...k, exact: true })));
+  }
+};
+const setTry = on => {
+  tryOn = on; seq = [];
+  [$('#trykeys'), $('#trykeys-nav')].forEach(b => { b.setAttribute('aria-pressed', String(on)); b.textContent = on ? 'Trying keys… (Esc Esc to stop)' : 'Try keys'; });
+  tryOut.textContent = on ? 'Press a chord — for example M-1, C-b or C-c d o.' : '';
+  if (!on) $$('.kbrow').forEach(r => r.classList.remove('hit', 'cand'));
+  if (on) $('#keys').scrollIntoView({ behavior: 'smooth' });
+};
+$('#trykeys').addEventListener('click', () => setTry(!tryOn));
+$('#trykeys-nav').addEventListener('click', () => setTry(!tryOn));
+window.addEventListener('keydown', onTryKey, true);
+window.addEventListener('keydown', e => {
+  if (tryOn || e.ctrlKey || e.altKey || e.metaKey) return;
+  const t = e.target; if (t.matches && t.matches('input,textarea,select,[contenteditable]')) return;
+  if (e.key === '/') { e.preventDefault(); $('#keys').scrollIntoView(); $('#kbsearch').focus(); }
+});
+
+/* ---------- menu simulator ---------- */
+const MENUS = Object.fromEntries(DATA.menus.map(m => [m.id, m]));
+const menuList = $('#menulist'), menuWin = $('#menuwin');
+let cur = null, trail = [], pending = '';
+const renderMenu = (out) => {
+  const m = MENUS[cur];
+  clear(menuWin);
+  const path = h('div', { class: 'menu-path' }, 'open with ', keycaps(m.open.split('  ·  ')[0]), ...trail.slice(1).map(id => [h('span', { text: '→' }), h('code', { text: MENUS[id].prefix || MENUS[id].name })]));
+  menuWin.append(h('h3', { text: m.name }), h('p', { style: 'margin:.1rem 0 .7rem;color:var(--muted);font-size:.93rem', text: m.blurb }), path);
+  const cols = h('div', { class: 'menu-cols' });
+  m.groups.forEach(g => cols.append(h('div', {}, h('h4', { text: g.title }), g.items.map(it =>
+    h('button', { class: 'mi', type: 'button', onclick: () => choose(it) }, keycaps(it.key), it.label, it.menu ? h('span', { class: 'go', 'aria-hidden': 'true', text: '▸' }) : null)))));
+  menuWin.append(cols);
+  menuWin.append(h('div', { class: 'menu-out' }, out || [ 'Select an entry, or press its key. ', trail.length > 1 ? 'Backspace goes up a level.' : 'Opens with ', trail.length > 1 ? '' : keycaps(m.open.split('  ·  ')[0]), trail.length > 1 ? '' : (m.open.includes('·') ? ' (or ' + m.open.split('  ·  ')[1] + ').' : '.') ]));
+  if (trail.length > 1) menuWin.append(h('button', { class: 'chip', type: 'button', style: 'margin-top:.6rem', onclick: back }, '← Back'));
+};
+const choose = it => {
+  pending = '';
+  if (it.menu) { trail.push(it.menu); cur = it.menu; renderMenu(); return; }
+  renderMenu([h('b', { text: it.label }), it.cmd ? [' — runs ', h('code', { text: it.cmd })] : ' — runs an inline command', '. ', it.does]);
+};
+const back = () => { if (trail.length > 1) { trail.pop(); cur = trail[trail.length - 1]; renderMenu(); } };
+const openMenu = id => { cur = id; trail = [id]; pending = ''; renderMenu();
+  $$('.chip', menuList).forEach(c => c.setAttribute('aria-pressed', String(c.dataset.id === id))); };
+const linkedMenu = id => DATA.menus.some(m => m.groups.some(g => g.items.some(i => i.menu === id)));
+const topMenus = DATA.menus.filter(m => m.top !== undefined ? m.top : !linkedMenu(m.id));
+topMenus.forEach(m => menuList.append(h('button', { class: 'chip', type: 'button', 'data-id': m.id, onclick: () => openMenu(m.id) }, m.name)));
+menuWin.setAttribute('tabindex', '0');
+menuWin.addEventListener('keydown', e => {
+  if (e.ctrlKey || e.altKey || e.metaKey) return;
+  if (e.key === 'Backspace' || e.key === 'Escape') { e.preventDefault(); pending = ''; back(); return; }
+  if (e.key.length !== 1) return;
+  const items = MENUS[cur].groups.flatMap(g => g.items);
+  const attempt = pending ? pending + ' ' + e.key : e.key;
+  const hit = items.find(i => i.key === attempt);
+  if (hit) { e.preventDefault(); choose(hit); }
+  else if (items.some(i => i.key.startsWith(attempt + ' '))) { e.preventDefault(); pending = attempt; }
+  else pending = '';
+});
+openMenu(topMenus[0].id);
+
+/* ---------- workflows ---------- */
+const wfTabs = $('#wftabs'), wfBody = $('#wfbody');
+const showWf = id => {
+  const w = DATA.workflows.find(x => x.id === id);
+  $$('[role=tab]', wfTabs).forEach(t => { const on = t.dataset.id === id; t.setAttribute('aria-selected', String(on)); t.setAttribute('aria-pressed', String(on)); t.tabIndex = on ? 0 : -1; });
+  clear(wfBody).append(h('p', { class: 'lede', text: w.blurb }), h('ol', { class: 'steps' }, w.steps.map(s => h('li', {}, h('b', { text: s.t }), h('span', { class: 'note' }, richText(s.d))))));
+};
+DATA.workflows.forEach((w, i) => wfTabs.append(h('button', { class: 'chip', role: 'tab', type: 'button', 'data-id': w.id, tabindex: i ? -1 : 0, onclick: () => showWf(w.id) }, w.title)));
+wfTabs.addEventListener('keydown', e => {
+  const t = $$('[role=tab]', wfTabs), i = t.indexOf(document.activeElement);
+  if (i < 0 || !['ArrowRight', 'ArrowLeft', 'Home', 'End'].includes(e.key)) return;
+  e.preventDefault();
+  const j = e.key === 'Home' ? 0 : e.key === 'End' ? t.length - 1 : (i + (e.key === 'ArrowRight' ? 1 : -1) + t.length) % t.length;
+  t[j].focus(); t[j].click();
+});
+showWf(DATA.workflows[0].id);
+
+/* ---------- features ---------- */
+const FCATS = ['All', ...new Set(DATA.features.map(f => f.cat))];
+let fcat = 'All';
+const fgrid = $('#fgrid'), fchips = $('#fchips');
+const renderFeatures = () => {
+  clear(fgrid);
+  DATA.features.filter(f => fcat === 'All' || f.cat === fcat).forEach(f => fgrid.append(h('article', { class: 'card fcard' },
+    h('h3', {}, h('span', { class: 'ico', 'aria-hidden': 'true', text: f.ico }), f.title), h('p', { text: f.body }),
+    f.cmds.length ? h('div', { class: 'cmds', role: 'group', 'aria-label': 'Commands' }, f.cmds.map(c => h('code', { tabindex: 0, role: 'button', title: 'Copy M-x ' + c, onclick: () => copy('M-x ' + c), onkeydown: e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); copy('M-x ' + c); } } }, c))) : null)));
+};
+FCATS.forEach(c => fchips.append(h('button', { class: 'chip', type: 'button', 'aria-pressed': String(c === 'All'), onclick: e => { fcat = c; $$('.chip', fchips).forEach(x => x.setAttribute('aria-pressed', String(x === e.currentTarget))); renderFeatures(); } }, c)));
+renderFeatures();
+
+/* ---------- user extension: examples and recipes ---------- */
+const codeBox = (text, label) => {
+  const pre = h('pre', {}, h('code', { style: 'background:none;border:0;padding:0;font-size:inherit', text }));
+  return h('div', { class: 'codebox stacked' }, h('button', { class: 'btn copy', type: 'button', onclick: () => copy(text, label || 'code') }, 'Copy'), pre);
+};
+const exTabs = $('#extabs'), exBody = $('#exbody');
+const showExample = id => {
+  const ex = (DATA.examples || []).find(e => e.id === id);
+  if (!ex) return;
+  $$('[role=tab]', exTabs).forEach(t => { const on = t.dataset.id === id; t.setAttribute('aria-selected', String(on)); t.setAttribute('aria-pressed', String(on)); t.tabIndex = on ? 0 : -1; });
+  put(clear(exBody), h('p', { class: 'exblurb', text: ex.blurb }),
+    h('p', { style: 'margin:.2rem 0' }, 'Install with ', h('code', { text: 'M-x ide-user-install-example' }), ' and choose ', h('code', { text: ex.id }), '.'),
+    ex.files.map(f => [h('div', { class: 'fname' }, h('span', { text: f.path })), codeBox(f.code, f.path)]));
+};
+(DATA.examples || []).forEach((e, i) => exTabs.append(h('button', { class: 'chip', role: 'tab', type: 'button', 'data-id': e.id, tabindex: i ? -1 : 0, onclick: () => showExample(e.id) }, e.title)));
+exTabs.addEventListener('keydown', e => {
+  const t = $$('[role=tab]', exTabs), i = t.indexOf(document.activeElement);
+  if (i < 0 || !['ArrowRight', 'ArrowLeft', 'Home', 'End'].includes(e.key)) return;
+  e.preventDefault();
+  const j = e.key === 'Home' ? 0 : e.key === 'End' ? t.length - 1 : (i + (e.key === 'ArrowRight' ? 1 : -1) + t.length) % t.length;
+  t[j].focus(); t[j].click();
+});
+if ((DATA.examples || []).length) showExample(DATA.examples[0].id);
+const recipes = $('#recipes');
+(DATA.recipes || []).forEach(r => recipes.append(h('article', { class: 'card recipe' }, h('h3', { text: r.title }), h('p', { text: r.desc }), codeBox(r.code, r.title))));
+
+/* ---------- reference tables ---------- */
+const tree = $('#dirtree');
+DATA.tree.forEach(([t, c]) => tree.append(h('div', { class: c, text: t })));
+const mt = $('#modtable');
+DATA.modules.forEach(m => mt.append(h('tr', {}, h('td', {}, h('code', { text: m.file })), h('td', { text: m.desc }))));
+let tcat = 'All';
+const TCATS = ['All', ...new Set(DATA.tools.map(t => t.cat))];
+const tt = $('#tooltable'), tchips = $('#tchips');
+const renderTools = () => { clear(tt); DATA.tools.filter(t => tcat === 'All' || t.cat === tcat).forEach(t => tt.append(h('tr', {}, h('td', {}, h('code', { text: t.exe })), h('td', { text: t.desc }), h('td', {}, h('code', { text: t.spec }))))); };
+TCATS.forEach(c => tchips.append(h('button', { class: 'chip', type: 'button', 'aria-pressed': String(c === 'All'), onclick: e => { tcat = c; $$('.chip', tchips).forEach(x => x.setAttribute('aria-pressed', String(x === e.currentTarget))); renderTools(); } }, c)));
+renderTools();
+const mk = $('#maketable');
+DATA.make.forEach(m => mk.append(h('tr', {}, h('td', {}, h('code', { text: m.cmd })), h('td', { text: m.desc }))));
+DATA.verified.forEach(v => $('#verified').append(h('li', { text: v })));
+DATA.unverified.forEach(v => $('#unverified').append(h('li', { text: v })));
+
+/* ---------- scrollspy ---------- */
+const links = new Map($$('#navlist a').map(a => [a.getAttribute('href').slice(1), a]));
+const io = new IntersectionObserver(es => es.forEach(en => { if (en.isIntersecting) { links.forEach(a => a.removeAttribute('aria-current')); const a = links.get(en.target.id); if (a) a.setAttribute('aria-current', 'true'); } }), { rootMargin: '-25% 0px -65% 0px' });
+$$('main section[id]').forEach(s => io.observe(s));
+})();
+</script>
+</body>
+</html>

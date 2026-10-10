@@ -1,0 +1,5 @@
+# Rust toolchain and language server
+# Companion to rust.el.example: installs rustc/cargo and rust-analyzer through mise.
+[tools]
+rust = "latest"
+rust-analyzer = "latest"

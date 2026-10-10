@@ -1,0 +1,17 @@
+;;; org-extras.el --- Extra Org agenda files and a capture template -*- lexical-binding: t; -*-
+
+;;; Commentary:
+;; Extends the core Org setup instead of replacing it: add your own agenda file and
+;; a journal capture template (`C-c o n', then j).
+
+;;; Code:
+
+(with-eval-after-load 'org
+  (add-to-list 'org-agenda-files (expand-file-name "~/Documents/work.org") t)
+  (add-to-list 'org-capture-templates
+               `("j" "Journal" entry
+                 (file+datetree ,(expand-file-name "~/Documents/journal.org"))
+                 "* %?\n  %U\n") t))
+
+(provide 'user-org-extras)
+;;; org-extras.el ends here

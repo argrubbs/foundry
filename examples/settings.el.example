@@ -1,0 +1,30 @@
+;;; settings.el --- Personal settings -*- lexical-binding: t; -*-
+
+;;; Commentary:
+;; Ordinary Emacs customisation layered on top of the IDE: theme, font, a different
+;; local AI model and an extra key.  User files load last, so these win over the defaults.
+
+;;; Code:
+
+;; Theme: the IDE loads doom-one asynchronously, so switch once everything is up.
+(add-hook 'elpaca-after-init-hook (lambda () (load-theme 'doom-palenight t)))
+
+;; Font size (height is in 1/10 pt).
+(set-face-attribute 'default nil :height 140)
+
+;; Use a larger local model for inline completion.
+(setq ide-ai-ollama-model "qwen2.5-coder:14b")
+
+;; Default provider and model for chat and gptel-agent (pick interactively with
+;; C-c a M, which remembers the choice).  Claude needs ANTHROPIC_API_KEY.
+(setq ide-ai-default-model '(claude . claude-sonnet-5-5))
+
+;; Extra key on the IDE keymap (kept apart from the built-in IDE keys).
+(with-eval-after-load '10-keybindings
+  (define-key ide-keys-mode-map (kbd "C-c x t") #'toggle-truncate-lines))
+
+;; Highlight the current line in code buffers.
+(add-hook 'prog-mode-hook #'hl-line-mode)
+
+(provide 'user-settings)
+;;; settings.el ends here

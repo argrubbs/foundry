@@ -1,0 +1,19 @@
+;;; elfeed.el --- Read RSS feeds with Elfeed -*- lexical-binding: t; -*-
+
+;;; Commentary:
+;; A tool unrelated to coding: the Elfeed feed reader.  Its database lives in the
+;; sandbox (ide-var-dir), `C-c x f' opens it, and its log docks in the bottom drawer.
+
+;;; Code:
+
+(use-package elfeed
+  :commands elfeed
+  :bind ("C-c x f" . elfeed)
+  :init
+  (setq elfeed-db-directory (expand-file-name "elfeed/" ide-var-dir)
+        elfeed-feeds '("https://planet.emacslife.com/atom.xml")))
+
+(ide-add-drawer-buffer "\\*elfeed-log\\*")
+
+(provide 'user-elfeed)
+;;; elfeed.el ends here

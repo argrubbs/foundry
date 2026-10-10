@@ -1,0 +1,36 @@
+# Tool manifest for the Emacs IDE.  Installed into the sandbox by
+# `M-x ide-mise-setup' (or `make tools'); state never leaves var/mise/.
+# Portable: any machine with mise (or network access to fetch it) gets the same tools.
+
+[tools]
+# Runtimes
+python = "3.13"
+node   = "lts"
+go     = "latest"
+uv     = "latest"
+
+# Search / editor helpers
+ripgrep = "latest"
+fd      = "latest"
+jq      = "latest"
+pandoc  = "latest"
+direnv  = "latest"
+
+# Cloud and DevOps CLIs
+"pypi:azure-cli" = "latest"
+kubectl          = "latest"
+helm             = "latest"
+terraform        = "latest"
+packer           = "latest"
+"pypi:ansible-core" = "latest"
+
+# Language servers and debuggers
+ruff                                    = "latest"
+"npm:pyright"                           = "latest"
+"npm:yaml-language-server"              = "latest"
+"npm:bash-language-server"              = "latest"
+"npm:dockerfile-language-server-nodejs" = "latest"
+"npm:@ansible/ansible-language-server"  = "latest"
+terraform-ls                            = "latest"
+"go:golang.org/x/tools/gopls"           = "latest"
+"go:github.com/go-delve/delve/cmd/dlv"  = "latest"

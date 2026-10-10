@@ -1,0 +1,17 @@
+;;; github-package.el --- A package that is not on MELPA -*- lexical-binding: t; -*-
+
+;;; Commentary:
+;; Template for installing a package straight from a git repository.  Replace
+;; OWNER/some-package and the command names.  Equivalent: `M-x ide-user-add-package'
+;; and enter owner/name when asked for the git repo.
+
+;;; Code:
+
+;; (use-package some-package
+;;   :ensure (:host github :repo "OWNER/some-package")   ; or (:repo "https://example.org/x.git")
+;;   :commands (some-package-run)
+;;   :bind ("C-c x s" . some-package-run)
+;;   :init (setq some-package-directory (expand-file-name "some-package/" ide-var-dir)))
+
+(provide 'user-github-package)
+;;; github-package.el ends here

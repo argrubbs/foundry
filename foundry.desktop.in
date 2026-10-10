@@ -1,0 +1,19 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Foundry
+GenericName=Integrated Development Environment
+Comment=Foundry: a full-featured Emacs IDE with LSP, Magit, Azure DevOps, Kubernetes and Docker
+Exec=@ROOT@/launch.sh %F
+Icon=emacs
+Terminal=false
+StartupNotify=true
+StartupWMClass=Emacs
+Categories=Development;IDE;TextEditor;
+MimeType=text/plain;text/x-python;text/x-go;text/x-csrc;text/x-chdr;application/x-shellscript;application/json;application/yaml;text/markdown;text/x-makefile;
+Keywords=foundry;emacs;ide;editor;magit;org;terraform;kubernetes;azure;
+Actions=safe-mode;
+
+[Desktop Action safe-mode]
+Name=Foundry (safe mode, no user config)
+Exec=@ROOT@/launch.sh --safe %F
