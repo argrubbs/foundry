@@ -10,6 +10,7 @@
 (require 'cl-lib)
 (elpaca-wait)
 (add-to-list 'load-path (expand-file-name "lisp/ansible-intelligence/" user-emacs-directory))
+(add-to-list 'load-path (expand-file-name "modules/11-languages/" user-emacs-directory))
 
 (let* ((root user-emacs-directory)
        (files (append (list (expand-file-name "early-init.el" root)
