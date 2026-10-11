@@ -19,6 +19,7 @@
 
 (defcustom ide-ai-ollama-model "qwen2.5-coder:7b" "Ollama FIM model." :type 'string)
 (defcustom ide-ai-ollama-host "http://localhost:11434" "Ollama base URL." :type 'string)
+(defcustom ide-ai-gemini-model "gemini-2.0-flash" "Gemini model for inline completion." :type 'string)
 
 (declare-function minuet-auto-suggestion-mode "minuet")
 (declare-function minuet-accept-suggestion "minuet")
@@ -51,7 +52,7 @@
     ('gemini
      (setq minuet-provider 'gemini
            minuet-gemini-options (plist-put (copy-sequence minuet-gemini-options)
-                                            :model "gemini-2.0-flash")))
+                                            :model ide-ai-gemini-model)))
     ('openai-fim (setq minuet-provider 'openai-fim-compatible)))
   (ide-ai--disable-minuet-in-private-buffers)
   (message "Inline completion backend: %s" ide-ai-fim-backend))
@@ -70,7 +71,7 @@
         minuet-auto-suggestion-throttle-delay 1.0
         minuet-n-completions 1
         minuet-request-timeout 6
-        minuet-context-window 4096
+        minuet-context-window 2048
         minuet-show-error-message-on-minibuffer t)
   :config
   (ide-ai-apply-fim-backend)
@@ -133,7 +134,7 @@ Example: (setq ide-ai-default-model \\='(claude . claude-sonnet-5-5))"
             :models (claude-fable-5-1 claude-opus-5-5 claude-sonnet-5-5 claude-haiku-5-5))
     (gemini :name "Gemini (Google)" :backend-name "Gemini"
             :make ide-ai--make-gemini :env "GEMINI_API_KEY" :host "generativelanguage.googleapis.com"
-            :models (gemini-2.5-pro gemini-2.5-flash)))
+            :models (gemini-3.8-flash gemini-2.5-pro gemini-2.5-flash)))
   "Providers offered by `ide-ai-set-model': (ID . PLIST).
 PLIST keys: :name (shown), :backend-name (the gptel backend's name), :make
 (function (MODELS KEY-FUNCTION) returning a gptel backend), :models or
