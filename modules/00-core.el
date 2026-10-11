@@ -38,6 +38,9 @@
       tramp-persistency-file-name (expand-file-name "tramp" ide-var-dir)
       treesit-extra-load-path (list (expand-file-name "tree-sitter/" ide-var-dir)))
 
+(add-to-list 'load-path (expand-file-name "lisp/" user-emacs-directory))
+(add-to-list 'load-path (expand-file-name "lisp/ide-align/" user-emacs-directory))
+
 (setq-default indent-tabs-mode nil
               fill-column 100
               standard-indent 2)
@@ -47,10 +50,29 @@
 ;; tabs (lang-go.el) and Rust keeps rustfmt's 4.  Modes without an offset
 ;; variable (YAML, shell, ...) take it from `tab-width', which is also what
 ;; Eglot sends to language servers as the formatting `tabSize'.
-(setq sh-basic-offset 2)
+(setq sh-basic-offset 2
+      json-ts-mode-indent-offset 2
+      typescript-ts-mode-indent-offset 2
+      typescript-ts-indent-offset 2
+      js-indent-level 2
+      css-indent-offset 2
+      html-ts-indent-offset 2
+      lua-ts-mode-indent-offset 2
+      dockerfile-ts-mode-indent-offset 2
+      yaml-indent-offset 2
+      terraform-indent-level 2
+      hcl-indent-level 2)
+
 (dolist (hook '(yaml-ts-mode-hook yaml-mode-hook json-ts-mode-hook json-mode-hook
-                bash-ts-mode-hook sh-mode-hook terraform-mode-hook hcl-mode-hook))
+                bash-ts-mode-hook sh-mode-hook terraform-mode-hook hcl-mode-hook
+                typescript-ts-mode-hook tsx-ts-mode-hook js-ts-mode-hook
+                lua-ts-mode-hook dockerfile-ts-mode-hook))
   (add-hook hook (lambda () (setq-local tab-width 2))))
+
+(require 'ide-align nil t)
+(when (fboundp 'ide-align-mode)
+  (ide-align-mode 1))
+
 (setq ring-bell-function #'ignore
       use-short-answers t
       confirm-kill-processes nil

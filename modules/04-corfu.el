@@ -28,10 +28,19 @@
 
 (use-package yasnippet
   :demand t
-  :init (setq yas-snippet-dirs (list (expand-file-name "snippets/" user-emacs-directory)))
-  :config (yas-global-mode 1))
+  :init
+  (setq yas-snippet-dirs (list (expand-file-name "snippets/" user-emacs-directory)))
+  :config
+  (yas-global-mode 1))
 
-(use-package yasnippet-snippets :after yasnippet)
+(use-package yasnippet-snippets
+  :after yasnippet
+  :demand t
+  :config
+  (yasnippet-snippets-initialize)
+  ;; Prioritize user snippets in snippets/ over the default collection
+  (let ((user-dir (expand-file-name "snippets/" user-emacs-directory)))
+    (setq yas-snippet-dirs (cons user-dir (delete user-dir (copy-sequence yas-snippet-dirs))))))
 
 (use-package cape
   :demand t

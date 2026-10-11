@@ -1,0 +1,7 @@
+# -*- mode: snippet -*-
+# name: Ansible task
+# key: task
+# --
+- name: ${1:task_name}
+  ${2:ansible.builtin.debug}:
+    $0

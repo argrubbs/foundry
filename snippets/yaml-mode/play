@@ -1,0 +1,10 @@
+# -*- mode: snippet -*-
+# name: Ansible play
+# key: play
+# --
+- name: ${1:play_name}
+  hosts: ${2:all}
+  tasks:
+    - name: ${3:first_task}
+      ${4:ansible.builtin.debug}:
+        $0

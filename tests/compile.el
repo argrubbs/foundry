@@ -9,6 +9,8 @@
 
 (require 'cl-lib)
 (elpaca-wait)
+(add-to-list 'load-path (expand-file-name "lisp/" user-emacs-directory))
+(add-to-list 'load-path (expand-file-name "lisp/ide-align/" user-emacs-directory))
 (add-to-list 'load-path (expand-file-name "lisp/ansible-intelligence/" user-emacs-directory))
 (add-to-list 'load-path (expand-file-name "modules/11-languages/" user-emacs-directory))
 
