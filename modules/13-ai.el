@@ -21,11 +21,19 @@
 (defcustom ide-ai-ollama-host "http://localhost:11434" "Ollama base URL." :type 'string)
 
 (declare-function minuet-auto-suggestion-mode "minuet")
+(declare-function minuet-accept-suggestion "minuet")
+(declare-function minuet-accept-suggestion-word "minuet")
+(declare-function minuet-accept-suggestion-line "minuet")
+(declare-function minuet-next-suggestion "minuet")
+(declare-function minuet-previous-suggestion "minuet")
+(declare-function minuet-dismiss-suggestion "minuet")
 (defvar minuet-provider)
 (defvar minuet-openai-fim-compatible-options)
 (defvar minuet-gemini-options)
 (defvar minuet-active-mode-map)
 (defvar minuet-auto-suggestion-debounce-delay)
+(defvar minuet-auto-suggestion-block-predicates)
+(defvar corfu--frame)
 
 (defun ide-ai-apply-fim-backend ()
   "Configure minuet according to `ide-ai-fim-backend'."
@@ -34,10 +42,11 @@
     ('ollama
      (setq minuet-provider 'openai-fim-compatible
            minuet-openai-fim-compatible-options
-           (plist-put (plist-put (plist-put (plist-put (copy-sequence minuet-openai-fim-compatible-options)
-                                                       :end-point (concat ide-ai-ollama-host "/v1/completions"))
-                                            :api-key "TERM")
-                                 :name "Ollama")
+           (plist-put (plist-put (plist-put (plist-put (plist-put (copy-sequence minuet-openai-fim-compatible-options)
+                                                                 :end-point (concat ide-ai-ollama-host "/v1/completions"))
+                                                           :api-key (lambda () "ollama"))
+                                             :name "Ollama")
+                                 :optional '(:max_tokens 56))
                       :model ide-ai-ollama-model)))
     ('gemini
      (setq minuet-provider 'gemini
@@ -57,12 +66,16 @@
   :ensure (:host github :repo "milanglacier/minuet-ai.el")
   :hook (prog-mode . ide-ai--maybe-enable-minuet)
   :init
-  (setq minuet-auto-suggestion-debounce-delay 0.25
+  (setq minuet-auto-suggestion-debounce-delay 0.4
         minuet-auto-suggestion-throttle-delay 1.0
-        minuet-n-completions 3
-        minuet-context-window 8000)
+        minuet-n-completions 1
+        minuet-request-timeout 6
+        minuet-context-window 4096
+        minuet-show-error-message-on-minibuffer t)
   :config
   (ide-ai-apply-fim-backend)
+  (add-to-list 'minuet-auto-suggestion-block-predicates
+               (lambda () (and (bound-and-true-p corfu--frame) (frame-visible-p corfu--frame))))
   (define-key minuet-active-mode-map (kbd "TAB") #'minuet-accept-suggestion)
   (define-key minuet-active-mode-map (kbd "<tab>") #'minuet-accept-suggestion)
   (define-key minuet-active-mode-map (kbd "C-<return>") #'minuet-accept-suggestion-word)

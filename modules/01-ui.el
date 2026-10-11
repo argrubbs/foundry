@@ -61,6 +61,13 @@
 
 (set-face-attribute 'default nil :height 120)
 
+;; Frame geometry: 1370x1011 pixels for graphical sessions.
+(setq frame-resize-pixelwise t)
+(add-hook 'window-setup-hook
+          (lambda ()
+            (when (display-graphic-p)
+              (set-frame-size (selected-frame) 1370 1011 t))))
+
 ;; Branding.  Deliberately no `foundry-' symbols or feature: that namespace belongs to
 ;; the unrelated foundry.el package.
 (setq frame-title-format '("Foundry — " (:eval (if buffer-file-name (abbreviate-file-name buffer-file-name) "%b")))

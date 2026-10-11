@@ -20,6 +20,7 @@
 
 (setq package-enable-at-startup nil
       frame-inhibit-implied-resize t
+      frame-resize-pixelwise t
       inhibit-startup-screen t
       native-comp-async-report-warnings-errors 'silent)
 
@@ -50,6 +51,10 @@
 (push '(tool-bar-lines . 0) default-frame-alist)
 (push '(menu-bar-lines . 0) default-frame-alist)
 (push '(vertical-scroll-bars) default-frame-alist)
+(push '(width . (text-pixels . 1370)) default-frame-alist)
+(push '(height . (text-pixels . 1011)) default-frame-alist)
+(push '(width . (text-pixels . 1370)) initial-frame-alist)
+(push '(height . (text-pixels . 1011)) initial-frame-alist)
 (menu-bar-mode -1)
 (when (fboundp 'tool-bar-mode) (tool-bar-mode -1))
 (when (fboundp 'scroll-bar-mode) (scroll-bar-mode -1))

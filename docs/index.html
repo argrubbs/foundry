@@ -7,27 +7,30 @@
 <meta name="description" content="Documentation and interactive explorer for Foundry, the sandboxed Emacs IDE: keybindings, tool windows, Azure DevOps, Kubernetes, Docker, IaC, AI and Org.">
 <style>
 :root{
-  --bg:#1b1e25; --surface:#232730; --surface2:#2b303b; --line:#3a4050;
-  --text:#d9dee8; --muted:#9ba5b7; --accent:#61afef; --accent-ink:#0f1722;
-  --green:#98be65; --amber:#ecbe7b; --purple:#c678dd; --red:#ff6c6b; --cyan:#46d9ff;
-  --kbd-bg:#2f3542; --kbd-line:#4a5266; --shadow:0 1px 0 rgba(0,0,0,.35),0 8px 24px rgba(0,0,0,.25);
+  --bg:#1c1815; --surface:#211d19; --surface2:#2a2520; --line:#3e362e;
+  --text:#e3d9ca; --muted:#a89b8a; --accent:#ff8c42; --accent-ink:#14100d;
+  --green:#a6c76a; --amber:#f5c056; --purple:#a995e8; --red:#f2606a; --cyan:#5fd0dc;
+  --blue:#6ab0f3;
+  --kbd-bg:#26211c; --kbd-line:#463d33; --shadow:0 1px 0 rgba(0,0,0,.45),0 8px 24px rgba(0,0,0,.35);
   --mono:ui-monospace,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
   --sans:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
   --radius:10px; color-scheme:dark;
 }
 :root[data-theme="light"]{
-  --bg:#fbfbfd; --surface:#ffffff; --surface2:#f0f2f6; --line:#d5dae3;
-  --text:#1d2330; --muted:#566074; --accent:#0b5fc4; --accent-ink:#ffffff;
-  --green:#2d6a1e; --amber:#8a5a00; --purple:#7a2fa0; --red:#b3261e; --cyan:#006b86;
-  --kbd-bg:#eef1f6; --kbd-line:#b9c1d0; --shadow:0 1px 0 rgba(20,30,50,.06),0 8px 24px rgba(20,30,50,.08);
+  --bg:#fcfaf7; --surface:#ffffff; --surface2:#f4eee5; --line:#dfd5c6;
+  --text:#241d17; --muted:#716252; --accent:#d95c14; --accent-ink:#ffffff;
+  --green:#3b7222; --amber:#9c5f02; --purple:#7d42a6; --red:#c42828; --cyan:#02768f;
+  --blue:#1b63b8;
+  --kbd-bg:#f4eee5; --kbd-line:#cdc1af; --shadow:0 1px 0 rgba(36,29,23,.06),0 8px 24px rgba(36,29,23,.08);
   color-scheme:light;
 }
 @media (prefers-color-scheme:light){
   :root[data-theme="auto"]{
-    --bg:#fbfbfd; --surface:#ffffff; --surface2:#f0f2f6; --line:#d5dae3;
-    --text:#1d2330; --muted:#566074; --accent:#0b5fc4; --accent-ink:#ffffff;
-    --green:#2d6a1e; --amber:#8a5a00; --purple:#7a2fa0; --red:#b3261e; --cyan:#006b86;
-    --kbd-bg:#eef1f6; --kbd-line:#b9c1d0; --shadow:0 1px 0 rgba(20,30,50,.06),0 8px 24px rgba(20,30,50,.08);
+    --bg:#fcfaf7; --surface:#ffffff; --surface2:#f4eee5; --line:#dfd5c6;
+    --text:#241d17; --muted:#716252; --accent:#d95c14; --accent-ink:#ffffff;
+    --green:#3b7222; --amber:#9c5f02; --purple:#7d42a6; --red:#c42828; --cyan:#02768f;
+    --blue:#1b63b8;
+    --kbd-bg:#f4eee5; --kbd-line:#cdc1af; --shadow:0 1px 0 rgba(36,29,23,.06),0 8px 24px rgba(36,29,23,.08);
     color-scheme:light;
   }
 }
@@ -48,7 +51,7 @@ kbd{display:inline-block;min-width:1.7em;text-align:center;background:var(--kbd-
 .shell{display:grid;grid-template-columns:260px minmax(0,1fr);min-height:100vh}
 nav.side{position:sticky;top:0;align-self:start;height:100vh;overflow:auto;padding:1.4rem 1rem;border-right:1px solid var(--line);background:var(--surface)}
 .brand{display:flex;gap:.6rem;align-items:center;font-weight:700;letter-spacing:.2px;margin-bottom:1.2rem;text-decoration:none;color:var(--text)}
-.brand .logo{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,var(--purple),var(--accent));display:grid;place-items:center;color:#fff;font:700 15px var(--mono)}
+.brand .logo{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,#ffb347,#e8502e);display:grid;place-items:center;color:#fff;font:700 15px var(--mono)}
 nav.side ol{list-style:none;margin:0;padding:0;display:grid;gap:2px}
 nav.side a{display:flex;justify-content:space-between;gap:.5rem;padding:.42rem .65rem;border-radius:8px;text-decoration:none;color:var(--muted);font-size:.93rem}
 nav.side a:hover{background:var(--surface2);color:var(--text)}
@@ -74,7 +77,7 @@ h3{font-size:1.1rem}
 .g3{grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr))}
 .hero{padding-top:3rem}
 .hero h1{font-size:clamp(2.1rem,5vw,3.4rem);letter-spacing:-.02em;margin-bottom:.8rem}
-.hero h1 em{font-style:normal;background:linear-gradient(90deg,var(--purple),var(--accent),var(--cyan));-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero h1 em{font-style:normal;background:linear-gradient(90deg,var(--amber),var(--accent),var(--red));-webkit-background-clip:text;background-clip:text;color:transparent}
 .hero p{font-size:1.12rem;color:var(--muted);max-width:62ch}
 .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:.8rem;margin:1.6rem 0}
 .stat{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:.9rem 1rem}
