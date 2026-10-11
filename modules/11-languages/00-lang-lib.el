@@ -39,6 +39,10 @@
 (when (fboundp 'ide-add-drawer-buffer)
   (ide-add-drawer-buffer ide-lang-run-buffer-regexp))
 
+;; Test runners and build tools colour their output; render it instead of showing escapes.
+(require 'ansi-color)
+(add-hook 'compilation-filter-hook #'ansi-color-compilation-filter)
+
 (defun ide-lang-root (&optional dir)
   "Project root for DIR (default `default-directory'), or DIR itself."
   (let ((default-directory (file-name-as-directory (or dir default-directory))))
@@ -71,6 +75,8 @@ first.  With COMINT the buffer accepts input, for programs that read stdin."
 ;;;; Flymake linters ----------------------------------------------------------------------
 
 (defvar-local ide-lang--lint-procs nil "Alist (LINTER . PROCESS) of the running lint processes.")
+(defvar-local ide-lang--trust-hinted nil "Linters that already told the user they are paused.")
+(declare-function trusted-content-p "files")
 
 (defun ide-lang-severity (string)
   "Flymake diagnostic type for the severity STRING a tool printed."
@@ -116,7 +122,7 @@ GROUPS is a plist of regexp group numbers: :line :col :severity :message
             (push (ide-lang-diag buffer linter line col sev msg) diags))))
       (nreverse diags))))
 
-(cl-defun ide-lang-define-linter (name &key modes program args parse (stdin t) (saved-only nil))
+(cl-defun ide-lang-define-linter (name &key modes program args parse (stdin t) (saved-only nil) safe)
   "Define Flymake backend `ide-lang-flymake-NAME' for an external linter and
 enable it in the mode hooks of MODES.
 
@@ -125,7 +131,17 @@ ARGS is a list of strings (\"%f\" stands for the file name) or a function of the
 file name.  PARSE is called with the output and the source buffer and returns
 diagnostics.  STDIN non-nil sends the buffer to the process, so unsaved edits are
 linted; otherwise the saved file is read, and with SAVED-ONLY the backend stays
-quiet while the buffer has unsaved changes."
+quiet while the buffer has unsaved changes.
+
+Emacs 31 only runs a Flymake backend in untrusted content (a file outside
+`trusted-content') when the backend is declared safe.  SAFE non-nil means the
+tool merely reads text and always runs.  A linter that executes code from the
+project (ESLint loads eslint.config.js, markdownlint and sqlfluff can load
+code from their config) must leave SAFE nil: it then pauses, with a one-time
+hint, until the project is trusted (`ide-lang-trust-project').
+
+Eglot replaces a buffer's Flymake backends when it connects; the backend is put
+back on `eglot-managed-mode-hook'."
   (let ((fn (intern (format "ide-lang-flymake-%s" name))))
     (defalias fn
       (lambda (report-fn &rest _)
@@ -134,6 +150,13 @@ quiet while the buffer has unsaved changes."
           (when-let* ((old (alist-get name ide-lang--lint-procs)))
             (when (process-live-p old) (kill-process old)))
           (cond
+           ;; An unsafe linter checks trust itself (see the docstring), so the user gets
+           ;; one clear hint instead of Emacs's generic "Disabling ... (untrusted content)".
+           ((and (not safe) (not (trusted-content-p)))
+            (unless (memq name ide-lang--trust-hinted)
+              (push name ide-lang--trust-hinted)
+              (message "%s is paused: it runs project code. M-x ide-lang-trust-project to enable" name))
+            (funcall report-fn nil))
            ((not exe) (funcall report-fn nil))
            ((and saved-only (buffer-modified-p)) (funcall report-fn nil))
            (t
@@ -164,12 +187,36 @@ quiet while the buffer has unsaved changes."
               (when stdin
                 (process-send-string proc input)
                 (process-send-eof proc))))))))
+    ;; Flymake only calls a backend in untrusted content when it is declared safe.  Safe
+    ;; linters are; unsafe ones are declared too but refuse to run until the project is
+    ;; trusted (the check is in the backend above), which gives a better message.
+    (function-put fn 'flymake-always-safe t)
     (dolist (mode modes)
       (let ((hook (intern (format "%s-hook" mode))))
         (add-hook hook (lambda ()
                          (add-hook 'flymake-diagnostic-functions fn nil t)
                          (unless (bound-and-true-p flymake-mode) (flymake-mode 1))))))
+    (add-hook 'eglot-managed-mode-hook
+              (lambda ()
+                (when (and modes (apply #'derived-mode-p modes) (bound-and-true-p eglot--managed-mode))
+                  (add-hook 'flymake-diagnostic-functions fn nil t)
+                  (when (bound-and-true-p flymake-mode) (flymake-start)))))
     fn))
+
+(defvar trusted-content)
+(defvar eglot--managed-mode)
+
+(defun ide-lang-trust-project ()
+  "Trust this project's files, so linters that run project code (ESLint, ...) work.
+Emacs refuses to run such Flymake backends in files it does not trust.  Only do
+this for projects whose configuration you would run anyway.  The choice is saved."
+  (interactive)
+  (let ((root (abbreviate-file-name (ide-lang-root))))
+    (when (y-or-n-p (format "Trust all files under %s (linters may run its config code)? " root))
+      (customize-save-variable 'trusted-content
+                               (cl-adjoin root (and (boundp 'trusted-content) trusted-content) :test #'equal))
+      (when (bound-and-true-p flymake-mode) (flymake-start))
+      (message "Trusting %s" root))))
 
 ;;;; Language menus and server settings ------------------------------------------------------
 

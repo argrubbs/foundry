@@ -51,6 +51,7 @@ taplo  = "latest"
 
 # SQL
 "go:github.com/sqls-server/sqls" = "latest"
+"github:microsoft/go-sqlcmd"      = "latest"   # provides `sqlcmd` for SQL Server
 "pypi:sqlfluff"                  = "latest"
 "npm:sql-formatter"              = "latest"
 
@@ -58,18 +59,13 @@ taplo  = "latest"
 lua-language-server = "latest"
 stylua              = "latest"
 
-# Nix tooling.  The language server (nil) needs a working `nix` to build, so it is
-# installed on demand by `M-x ide-nix-install-lsp`; Nix itself is a system package.
-"github:kamadorueda/alejandra"         = "latest"
-"cargo:statix"                         = "latest"
-"cargo:deadnix"                        = "latest"
-
 # PowerShell
 powershell = "latest"
 
 # DevOps: Kubernetes / Helm, linters and scanners
 helm-ls      = "latest"
 kubeconform  = "latest"
+kind         = "latest"   # throwaway local clusters in Docker, for testing kubectl / Helm
 kube-linter  = "latest"
 shellcheck   = "latest"
 shfmt        = "latest"

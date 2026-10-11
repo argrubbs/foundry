@@ -524,7 +524,11 @@ user files load supplies the global keys, and user-defined commands are skipped.
 (defun ide-docs--guess-tool-spec (exe)
   "Guess the mise.toml spec providing EXE."
   (let* ((aliases '(("pyright-langserver" . "pyright") ("docker-langserver" . "dockerfile-language-server")
-                    ("dlv" . "delve") ("rg" . "ripgrep") ("az" . "azure-cli") ("ansible" . "ansible-core")))
+                    ("dlv" . "delve") ("rg" . "ripgrep") ("az" . "azure-cli") ("ansible" . "ansible-core")
+                    ("cargo" . "rust") ("rust-analyzer" . "rust") ("tsc" . "typescript")
+                    ("vscode-html-language-server" . "vscode-langservers-extracted")
+                    ("vscode-css-language-server" . "vscode-langservers-extracted")
+                    ("sqlcmd" . "go-sqlcmd") ("pwsh" . "powershell") ("helm_ls" . "helm-ls")))
          (needle (or (cdr (assoc exe aliases)) exe))
          (toml (and (boundp 'ide-mise-manifest) (file-exists-p ide-mise-manifest) (ide-docs--slurp ide-mise-manifest)))
          spec)

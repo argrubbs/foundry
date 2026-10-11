@@ -20,10 +20,10 @@
         (javascript "https://github.com/tree-sitter/tree-sitter-javascript")
         (typescript "https://github.com/tree-sitter/tree-sitter-typescript" "master" "typescript/src")
         (tsx        "https://github.com/tree-sitter/tree-sitter-typescript" "master" "tsx/src")
+        (jsdoc      "https://github.com/tree-sitter/tree-sitter-jsdoc")
         (css        "https://github.com/tree-sitter/tree-sitter-css")
         (html       "https://github.com/tree-sitter/tree-sitter-html")
         (lua        "https://github.com/tree-sitter-grammars/tree-sitter-lua")
-        (nix        "https://github.com/nix-community/tree-sitter-nix")
         (toml       "https://github.com/tree-sitter/tree-sitter-toml")
         (markdown   "https://github.com/tree-sitter-grammars/tree-sitter-markdown" "split_parser"
                     "tree-sitter-markdown/src")
@@ -64,8 +64,7 @@
         (mhtml-mode . html-ts-mode)
         (lua-mode . lua-ts-mode)
         (toml-mode . toml-ts-mode)
-        (conf-toml-mode . toml-ts-mode)
-        (markdown-mode . markdown-ts-mode)))
+        (conf-toml-mode . toml-ts-mode)))
 
 (add-to-list 'auto-mode-alist '("/go\\.mod\\'" . go-mod-ts-mode))
 (add-to-list 'auto-mode-alist '("\\.go\\'" . go-ts-mode))
