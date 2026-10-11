@@ -85,6 +85,20 @@
   "Run COMMAND (string or argv list) in the drawer as *run: NAME* in DIR."
   (ide-lang-run name command (or dir (ide-devops--dir)) comint))
 
+;; BuildKit points at the failing instruction with a bare `Dockerfile:LINE' line.
+(with-eval-after-load 'compile
+  (add-to-list 'compilation-error-regexp-alist-alist
+               '(ide-buildkit "^\\([^ \n:]*\\(?:Dockerfile\\|Containerfile\\)[^ \n:]*\\|[^ \n:]+\\.dockerfile\\):\\([0-9]+\\)$" 1 2)))
+
+(defun ide-devops--run-docker (name command &optional dir)
+  "Like `ide-devops--run', with BuildKit's `Dockerfile:LINE' errors made clickable."
+  (let ((buf (ide-devops--run name command dir)))
+    (when (buffer-live-p buf)
+      (with-current-buffer buf
+        (setq-local compilation-error-regexp-alist
+                    (cons 'ide-buildkit compilation-error-regexp-alist))))
+    buf))
+
 (defun ide-devops--terminal (name command dir)
   "Run the shell COMMAND string in an interactive terminal buffer called NAME in DIR.
 Uses ghostel when installed, otherwise a comint compilation in the drawer."
@@ -530,7 +544,7 @@ With RUN, then run the image interactively in a terminal."
     (if run
         (ide-devops--terminal "docker run" (format "%s && docker run --rm -it %s" cmd (ide-devops--quote tag))
                               (ide-devops--dir))
-      (ide-devops--run "docker build" cmd))))
+      (ide-devops--run-docker "docker build" cmd))))
 
 (defun ide-dockerfile-build () "docker build this Dockerfile." (interactive) (ide-dockerfile--build))
 (defun ide-dockerfile-build-with-args ()
@@ -587,7 +601,7 @@ With RUN, then run the image interactively in a terminal."
   (let* ((file (or (ide-dockerfile--bake-file) (user-error "No docker-bake.hcl or compose file found")))
          (targets (ide-dockerfile--bake-targets file))
          (target (and targets (completing-read "Bake target (empty = default): " (cons "" targets) nil t))))
-    (ide-devops--run "docker bake"
+    (ide-devops--run-docker "docker bake"
                      (append (list "docker" "buildx" "bake" "-f" file)
                              (and target (not (string-empty-p target)) (list target)))
                      (file-name-directory file))))
@@ -688,6 +702,10 @@ With RUN, then run the image interactively in a terminal."
 (defun ide-compose-up-foreground () "docker compose up --build (attached)."
        (interactive) (ide-compose--run "up" "up" "--build"))
 (defun ide-compose-down () "docker compose down." (interactive) (ide-compose--run "down" "down"))
+(defun ide-compose-down-volumes ()
+  "docker compose down -v: also remove the stack's named volumes."
+  (interactive)
+  (when (yes-or-no-p "Remove the stack's volumes too? ") (ide-compose--run "down" "down" "-v")))
 (defun ide-compose-ps () "docker compose ps." (interactive) (ide-compose--run "ps" "ps"))
 (defun ide-compose-pull () "docker compose pull." (interactive) (ide-compose--run "pull" "pull"))
 (defun ide-compose-build () "docker compose build." (interactive) (ide-compose--run "build" "build"))
@@ -715,6 +733,7 @@ With RUN, then run the image interactively in a terminal."
     ("u" "up -d (build)" ide-compose-up)
     ("U" "up (attached)" ide-compose-up-foreground)
     ("d" "down" ide-compose-down)
+    ("V" "down + volumes" ide-compose-down-volumes)
     ("R" "restart" ide-compose-restart)
     ("b" "build" ide-compose-build)
     ("p" "pull" ide-compose-pull)]
