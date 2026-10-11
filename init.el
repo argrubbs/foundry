@@ -11,6 +11,19 @@
 
 (setq custom-file (expand-file-name "custom.el" user-emacs-directory))
 
+;; Elpaca dates the Emacs core from a table of releases and warns, assigning the
+;; last release's date, for a development build such as 31.1.50.  A development
+;; build is newer than that release, so give Elpaca the build date instead: from
+;; `emacs-build-time', or, when the distribution strips it (reproducible builds),
+;; from the date of the emacs binary, which for a packaged build is the build date.
+(when (and (> (length (version-to-list emacs-version)) 2)
+           (not (boundp 'elpaca-core-date)))
+  (when-let* ((time (or emacs-build-time
+                        (file-attribute-modification-time
+                         (file-attributes (expand-file-name invocation-name invocation-directory))))))
+    (defvar elpaca-core-date (list (string-to-number (format-time-string "%Y%m%d" time)))
+      "List (N) with N the YYYYMMDD date of this Emacs build; see init.el.")))
+
 ;;;; Elpaca bootstrap
 (defvar elpaca-installer-version 0.12)
 (defvar elpaca-directory (expand-file-name "elpaca/" user-emacs-directory))
