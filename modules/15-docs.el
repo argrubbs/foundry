@@ -41,6 +41,7 @@
 (declare-function ide-user-core-keymap "16-user")
 (defvar ide-mise-required-executables)
 (defvar ide-mise-manifest)
+(defvar ide-lang-menus)
 
 (defgroup ide-docs nil "Documentation viewer and updater." :group 'tools)
 
@@ -108,7 +109,7 @@ CALLBACK is called once with (REPLY-STRING ERROR); REPLY-STRING is nil on failur
 
 (defconst ide-docs-sections
   '("overview" "quickstart" "layout" "keys" "menus" "workflows" "features"
-    "architecture" "tools" "setup" "status"))
+    "languages" "architecture" "tools" "setup" "status"))
 
 ;;;; Viewing ------------------------------------------------------------------
 
@@ -147,7 +148,19 @@ CALLBACK is called once with (REPLY-STRING ERROR); REPLY-STRING is nil on failur
   "Show what the documentation says about COMMAND."
   (interactive (list (completing-read "Command: " obarray #'commandp t nil nil
                                       (when-let* ((s (symbol-at-point))) (and (commandp s) (symbol-name s))))))
-  (ide-docs-search command))
+  (let* ((data (ide-docs--parse-data (ide-docs--slurp ide-docs-file)))
+         (name (if (symbolp command) (symbol-name command) command)))
+    (if (or (seq-some (lambda (k) (equal (alist-get 'cmd k) name)) (alist-get 'keybinds data))
+            (not (member name (ide-docs--lang-commands data))))
+        (ide-docs-search command)
+      (ide-docs--show (ide-docs--url "languages" name)))))
+
+(defun ide-docs--lang-commands (data)
+  "Commands named in the Languages cards of DATA."
+  (cl-loop for l across (alist-get 'languages data)
+           append (cl-loop for g across (alist-get 'groups l)
+                           append (cl-loop for i across (alist-get 'items g)
+                                           when (alist-get 'cmd i) collect (alist-get 'cmd i)))))
 
 ;;;; JSON data ------------------------------------------------------------------
 
@@ -415,11 +428,161 @@ user files load supplies the global keys, and user-defined commands are skipped.
   (list :examples (ide-docs--facts-examples)
         :keybinds (ide-docs--facts-keybinds)
         :menus (ide-docs--facts-menus)
+        :languages (ide-docs--facts-languages)
         :tools (mapcar #'car ide-mise-required-executables)
         :modules (ide-docs--module-files)
         :make (ide-docs--facts-make)
         :commands (ide-docs--user-commands)
         :tests (ide-docs--count-tests)))
+
+;;;; Languages: hand-written table + derived facts ---------------------------------------
+
+(defconst ide-docs-language-table
+  '((ide-rust-dispatch :id "rust" :name "Rust"
+     :summary "Cargo build, run and test, rust-analyzer, clippy, nextest, debugging and crate management."
+     :tools (("Language server" "rust-analyzer") ("Build" "cargo") ("Test runner" "cargo-nextest"))
+     :run (ide-rust--run-command) :debug (ide-rust-debug))
+    (ide-web-dispatch :id "web" :name "TypeScript, JavaScript, HTML and CSS"
+     :summary "npm scripts, tests, Node debugging, live preview and package management for web projects."
+     :tools (("Language server" "vscode-html-language-server" "vscode-css-language-server") ("Compiler" "tsc")
+             ("Formatter" "prettier") ("Linter" "eslint") ("Runtime" "node" "tsx"))
+     :run (ide-web--run-command) :debug (ide-web--debug-hook))
+    (ide-sql-dispatch :id "sql" :name "SQL"
+     :summary "Connect to databases, run and explain queries, browse the schema, format and lint."
+     :tools (("Language server" "sqls") ("Formatter" "sql-formatter") ("Linter" "sqlfluff") ("Client" "sqlcmd"))
+     :run (ide-sql--run-command))
+    (ide-lua-dispatch :id "lua" :name "Lua"
+     :summary "Run files and snippets, REPL, busted tests and project configuration."
+     :tools (("Language server" "lua-language-server") ("Formatter" "stylua"))
+     :run (ide-lua--run-command))
+    (ide-powershell-dispatch :id "powershell" :name "PowerShell"
+     :summary "Run scripts, Pester tests and debugging through PowerShell Editor Services."
+     :tools (("Runtime" "pwsh"))
+     :run (ide-powershell--run-command) :debug (ide-powershell-debug))
+    (ide-k8s-dispatch :id "k8s" :name "Helm, Kubernetes and CI YAML"
+     :summary "Render and validate Helm charts, kubectl actions and CI workflow checks."
+     :tools (("Language server" "helm_ls" "yaml-language-server") ("Helm" "helm") ("Cluster" "kubectl" "kind")
+             ("Linter" "kubeconform" "kube-linter" "yamllint" "actionlint"))
+     :run (ide-k8s--run-command) :debug (ide-k8s--debug))
+    (ide-toml-dispatch :id "toml" :name "TOML"
+     :summary "Format, sort keys, validate and use schemas."
+     :tools (("Language server" "taplo") ("Formatter" "taplo")))
+    (ide-markdown-menu :id "markdown" :name "Markdown"
+     :summary "Preview, export, outline, links, lint and format."
+     :tools (("Language server" "marksman") ("Linter" "markdownlint-cli2") ("Converter" "pandoc"))
+     :run (ide-markdown--run-command))
+    (ide-bash-dispatch :id "bash" :name "Bash"
+     :summary "Run, check, format and explain shell scripts."
+     :tools (("Language server" "bash-language-server") ("Linter" "shellcheck") ("Formatter" "shfmt")))
+    (ide-dockerfile-dispatch :id "dockerfile" :name "Dockerfile and Compose"
+     :summary "Build, run, scan and lint images; Compose actions."
+     :tools (("Language server" "docker-langserver") ("Linter" "hadolint") ("Scanner" "trivy"))
+     :run (ide-dockerfile--run-command))
+    (ide-terraform-dispatch :id "terraform" :name "Terraform"
+     :summary "Lint, validate, scan and explore; plan and apply live in the IaC menu."
+     :tools (("Language server" "terraform-ls") ("CLI" "terraform") ("Linter" "tflint") ("Scanner" "trivy")))
+    (go :id "go" :name "Go" :modes (go-ts-mode go-mod-ts-mode) :files (".go" "go.mod")
+     :summary "gopls, goimports on save, go-test in the drawer and Delve debugging (no language menu)."
+     :tools (("Language server" "gopls") ("Debugger" "dlv")))
+    (python :id "python" :name "Python" :modes (python-ts-mode python-mode) :files (".py")
+     :summary "Pyright and Ruff, pytest in the drawer, debugpy, automatic virtualenvs (no language menu)."
+     :tools (("Language server" "pyright-langserver") ("Formatter" "ruff") ("Linter" "ruff") ("Runtime" "python" "uv")))
+    (ansible :id "ansible" :name "Ansible" :modes (yaml-ts-mode) :files ("playbooks/, roles/, group_vars/")
+     :summary "Ansible minor mode on YAML, ansible-doc and ansible-language-server (no language menu)."
+     :tools (("Language server" "ansible-language-server") ("CLI" "ansible"))))
+  "Hand-written facts of the Languages cards: (KEY . PLIST).
+KEY is the language menu command, or a plain symbol for languages without a menu
+\(which then give :modes).  Everything else on a card is derived from the live
+configuration.  `tests/docs-check.el' checks this table: every executable must be in
+`ide-mise-required-executables', every command must exist and every registered
+language menu must have an entry.  Plist: :id :name :summary :tools ((ROLE EXE...)...)
+:run (FUNCTIONS in `ide-run-command-functions') :debug (same, `ide-debug-functions').")
+
+(defun ide-docs--hooked-p (hook syms)
+  "Non-nil when one of SYMS is (or is called by a lambda) in the value of HOOK."
+  (let ((print-level 10) (print-length 60))
+    (cl-some (lambda (s)
+               (cl-some (lambda (f)
+                          (if (symbolp f) (eq f s)
+                            (string-match-p (regexp-quote (symbol-name s)) (prin1-to-string f))))
+                        (and (boundp hook) (symbol-value hook))))
+             syms)))
+
+(defun ide-docs--lang-files (modes)
+  "Simple file extensions that `auto-mode-alist' maps to one of MODES."
+  (let (out)
+    (dolist (e auto-mode-alist)
+      (when (and (stringp (car e)) (symbolp (cdr e)) (memq (cdr e) modes)
+                 (string-match "\\`\\\\\\.\\([A-Za-z0-9]+\\)\\\\'\\'" (car e)))
+        (push (concat "." (match-string 1 (car e))) out)))
+    out))
+
+(defun ide-docs--facts-languages ()
+  "Return a list of language fact plists from the live config and `ide-docs-language-table'."
+  (require 'transient)
+  (let* ((registered (mapcar #'cdr ide-lang-menus))
+         (keys (append (mapcar #'car ide-docs-language-table)
+                       (sort (cl-remove-if (lambda (c) (assq c ide-docs-language-table)) (copy-sequence registered))
+                             (lambda (a b) (string< (symbol-name a) (symbol-name b))))))
+         out)
+    (dolist (key keys)
+      (let* ((spec (cdr (assq key ide-docs-language-table)))
+             (menu (and (memq key registered) key))
+             (modes (if menu (car (rassq key ide-lang-menus)) (plist-get spec :modes)))
+             (name (or (plist-get spec :name) (ide-docs--humanize key))))
+        (when (or menu modes)
+          (push (list :id (or (plist-get spec :id) (replace-regexp-in-string "-\\(dispatch\\|menu\\)\\'" "" (replace-regexp-in-string "\\`ide-" "" (symbol-name key))))
+                      :name name
+                      :summary (or (plist-get spec :summary) (and menu (ide-docs--doc1 menu)) name)
+                      :modes (mapcar #'symbol-name modes)
+                      :files (sort (delete-dups (append (ide-docs--lang-files modes) (plist-get spec :files))) #'string<)
+                      :menu menu
+                      :tools (cl-loop for (role . exes) in (plist-get spec :tools)
+                                      append (mapcar (lambda (e) (list role e)) exes))
+                      :run (ide-docs--hooked-p 'ide-run-command-functions (plist-get spec :run))
+                      :debug (ide-docs--hooked-p 'ide-debug-functions (plist-get spec :debug))
+                      :groups (and menu (ide-docs--layout-groups (get menu 'transient--layout))))
+                out))))
+    (nreverse out)))
+
+(defun ide-docs--merge-language (old f)
+  "Build the data card for fact F, keeping hand-written name, summary and `does' text of OLD."
+  (let* ((old-items (and old (cl-loop for g across (alist-get 'groups old) append (ide-docs--list (alist-get 'items g)))))
+         (groups
+          (cl-loop for (title . items) in (plist-get f :groups)
+                   collect (ide-docs--mk
+                            'title (or title "Commands")
+                            'items (ide-docs--vec
+                                    (cl-loop for i in items
+                                             for cmd = (and (nth 2 i) (symbol-name (nth 2 i)))
+                                             for label = (or (nth 1 i) (and (nth 2 i) (ide-docs--humanize (nth 2 i))) (nth 0 i))
+                                             for o = (cl-find (nth 0 i) old-items :key (lambda (x) (alist-get 'key x)) :test #'equal)
+                                             collect (ide-docs--mk 'key (nth 0 i) 'label label 'cmd cmd
+                                                                   'does (or (and o (equal (alist-get 'cmd o) cmd) (alist-get 'does o))
+                                                                             (and (nth 2 i) (ide-docs--doc1 (nth 2 i))) label)))))))
+         (tools (mapcar (lambda (r) (ide-docs--mk 'role (car r) 'exe (cadr r))) (plist-get f :tools))))
+    (ide-docs--mk 'id (plist-get f :id)
+                  'name (or (and old (alist-get 'name old)) (plist-get f :name))
+                  'summary (or (and old (alist-get 'summary old)) (plist-get f :summary))
+                  'modes (ide-docs--vec (plist-get f :modes))
+                  'files (ide-docs--vec (plist-get f :files))
+                  'menu (and (plist-get f :menu) (symbol-name (plist-get f :menu)))
+                  'open (and (plist-get f :menu) "C-c m")
+                  'tools (ide-docs--vec tools)
+                  'run (and (plist-get f :run) "S-<f10>")
+                  'debug (and (plist-get f :debug) "S-<f9>")
+                  'groups (ide-docs--vec groups))))
+
+(defun ide-docs--merge-languages (old facts)
+  "Return (VECTOR ADDED REMOVED) language ids merging language FACTS into OLD cards."
+  (let* ((old-list (ide-docs--list old))
+         (ids (mapcar (lambda (f) (plist-get f :id)) facts))
+         (cards (mapcar (lambda (f) (ide-docs--merge-language
+                                     (cl-find (plist-get f :id) old-list :key (lambda (c) (alist-get 'id c)) :test #'equal) f))
+                        facts)))
+    (list (ide-docs--vec cards)
+          (cl-remove-if (lambda (i) (cl-find i old-list :key (lambda (c) (alist-get 'id c)) :test #'equal)) ids)
+          (cl-remove-if (lambda (i) (member i ids)) (mapcar (lambda (c) (alist-get 'id c)) old-list)))))
 
 ;;;; Merge: facts -> data -----------------------------------------------------------
 
@@ -584,7 +747,12 @@ user files load supplies the global keys, and user-defined commands are skipped.
                    append (cl-loop for g across (alist-get 'groups m)
                                    append (cl-loop for i across (alist-get 'items g)
                                                    when (alist-get 'cmd i) collect (alist-get 'cmd i))))
-          (cl-loop for f across (alist-get 'features data) append (ide-docs--list (alist-get 'cmds f)))))
+          (cl-loop for f across (alist-get 'features data) append (ide-docs--list (alist-get 'cmds f)))
+          (cl-loop for l across (alist-get 'languages data)
+                   append (append (and (alist-get 'menu l) (list (alist-get 'menu l)))
+                                  (cl-loop for g across (alist-get 'groups l)
+                                           append (cl-loop for i across (alist-get 'items g)
+                                                           when (alist-get 'cmd i) collect (alist-get 'cmd i)))))))
 
 (defun ide-docs--merge-features (old data commands)
   "Drop vanished commands from cards.  Return (VECTOR DROPPED UNCOVERED)."
@@ -622,11 +790,12 @@ user files load supplies the global keys, and user-defined commands are skipped.
   "Merge FACTS into DATA.  Return (NEW-DATA . REPORT); REPORT is a plist of changes."
   (let* ((kb (ide-docs--merge-keybinds (alist-get 'keybinds data) (plist-get facts :keybinds)))
          (menus (ide-docs--merge-menus (alist-get 'menus data) (plist-get facts :menus)))
+         (langs (ide-docs--merge-languages (alist-get 'languages data) (plist-get facts :languages)))
          (tools (ide-docs--merge-tools (alist-get 'tools data) (plist-get facts :tools)))
          (mods (ide-docs--merge-modules (alist-get 'modules data) (plist-get facts :modules)))
          (make (ide-docs--merge-make (alist-get 'make data) (plist-get facts :make)))
          (new (let ((d data))
-                (dolist (kv `((keybinds . ,(nth 0 kb)) (menus . ,(nth 0 menus)) (tools . ,(nth 0 tools))
+                (dolist (kv `((keybinds . ,(nth 0 kb)) (menus . ,(nth 0 menus)) (languages . ,(nth 0 langs)) (tools . ,(nth 0 tools))
                               (modules . ,(nth 0 mods)) (make . ,(nth 0 make))))
                   (setq d (ide-docs--put d (car kv) (cdr kv))))
                 d))
@@ -639,6 +808,7 @@ user files load supplies the global keys, and user-defined commands are skipped.
          (keys (mapcar (lambda (f) (ide-docs--norm-keys (nth 0 f))) (plist-get facts :keybinds))))
     (cons new (list :kb-added (nth 1 kb) :kb-removed (nth 2 kb) :kb-changed (nth 3 kb)
                     :menu-added (nth 1 menus) :menu-changed (nth 2 menus)
+                    :lang-added (nth 1 langs) :lang-removed (nth 2 langs)
                     :tools-added (nth 1 tools) :tools-removed (nth 2 tools)
                     :modules-added (nth 1 mods) :modules-removed (nth 2 mods)
                     :make-added (nth 1 make) :make-removed (nth 2 make)
@@ -937,7 +1107,7 @@ Return (NEW-DATA . ISSUES)."
   (string-join
    (delq nil (mapcar (lambda (k) (when-let* ((v (plist-get report (car k)))) (format "%s: %d" (cdr k) (length v))))
                      '((:kb-added . "new keys") (:kb-removed . "removed keys") (:kb-changed . "changed keys")
-                       (:menu-added . "new menu entries") (:menu-changed . "changed menu entries")
+                       (:lang-added . "new languages") (:lang-removed . "removed languages") (:menu-added . "new menu entries") (:menu-changed . "changed menu entries")
                        (:tools-added . "new tools") (:tools-removed . "removed tools")
                        (:modules-added . "new modules") (:modules-removed . "removed modules")
                        (:make-added . "new make targets") (:cmds-dropped . "vanished commands")

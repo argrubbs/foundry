@@ -178,6 +178,26 @@ th{font-size:.76rem;letter-spacing:.07em;text-transform:uppercase;color:var(--mu
 .recipe h3{font-size:1rem;margin-bottom:.15rem}
 .recipe p{margin:0 0 .5rem;color:var(--muted);font-size:.92rem}
 .recipe pre{white-space:pre-wrap;overflow-wrap:anywhere}
+/* languages */
+.lgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,360px),1fr));gap:1rem;align-items:start}
+.lcard{display:flex;flex-direction:column;gap:.55rem;scroll-margin-top:1rem}
+.lcard:target,.lcard.open-link{border-color:var(--accent)}
+.lcard h3{display:flex;justify-content:space-between;gap:.5rem;align-items:baseline;margin:0}
+.lcard h3 a{color:var(--muted);text-decoration:none;font-size:.85rem}
+.lcard p{margin:0;color:var(--muted);font-size:.93rem}
+.lmeta{display:flex;flex-wrap:wrap;gap:.3rem;align-items:center}
+.lmeta code{font-size:.76rem}
+.tchip{display:inline-flex;gap:.35rem;align-items:baseline;border:1px solid var(--line);border-radius:999px;padding:.12rem .6rem;font-size:.8rem;color:var(--text);text-decoration:none;background:var(--surface2)}
+.tchip:hover{border-color:var(--accent)}
+.tchip small{color:var(--muted);font-size:.72rem}
+.lcard details{border-top:1px dashed var(--line);padding-top:.5rem}
+.lcard summary{cursor:pointer;font-weight:600;font-size:.93rem}
+.lgroup{margin:.6rem 0 .2rem;font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+.lrow{display:grid;grid-template-columns:3.4rem 1fr;gap:.1rem .6rem;padding:.25rem 0;border-bottom:1px solid var(--line);font-size:.9rem}
+.lrow:last-child{border-bottom:0}
+.lrow small{display:block;color:var(--muted)}
+.lrow code{font-size:.74rem}
+tr:target td{background:color-mix(in srgb,var(--accent) 22%,transparent)}
 footer{border-top:1px solid var(--line);margin-top:4rem;padding-top:1.4rem;color:var(--muted);font-size:.88rem}
 @media (max-width:980px){
   .shell{grid-template-columns:1fr}
@@ -202,6 +222,7 @@ footer{border-top:1px solid var(--line);margin-top:4rem;padding-top:1.4rem;color
     <li><a href="#menus">Command menus</a></li>
     <li><a href="#workflows">Workflows</a></li>
     <li><a href="#features">Feature catalogue</a></li>
+    <li><a href="#languages">Languages</a></li>
     <li><a href="#extend">Make it yours</a></li>
     <li class="grp" role="presentation">Reference</li>
     <li><a href="#architecture">Architecture</a></li>
@@ -330,8 +351,19 @@ make doctor</pre></div>
   <div class="grid g3" id="fgrid"></div>
 </section>
 
+<section id="languages" aria-labelledby="h-lang">
+  <h2 id="h-lang"><span class="num">08</span>Languages</h2>
+  <p class="lede">One card per language. In a code buffer, <kbd>C-c m</kbd> opens that language's menu; the entries below are read from the live menus. <kbd>S-&lt;f10&gt;</kbd> runs and <kbd>S-&lt;f9&gt;</kbd> debugs where the language hooks them. Tool chips jump to the tools table.</p>
+  <div class="toolbar">
+    <label class="search"><span aria-hidden="true">⌕</span><span style="position:absolute;left:-999px">Filter languages</span>
+      <input id="langsearch" type="search" placeholder="Filter by language, file type, tool or command…" autocomplete="off"></label>
+    <button class="btn" id="langtoggle" type="button">Expand all</button>
+  </div>
+  <div class="lgrid" id="lgrid"></div>
+</section>
+
 <section id="extend" aria-labelledby="h-extend">
-  <h2 id="h-extend"><span class="num">08</span>Make it yours</h2>
+  <h2 id="h-extend"><span class="num">09</span>Make it yours</h2>
   <p class="lede">Add your own packages, tools and settings without touching the IDE's core. Everything of yours lives in <code>user/</code>, loads last, and is never overwritten.</p>
   <div class="grid g2" style="grid-template-columns:repeat(auto-fit,minmax(min(100%,430px),1fr))">
     <div class="card"><h3>Where things go</h3>
@@ -369,7 +401,7 @@ make doctor</pre></div>
 </section>
 
 <section id="architecture" aria-labelledby="h-arch">
-  <h2 id="h-arch"><span class="num">09</span>Architecture</h2>
+  <h2 id="h-arch"><span class="num">10</span>Architecture</h2>
   <p class="lede">Modules load in numeric order from <code>init.el</code>; each is small and independently readable. Packages are managed by <code>elpaca</code> and installed asynchronously after the first frame appears.</p>
   <div class="grid g2">
     <div class="card"><h3>Directory layout</h3><div class="tree" id="dirtree"></div></div>
@@ -387,7 +419,7 @@ make doctor</pre></div>
 </section>
 
 <section id="tools" aria-labelledby="h-tools">
-  <h2 id="h-tools"><span class="num">10</span>Tools via mise</h2>
+  <h2 id="h-tools"><span class="num">11</span>Tools via mise</h2>
   <p class="lede">Declared in <code>mise.toml</code>, installed by <code>M-x ide-mise-setup</code> into <code>var/mise/</code>. mise's data, state and cache are redirected into the sandbox; an existing mise on your <code>PATH</code> is used but never modified, and mise never reads configuration from parent directories such as <code>~/.tool-versions</code>.</p>
   <div class="toolbar"><div class="chips" id="tchips" role="group" aria-label="Filter tools"></div></div>
   <div class="tablewrap"><table><thead><tr><th>Executable</th><th>Purpose</th><th>mise spec</th></tr></thead><tbody id="tooltable"></tbody></table></div>
@@ -399,7 +431,7 @@ make doctor</pre></div>
 </section>
 
 <section id="setup" aria-labelledby="h-setup">
-  <h2 id="h-setup"><span class="num">11</span>Setup &amp; credentials</h2>
+  <h2 id="h-setup"><span class="num">12</span>Setup &amp; credentials</h2>
   <div class="grid g2">
     <div class="card"><h3>Azure DevOps</h3>
       <p style="color:var(--muted);margin:.2rem 0 .6rem">The organization, project and repository are inferred from the git remote (https, ssh and <code>visualstudio.com</code> forms). Authentication, first match wins:</p>
@@ -419,7 +451,7 @@ make doctor</pre></div>
 </section>
 
 <section id="status" aria-labelledby="h-status">
-  <h2 id="h-status"><span class="num">12</span>Status &amp; limits</h2>
+  <h2 id="h-status"><span class="num">13</span>Status &amp; limits</h2>
   <p class="lede">What has actually been exercised, and what has not.</p>
   <div class="grid g2">
     <div class="callout ok" style="margin:0"><strong>Verified</strong><ul id="verified" style="margin:.3rem 0 0;padding-left:1.1rem"></ul></div>
@@ -450,7 +482,7 @@ make doctor</pre></div>
    "l": "Emacs Lisp modules"
   },
   {
-   "v": "346",
+   "v": "351",
    "l": "automated tests"
   }
  ],
@@ -2329,7 +2361,8 @@ make doctor</pre></div>
     "ide-web-test-watch",
     "ide-web-toggle-test",
     "ide-web-typecheck",
-    "ide-web-typecheck-watch"
+    "ide-web-typecheck-watch",
+    "ide-compose-down-volumes"
    ]
   }
  ],
@@ -3045,6 +3078,2057 @@ make doctor</pre></div>
     }
    ]
   }
+ ],
+ "languages": [
+  {
+   "id": "rust",
+   "name": "Rust",
+   "summary": "Cargo build, run and test, rust-analyzer, clippy, nextest, debugging and crate management.",
+   "modes": ["rust-ts-mode", "rust-mode"],
+   "files": [".rs"],
+   "menu": "ide-rust-dispatch",
+   "open": "C-c m",
+   "tools": [
+    {
+     "role": "Language server",
+     "exe": "rust-analyzer"
+    },
+    {
+     "role": "Build",
+     "exe": "cargo"
+    },
+    {
+     "role": "Test runner",
+     "exe": "cargo-nextest"
+    }
+   ],
+   "run": "S-<f10>",
+   "debug": "S-<f9>",
+   "groups": [
+    {
+     "title": "Build",
+     "items": [
+      {
+       "key": "b",
+       "label": "build",
+       "cmd": "ide-rust-build",
+       "does": "cargo build"
+      },
+      {
+       "key": "r",
+       "label": "run a target...",
+       "cmd": "ide-rust-run",
+       "does": "cargo run for a binary or example TARGET chosen from the project"
+      },
+      {
+       "key": "c",
+       "label": "check",
+       "cmd": "ide-rust-check",
+       "does": "cargo check"
+      },
+      {
+       "key": "l",
+       "label": "clippy",
+       "cmd": "ide-rust-clippy",
+       "does": "cargo clippy"
+      },
+      {
+       "key": "L",
+       "label": "clippy --fix",
+       "cmd": "ide-rust-clippy-fix",
+       "does": "Apply clippy's machine-applicable fixes (cargo clippy --fix)"
+      },
+      {
+       "key": "f",
+       "label": "fmt",
+       "cmd": "ide-rust-fmt",
+       "does": "cargo fmt"
+      },
+      {
+       "key": "B",
+       "label": "bench",
+       "cmd": "ide-rust-bench",
+       "does": "cargo bench"
+      },
+      {
+       "key": "C",
+       "label": "clean",
+       "cmd": "ide-rust-clean",
+       "does": "cargo clean"
+      }
+     ]
+    },
+    {
+     "title": "Test",
+     "items": [
+      {
+       "key": "t",
+       "label": "test at point",
+       "cmd": "ide-rust-test-at-point",
+       "does": "Run the test at point (cargo test <path> -- --exact); the module's tests when point is in a mod"
+      },
+      {
+       "key": "F",
+       "label": "tests in file",
+       "cmd": "ide-rust-test-file",
+       "does": "Run the tests of the current file"
+      },
+      {
+       "key": "a",
+       "label": "all tests",
+       "cmd": "ide-rust-test-all",
+       "does": "Run every test in the project"
+      },
+      {
+       "key": "R",
+       "label": "related tests",
+       "cmd": "ide-rust-related-tests",
+       "does": "Run the tests that exercise the function at point (rust-analyzer's related tests)"
+      },
+      {
+       "key": "p",
+       "label": "runnables at point...",
+       "cmd": "ide-rust-runnables",
+       "does": "Choose any runnable at point (run, test, bench) and run it in the drawer"
+      },
+      {
+       "key": ".",
+       "label": "run at point",
+       "cmd": "ide-rust-run-at-point",
+       "does": "Run what rust-analyzer offers at point: the test, the binary or the benchmark"
+      }
+     ]
+    },
+    {
+     "title": "Debug / REPL",
+     "items": [
+      {
+       "key": "d",
+       "label": "debug at point (codelldb)",
+       "cmd": "ide-rust-debug",
+       "does": "Debug the test or binary at point with codelldb"
+      },
+      {
+       "key": "I",
+       "label": "install debugger",
+       "cmd": "ide-rust-install-debugger",
+       "does": "Download the codelldb debug adapter into the sandbox"
+      },
+      {
+       "key": "e",
+       "label": "REPL (evcxr)",
+       "cmd": "ide-rust-repl",
+       "does": "Open an evcxr Rust REPL in the drawer"
+      },
+      {
+       "key": "s",
+       "label": "send to REPL",
+       "cmd": "ide-rust-repl-send-region",
+       "does": "Send the region (or the current function) to the evcxr REPL"
+      }
+     ]
+    },
+    {
+     "title": "Crates",
+     "items": [
+      {
+       "key": "+",
+       "label": "add",
+       "cmd": "ide-rust-add",
+       "does": "cargo add CRATE (features: CRATE --features a,b)"
+      },
+      {
+       "key": "-",
+       "label": "remove",
+       "cmd": "ide-rust-remove",
+       "does": "cargo remove CRATE"
+      },
+      {
+       "key": "u",
+       "label": "update",
+       "cmd": "ide-rust-update",
+       "does": "cargo update"
+      },
+      {
+       "key": "T",
+       "label": "tree",
+       "cmd": "ide-rust-tree",
+       "does": "cargo tree"
+      }
+     ]
+    },
+    {
+     "title": "Explore",
+     "items": [
+      {
+       "key": "m",
+       "label": "expand macro",
+       "cmd": "ide-rust-expand-macro",
+       "does": "Show the expansion of the macro call at point"
+      },
+      {
+       "key": "M",
+       "label": "parent module",
+       "cmd": "ide-rust-parent-module",
+       "does": "Go to the module that declares this file"
+      },
+      {
+       "key": "o",
+       "label": "open Cargo.toml",
+       "cmd": "ide-rust-open-cargo-toml",
+       "does": "Open the Cargo.toml of the package this file belongs to"
+      },
+      {
+       "key": "D",
+       "label": "docs at point",
+       "cmd": "ide-rust-docs-at-point",
+       "does": "Open the documentation of the symbol at point (docs.rs or local) in the browser"
+      },
+      {
+       "key": "O",
+       "label": "project docs",
+       "cmd": "ide-rust-doc",
+       "does": "Build this project's docs and open them in the in-Emacs browser"
+      },
+      {
+       "key": "w",
+       "label": "reload workspace",
+       "cmd": "ide-rust-reload-workspace",
+       "does": "Reload the Cargo workspace (after editing Cargo.toml or build scripts)"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "web",
+   "name": "TypeScript, JavaScript, HTML and CSS",
+   "summary": "npm scripts, tests, Node debugging, live preview and package management for web projects.",
+   "modes": ["typescript-ts-mode", "tsx-ts-mode", "js-ts-mode", "css-ts-mode", "html-ts-mode"],
+   "files": [".css", ".jsx", ".tsx"],
+   "menu": "ide-web-dispatch",
+   "open": "C-c m",
+   "tools": [
+    {
+     "role": "Language server",
+     "exe": "vscode-html-language-server"
+    },
+    {
+     "role": "Language server",
+     "exe": "vscode-css-language-server"
+    },
+    {
+     "role": "Compiler",
+     "exe": "tsc"
+    },
+    {
+     "role": "Formatter",
+     "exe": "prettier"
+    },
+    {
+     "role": "Linter",
+     "exe": "eslint"
+    },
+    {
+     "role": "Runtime",
+     "exe": "node"
+    },
+    {
+     "role": "Runtime",
+     "exe": "tsx"
+    }
+   ],
+   "run": "S-<f10>",
+   "debug": "S-<f9>",
+   "groups": [
+    {
+     "title": "Run",
+     "items": [
+      {
+       "key": "r",
+       "label": "package script...",
+       "cmd": "ide-web-run-script",
+       "does": "Run the package.json SCRIPT chosen from a list, with the project's package manager"
+      },
+      {
+       "key": "v",
+       "label": "dev server",
+       "cmd": "ide-web-dev-server",
+       "does": "Start the dev server script (dev, start, serve) in the drawer"
+      },
+      {
+       "key": "V",
+       "label": "open dev server",
+       "cmd": "ide-web-dev-server-open",
+       "does": "Open the running dev server in the in-Emacs browser (URL read from its output)"
+      },
+      {
+       "key": "c",
+       "label": "type-check (tsc)",
+       "cmd": "ide-web-typecheck",
+       "does": "Type-check the project (tsc --noEmit); errors in the drawer are clickable"
+      },
+      {
+       "key": "C",
+       "label": "type-check watch",
+       "cmd": "ide-web-typecheck-watch",
+       "does": "Type-check continuously (tsc --noEmit --watch)"
+      },
+      {
+       "key": "l",
+       "label": "eslint --fix",
+       "cmd": "ide-web-eslint-fix",
+       "does": "Apply ESLint's automatic fixes to the current file"
+      },
+      {
+       "key": "f",
+       "label": "format (prettier)",
+       "cmd": "ide-web-format",
+       "does": "Format the buffer with prettier"
+      }
+     ]
+    },
+    {
+     "title": "Test",
+     "items": [
+      {
+       "key": "t",
+       "label": "test at point",
+       "cmd": "ide-web-test-at-point",
+       "does": "Run the test (or describe block) at point"
+      },
+      {
+       "key": "F",
+       "label": "tests in file",
+       "cmd": "ide-web-test-file",
+       "does": "Run the tests of the current file (a source file runs its test counterpart)"
+      },
+      {
+       "key": "a",
+       "label": "all tests",
+       "cmd": "ide-web-test-all",
+       "does": "Run every test in the project"
+      },
+      {
+       "key": "w",
+       "label": "watch",
+       "cmd": "ide-web-test-watch",
+       "does": "Run the tests in watch mode (rerun on change) for the current file"
+      },
+      {
+       "key": "T",
+       "label": "test <-> source",
+       "cmd": "ide-web-toggle-test",
+       "does": "Jump between a source file and its test file (create the test file when missing)"
+      }
+     ]
+    },
+    {
+     "title": "Debug / REPL",
+     "items": [
+      {
+       "key": "d",
+       "label": "debug file",
+       "cmd": "ide-web-debug-file",
+       "does": "Debug the current file (tsx for TypeScript, node for JavaScript)"
+      },
+      {
+       "key": "D",
+       "label": "debug test",
+       "cmd": "ide-web-debug-test",
+       "does": "Debug the test at point (or the file's tests) with vitest or jest"
+      },
+      {
+       "key": "s",
+       "label": "debug script...",
+       "cmd": "ide-web-debug-script",
+       "does": "Debug the package.json SCRIPT (the debugger attaches to every node process it starts)"
+      },
+      {
+       "key": "I",
+       "label": "install debugger",
+       "cmd": "ide-web-install-debugger",
+       "does": "Download the vscode-js-debug adapter into the sandbox (dap-js's own installer needs lsp-mode)"
+      },
+      {
+       "key": "e",
+       "label": "Node REPL",
+       "cmd": "ide-web-repl",
+       "does": "Open a Node REPL in a window beside the code"
+      },
+      {
+       "key": "x",
+       "label": "send to REPL",
+       "cmd": "ide-web-repl-send-region",
+       "does": "Send the region, else the statement or function at point, to the Node REPL"
+      },
+      {
+       "key": "X",
+       "label": "send buffer",
+       "cmd": "ide-web-repl-send-buffer",
+       "does": "Send the whole buffer to the Node REPL"
+      }
+     ]
+    },
+    {
+     "title": "Packages",
+     "items": [
+      {
+       "key": "i",
+       "label": "install",
+       "cmd": "ide-web-install",
+       "does": "Install the dependencies (npm/pnpm/yarn/bun install)"
+      },
+      {
+       "key": "+",
+       "label": "add",
+       "cmd": "ide-web-add",
+       "does": "Add PACKAGES (space separated, e.g. react@18 zod); with a prefix argument as devDependencies"
+      },
+      {
+       "key": "-",
+       "label": "remove",
+       "cmd": "ide-web-remove",
+       "does": "Remove the dependency PACKAGE, chosen from package.json"
+      },
+      {
+       "key": "u",
+       "label": "outdated",
+       "cmd": "ide-web-outdated",
+       "does": "List outdated dependencies"
+      },
+      {
+       "key": "A",
+       "label": "audit",
+       "cmd": "ide-web-audit",
+       "does": "Audit the dependencies for known vulnerabilities"
+      },
+      {
+       "key": "j",
+       "label": "package.json",
+       "cmd": "ide-web-open-package-json",
+       "does": "Open the nearest package.json"
+      }
+     ]
+    },
+    {
+     "title": "Preview",
+     "items": [
+      {
+       "key": "p",
+       "label": "preview file",
+       "cmd": "ide-web-preview",
+       "does": "Open the current HTML file served from the project in the in-Emacs browser"
+      },
+      {
+       "key": "P",
+       "label": "live preview",
+       "cmd": "ide-web-preview-live",
+       "does": "Preview the current HTML buffer live: the page updates as you type, unsaved"
+      },
+      {
+       "key": "S",
+       "label": "serve project",
+       "cmd": "ide-web-serve",
+       "does": "Serve the project directory over HTTP on localhost"
+      },
+      {
+       "key": "q",
+       "label": "stop server",
+       "cmd": "ide-web-stop-server",
+       "does": "Stop the preview server"
+      }
+     ]
+    },
+    {
+     "title": "Code / docs",
+     "items": [
+      {
+       "key": "o",
+       "label": "organize imports",
+       "cmd": "ide-web-organize-imports",
+       "does": "Sort and merge the imports"
+      },
+      {
+       "key": "U",
+       "label": "remove unused imports",
+       "cmd": "ide-web-remove-unused-imports",
+       "does": "Delete the imports that nothing uses"
+      },
+      {
+       "key": "z",
+       "label": "fix all",
+       "cmd": "ide-web-fix-all",
+       "does": "Apply every automatic fix the language server offers"
+      },
+      {
+       "key": "m",
+       "label": "MDN docs",
+       "cmd": "ide-web-docs-at-point",
+       "does": "Search MDN for the symbol at point (QUERY overrides it) in the in-Emacs browser"
+      },
+      {
+       "key": "n",
+       "label": "TypeScript docs",
+       "cmd": "ide-web-docs-typescript",
+       "does": "Search the TypeScript documentation for the symbol at point (QUERY overrides it)"
+      },
+      {
+       "key": "N",
+       "label": "npm package docs",
+       "cmd": "ide-web-docs-npm",
+       "does": "Open the npm page of the package imported at point (or one chosen from package.json)"
+      },
+      {
+       "key": "R",
+       "label": "restart server",
+       "cmd": "eglot-reconnect",
+       "does": "restart server"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "sql",
+   "name": "SQL",
+   "summary": "Connect to databases, run and explain queries, browse the schema, format and lint.",
+   "modes": ["sql-mode"],
+   "files": [".sql"],
+   "menu": "ide-sql-dispatch",
+   "open": "C-c m",
+   "tools": [
+    {
+     "role": "Language server",
+     "exe": "sqls"
+    },
+    {
+     "role": "Formatter",
+     "exe": "sql-formatter"
+    },
+    {
+     "role": "Linter",
+     "exe": "sqlfluff"
+    },
+    {
+     "role": "Client",
+     "exe": "sqlcmd"
+    }
+   ],
+   "run": "S-<f10>",
+   "groups": [
+    {
+     "title": "Connection",
+     "items": [
+      {
+       "key": "c",
+       "label": "choose",
+       "cmd": "ide-sql-connect",
+       "does": "Choose the connection NAME for this buffer from the known connections"
+      },
+      {
+       "key": "a",
+       "label": "add (project file)",
+       "cmd": "ide-sql-add-connection",
+       "does": "Add a connection to the project's gitignored connection file"
+      },
+      {
+       "key": "E",
+       "label": "edit file",
+       "cmd": "ide-sql-edit-connections",
+       "does": "Open the project connection file (created empty when missing)"
+      },
+      {
+       "key": "i",
+       "label": "interactive client",
+       "cmd": "ide-sql-repl",
+       "does": "Open the interactive client (*SQL*) for this buffer's connection"
+      }
+     ]
+    },
+    {
+     "title": "Run",
+     "items": [
+      {
+       "key": "r",
+       "label": "statement / region",
+       "cmd": "ide-sql-run-dwim",
+       "does": "Run the region, else the statement at point"
+      },
+      {
+       "key": "p",
+       "label": "paragraph",
+       "cmd": "ide-sql-run-paragraph",
+       "does": "Run the paragraph (text between blank lines) at point"
+      },
+      {
+       "key": "b",
+       "label": "buffer",
+       "cmd": "ide-sql-run-buffer",
+       "does": "Run the whole buffer"
+      },
+      {
+       "key": "f",
+       "label": "file...",
+       "cmd": "ide-sql-run-file",
+       "does": "Run FILE (default: this buffer's file) on the connection, after confirmation"
+      },
+      {
+       "key": "m",
+       "label": "migrations folder",
+       "cmd": "ide-sql-run-migrations",
+       "does": "Run every .sql file of DIR in name order on the connection, after confirmation"
+      },
+      {
+       "key": "h",
+       "label": "history",
+       "cmd": "ide-sql-history",
+       "does": "Insert a statement from the history at point"
+      }
+     ]
+    },
+    {
+     "title": "Explain / schema",
+     "items": [
+      {
+       "key": "e",
+       "label": "explain",
+       "cmd": "ide-sql-explain",
+       "does": "EXPLAIN the statement at point (the query plan, without running it)"
+      },
+      {
+       "key": "A",
+       "label": "explain analyze",
+       "cmd": "ide-sql-explain-analyze",
+       "does": "EXPLAIN ANALYZE the statement at point (executes it; sqlite shows the opcodes)"
+      },
+      {
+       "key": "t",
+       "label": "tables",
+       "cmd": "ide-sql-tables",
+       "does": "List the tables and views of the connection"
+      },
+      {
+       "key": "d",
+       "label": "describe table",
+       "cmd": "ide-sql-describe-table",
+       "does": "Describe TABLE (default: the name at point): columns, types, DDL"
+      },
+      {
+       "key": "L",
+       "label": "sql-list-all (client)",
+       "cmd": "sql-list-all",
+       "does": "List all database objects"
+      },
+      {
+       "key": "T",
+       "label": "sql-list-table (client)",
+       "cmd": "sql-list-table",
+       "does": "List the details of a database table named NAME"
+      },
+      {
+       "key": "w",
+       "label": "copy result as CSV",
+       "cmd": "ide-sql-copy-csv",
+       "does": "Copy the result of the statement (at point, or of this result buffer) as CSV"
+      },
+      {
+       "key": "x",
+       "label": "export CSV",
+       "cmd": "ide-sql-export-csv",
+       "does": "Write the result of the statement (at point, or of this result buffer) to FILE as CSV"
+      }
+     ]
+    },
+    {
+     "title": "Quality",
+     "items": [
+      {
+       "key": "F",
+       "label": "format",
+       "cmd": "ide-sql-format",
+       "does": "Format the region or buffer with sql-formatter, in the dialect of `sql-product'"
+      },
+      {
+       "key": "X",
+       "label": "sqlfluff fix",
+       "cmd": "ide-sql-fix",
+       "does": "Fix the buffer with `sqlfluff fix' (layout, capitalisation, ...), keeping point"
+      },
+      {
+       "key": "P",
+       "label": "sqlfluff parse",
+       "cmd": "ide-sql-parse",
+       "does": "Show sqlfluff's parse tree of the region or buffer"
+      },
+      {
+       "key": "l",
+       "label": "flymake diagnostics",
+       "cmd": "flymake-show-buffer-diagnostics",
+       "does": "Show listing of Flymake diagnostics for current buffer"
+      },
+      {
+       "key": "R",
+       "label": "rule docs",
+       "cmd": "ide-sql-rule-docs",
+       "does": "Open the sqlfluff documentation of rule CODE (default: the one at point's diagnostic)"
+      }
+     ]
+    },
+    {
+     "title": "Write / docs / server",
+     "items": [
+      {
+       "key": "s",
+       "label": "insert template",
+       "cmd": "ide-sql-insert-template",
+       "does": "Insert the query template NAME at point (a yasnippet with fields when available)"
+      },
+      {
+       "key": "D",
+       "label": "product docs",
+       "cmd": "ide-sql-docs",
+       "does": "Open the SQL reference of this buffer's product in the in-Emacs browser"
+      },
+      {
+       "key": "S",
+       "label": "restart sqls",
+       "cmd": "ide-sql-restart-server",
+       "does": "Restart sqls (after editing the connection file)"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "lua",
+   "name": "Lua",
+   "summary": "Run files and snippets, REPL, busted tests and project configuration.",
+   "modes": ["lua-ts-mode"],
+   "files": [".lua"],
+   "menu": "ide-lua-dispatch",
+   "open": "C-c m",
+   "tools": [
+    {
+     "role": "Language server",
+     "exe": "lua-language-server"
+    },
+    {
+     "role": "Formatter",
+     "exe": "stylua"
+    }
+   ],
+   "run": "S-<f10>",
+   "groups": [
+    {
+     "title": "Run",
+     "items": [
+      {
+       "key": "r",
+       "label": "run file",
+       "cmd": "ide-lua-run-file",
+       "does": "Run the current file with lua (busted for specs) in the drawer"
+      },
+      {
+       "key": "c",
+       "label": "check project (LuaLS)",
+       "cmd": "ide-lua-check-project",
+       "does": "Report every LuaLS diagnostic of the project in the drawer (lua-language-server --check)"
+      },
+      {
+       "key": "f",
+       "label": "format buffer",
+       "cmd": "apheleia-format-buffer",
+       "does": "Run code formatter asynchronously on current buffer, preserving point"
+      }
+     ]
+    },
+    {
+     "title": "REPL",
+     "items": [
+      {
+       "key": "e",
+       "label": "open REPL",
+       "cmd": "ide-lua-repl",
+       "does": "Open the Lua REPL (lua -i) beside the code"
+      },
+      {
+       "key": "l",
+       "label": "send line",
+       "cmd": "ide-lua-send-line",
+       "does": "Send the current line to the REPL"
+      },
+      {
+       "key": "s",
+       "label": "send region / function",
+       "cmd": "ide-lua-send-region",
+       "does": "Send the region (or, without one, the function around point) to the REPL"
+      },
+      {
+       "key": "b",
+       "label": "send buffer",
+       "cmd": "ide-lua-send-buffer",
+       "does": "Send the whole buffer to the REPL"
+      }
+     ]
+    },
+    {
+     "title": "Test (busted)",
+     "items": [
+      {
+       "key": "t",
+       "label": "test at point",
+       "cmd": "ide-lua-test-at-point",
+       "does": "Run the busted test (or describe block) around point"
+      },
+      {
+       "key": "F",
+       "label": "tests in file",
+       "cmd": "ide-lua-test-file",
+       "does": "Run the busted tests of the current file"
+      },
+      {
+       "key": "a",
+       "label": "all tests",
+       "cmd": "ide-lua-test-all",
+       "does": "Run every busted test of the project"
+      }
+     ]
+    },
+    {
+     "title": "Project",
+     "items": [
+      {
+       "key": "L",
+       "label": "write .luarc.json",
+       "cmd": "ide-lua-write-luarc",
+       "does": "Write a .luarc.json at the project root"
+      },
+      {
+       "key": "S",
+       "label": "write stylua.toml",
+       "cmd": "ide-lua-write-stylua-config",
+       "does": "Write a stylua.toml (2 spaces) at the project root unless one exists"
+      }
+     ]
+    },
+    {
+     "title": "Docs / server",
+     "items": [
+      {
+       "key": "D",
+       "label": "manual for symbol",
+       "cmd": "ide-lua-manual",
+       "does": "Show the Lua reference manual for SYMBOL (default: the name at point) in the browser"
+      },
+      {
+       "key": "R",
+       "label": "restart server",
+       "cmd": "eglot-reconnect",
+       "does": "restart server"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "powershell",
+   "name": "PowerShell",
+   "summary": "Run scripts, Pester tests and debugging through PowerShell Editor Services.",
+   "modes": ["powershell-mode"],
+   "files": [],
+   "menu": "ide-powershell-dispatch",
+   "open": "C-c m",
+   "tools": [
+    {
+     "role": "Runtime",
+     "exe": "pwsh"
+    }
+   ],
+   "run": "S-<f10>",
+   "debug": "S-<f9>",
+   "groups": [
+    {
+     "title": "Run",
+     "items": [
+      {
+       "key": "r",
+       "label": "run script",
+       "cmd": "ide-powershell-run",
+       "does": "Run the current script with pwsh -NoProfile -File in the drawer (Pester files run Pester)"
+      },
+      {
+       "key": "a",
+       "label": "analyze (PSScriptAnalyzer)",
+       "cmd": "ide-powershell-analyze",
+       "does": "Run Invoke-ScriptAnalyzer on this file; the findings are jumpable in the drawer"
+      },
+      {
+       "key": "e",
+       "label": "REPL",
+       "cmd": "ide-powershell-repl",
+       "does": "Open a pwsh REPL over a pipe (contained environment, no profile)"
+      },
+      {
+       "key": "l",
+       "label": "send line",
+       "cmd": "ide-powershell-send-line",
+       "does": "Send the current line to the REPL"
+      },
+      {
+       "key": "s",
+       "label": "send region",
+       "cmd": "ide-powershell-send-region",
+       "does": "Send the region to the REPL"
+      },
+      {
+       "key": "f",
+       "label": "send function",
+       "cmd": "ide-powershell-send-defun",
+       "does": "Send the function around point to the REPL"
+      },
+      {
+       "key": "b",
+       "label": "send buffer",
+       "cmd": "ide-powershell-send-buffer",
+       "does": "Send the whole buffer to the REPL"
+      }
+     ]
+    },
+    {
+     "title": "Test (Pester)",
+     "items": [
+      {
+       "key": "t",
+       "label": "test at point",
+       "cmd": "ide-powershell-test-at-point",
+       "does": "Run the Pester It, Context or Describe block around point"
+      },
+      {
+       "key": "T",
+       "label": "tests in file",
+       "cmd": "ide-powershell-test-file",
+       "does": "Run every Pester test in the current file"
+      },
+      {
+       "key": "A",
+       "label": "all tests",
+       "cmd": "ide-powershell-test-all",
+       "does": "Run every Pester test (*.Tests.ps1) under the project root"
+      },
+      {
+       "key": "P",
+       "label": "install Pester",
+       "cmd": "ide-powershell-install-pester",
+       "does": "Install Pester from the PowerShell Gallery into var/tools/pwsh (CurrentUser scope)"
+      }
+     ]
+    },
+    {
+     "title": "Debug",
+     "items": [
+      {
+       "key": "d",
+       "label": "debug script",
+       "cmd": "ide-powershell-debug",
+       "does": "Debug the current script with PSES's debug adapter (breakpoints, stepping, locals)"
+      }
+     ]
+    },
+    {
+     "title": "Explore",
+     "items": [
+      {
+       "key": "h",
+       "label": "Get-Help",
+       "cmd": "ide-powershell-help",
+       "does": "Show Get-Help -Full for COMMAND (default: the symbol at point) in a buffer"
+      },
+      {
+       "key": "H",
+       "label": "docs online",
+       "cmd": "ide-powershell-help-online",
+       "does": "Open the learn.microsoft.com page of COMMAND in the in-Emacs browser"
+      },
+      {
+       "key": "c",
+       "label": "browse commands",
+       "cmd": "ide-powershell-browse-commands",
+       "does": "Pick a module, then one of its commands, and show its help"
+      }
+     ]
+    },
+    {
+     "title": "Server",
+     "items": [
+      {
+       "key": "S",
+       "label": "install PSES",
+       "cmd": "ide-powershell-install-pses",
+       "does": "Download the latest PowerShell Editor Services release into the sandbox"
+      },
+      {
+       "key": "R",
+       "label": "restart server",
+       "cmd": "ide-powershell-restart-server",
+       "does": "Restart PSES for this buffer"
+      },
+      {
+       "key": "L",
+       "label": "server log",
+       "cmd": "ide-powershell-show-log",
+       "does": "Open the PSES log file"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "k8s",
+   "name": "Helm, Kubernetes and CI YAML",
+   "summary": "Render and validate Helm charts, kubectl actions and CI workflow checks.",
+   "modes": ["ide-helm-mode", "ide-helm-text-mode", "yaml-ts-mode", "yaml-mode"],
+   "files": [],
+   "menu": "ide-k8s-dispatch",
+   "open": "C-c m",
+   "tools": [
+    {
+     "role": "Language server",
+     "exe": "helm_ls"
+    },
+    {
+     "role": "Language server",
+     "exe": "yaml-language-server"
+    },
+    {
+     "role": "Helm",
+     "exe": "helm"
+    },
+    {
+     "role": "Cluster",
+     "exe": "kubectl"
+    },
+    {
+     "role": "Cluster",
+     "exe": "kind"
+    },
+    {
+     "role": "Linter",
+     "exe": "kubeconform"
+    },
+    {
+     "role": "Linter",
+     "exe": "kube-linter"
+    },
+    {
+     "role": "Linter",
+     "exe": "yamllint"
+    },
+    {
+     "role": "Linter",
+     "exe": "actionlint"
+    }
+   ],
+   "run": "S-<f10>",
+   "debug": "S-<f9>",
+   "groups": [
+    {
+     "title": "Helm",
+     "items": [
+      {
+       "key": "l",
+       "label": "lint",
+       "cmd": "ide-helm-lint",
+       "does": "helm lint the current chart; with prefix argument STRICT, add --strict"
+      },
+      {
+       "key": "t",
+       "label": "template (c-u: this file)",
+       "cmd": "ide-helm-template",
+       "does": "Render the current chart into a YAML buffer; with ONLY-THIS render just this template"
+      },
+      {
+       "key": "i",
+       "label": "install --dry-run --debug",
+       "cmd": "ide-helm-install-dry-run",
+       "does": "helm install --dry-run --debug the current chart (nothing reaches a cluster)"
+      },
+      {
+       "key": "u",
+       "label": "dependency update",
+       "cmd": "ide-helm-dependency-update",
+       "does": "helm dependency update for the current chart"
+      },
+      {
+       "key": "p",
+       "label": "package",
+       "cmd": "ide-helm-package",
+       "does": "helm package the current chart into dist/ under the project root"
+      },
+      {
+       "key": "I",
+       "label": "upgrade --install",
+       "cmd": "ide-helm-upgrade-install",
+       "does": "helm upgrade --install the current chart into the chosen cluster (asks first)"
+      },
+      {
+       "key": "X",
+       "label": "uninstall",
+       "cmd": "ide-helm-uninstall",
+       "does": "helm uninstall the release of the current chart (asks first)"
+      },
+      {
+       "key": "v",
+       "label": "Helm Select Values",
+       "cmd": "ide-helm-select-values",
+       "does": "Choose the values files (on top of values.yaml) that template, lint and install use"
+      },
+      {
+       "key": "r",
+       "label": "render + validate (kubeconform)",
+       "cmd": "ide-helm-template-and-validate",
+       "does": "Render the chart with helm template and validate the result with kubeconform"
+      }
+     ]
+    },
+    {
+     "title": "Navigate",
+     "items": [
+      {
+       "key": "j",
+       "label": "to .Values key",
+       "cmd": "ide-helm-goto-values",
+       "does": "Jump from the `.Values.x.y' reference at point to its key in values.yaml"
+      },
+      {
+       "key": "J",
+       "label": "usages of key",
+       "cmd": "ide-helm-values-usages",
+       "does": "List the templates that use the values key at point in values.yaml"
+      },
+      {
+       "key": "o",
+       "label": "values.yaml",
+       "cmd": "ide-helm-open-values",
+       "does": "Open values.yaml of the current chart"
+      },
+      {
+       "key": "O",
+       "label": "Chart.yaml",
+       "cmd": "ide-helm-open-chart-yaml",
+       "does": "Open Chart.yaml of the current chart"
+      }
+     ]
+    },
+    {
+     "title": "kubectl",
+     "items": [
+      {
+       "key": "a",
+       "label": "apply --dry-run=client",
+       "cmd": "ide-k8s-apply-dry-run-client",
+       "does": "kubectl apply --dry-run=client for this file (a chart is rendered first)"
+      },
+      {
+       "key": "A",
+       "label": "apply --dry-run=server",
+       "cmd": "ide-k8s-apply-dry-run-server",
+       "does": "kubectl apply --dry-run=server for this file (needs a reachable cluster)"
+      },
+      {
+       "key": "d",
+       "label": "diff",
+       "cmd": "ide-k8s-diff",
+       "does": "kubectl diff for this file against the cluster (needs a reachable cluster)"
+      },
+      {
+       "key": "e",
+       "label": "explain field at point",
+       "cmd": "ide-k8s-explain",
+       "does": "Show `kubectl explain' for the field at point in a help buffer"
+      },
+      {
+       "key": "k",
+       "label": "kustomize build",
+       "cmd": "ide-k8s-kustomize",
+       "does": "Render the kustomization of this directory (kubectl kustomize) into a YAML buffer"
+      },
+      {
+       "key": "c",
+       "label": "K8s Set Context",
+       "cmd": "ide-k8s-set-context",
+       "does": "Choose the kubectl CONTEXT used by this module"
+      },
+      {
+       "key": "n",
+       "label": "K8s Set Namespace",
+       "cmd": "ide-k8s-set-namespace",
+       "does": "Set the kubectl NAMESPACE used by this module (empty for the context default)"
+      },
+      {
+       "key": "K",
+       "label": "kubel (cluster browser)",
+       "cmd": "ide-k8s-kubel",
+       "does": "Open kubel, the cluster browser (pods, logs, exec), for the chosen context"
+      }
+     ]
+    },
+    {
+     "title": "Check",
+     "items": [
+      {
+       "key": "L",
+       "label": "kube-linter",
+       "cmd": "ide-k8s-kube-linter",
+       "does": "Run kube-linter on this manifest (or chart) and list the findings"
+      },
+      {
+       "key": "s",
+       "label": "trivy config scan",
+       "cmd": "ide-k8s-trivy",
+       "does": "Scan this file (or chart) for misconfigurations with trivy and list the findings"
+      },
+      {
+       "key": "G",
+       "label": "actionlint on project",
+       "cmd": "ide-k8s-actionlint-project",
+       "does": "Run actionlint on every workflow of the project"
+      },
+      {
+       "key": "S",
+       "label": "CRD schema comment",
+       "cmd": "ide-k8s-insert-schema-comment",
+       "does": "Insert a yaml-language-server schema comment for this document's custom resource"
+      }
+     ]
+    },
+    {
+     "title": "Server / docs",
+     "items": [
+      {
+       "key": "D",
+       "label": "docs",
+       "cmd": "ide-k8s-docs",
+       "does": "Open the documentation that fits this file in the in-Emacs browser"
+      },
+      {
+       "key": "R",
+       "label": "reconnect server",
+       "cmd": "eglot-reconnect",
+       "does": "reconnect server"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "toml",
+   "name": "TOML",
+   "summary": "Format, sort keys, validate and use schemas.",
+   "modes": ["toml-ts-mode"],
+   "files": [],
+   "menu": "ide-toml-dispatch",
+   "open": "C-c m",
+   "tools": [
+    {
+     "role": "Language server",
+     "exe": "taplo"
+    },
+    {
+     "role": "Formatter",
+     "exe": "taplo"
+    }
+   ],
+   "groups": [
+    {
+     "title": "Edit",
+     "items": [
+      {
+       "key": "f",
+       "label": "format (taplo)",
+       "cmd": "apheleia-format-buffer",
+       "does": "Run code formatter asynchronously on current buffer, preserving point"
+      },
+      {
+       "key": "k",
+       "label": "sort keys (table at point)",
+       "cmd": "ide-toml-sort-keys",
+       "does": "Sort the keys of the table at point alphabetically (top level when outside tables)"
+      },
+      {
+       "key": "t",
+       "label": "sort tables",
+       "cmd": "ide-toml-sort-tables",
+       "does": "Sort the [tables] of the file by name, keeping the comments above each table"
+      },
+      {
+       "key": "s",
+       "label": "insert schema directive",
+       "cmd": "ide-toml-insert-schema",
+       "does": "Insert a `#:schema' directive for schema NAME at the top of the file (taplo reads it)"
+      }
+     ]
+    },
+    {
+     "title": "Check",
+     "items": [
+      {
+       "key": "v",
+       "label": "validate (taplo check)",
+       "cmd": "ide-toml-validate",
+       "does": "Check this file's syntax and schema (when one applies) with `taplo check'"
+      },
+      {
+       "key": "!",
+       "label": "diagnostics list",
+       "cmd": "flymake-show-buffer-diagnostics",
+       "does": "Show listing of Flymake diagnostics for current buffer"
+      }
+     ]
+    },
+    {
+     "title": "Server",
+     "items": [
+      {
+       "key": "r",
+       "label": "restart taplo",
+       "cmd": "eglot-reconnect",
+       "does": "restart taplo"
+      },
+      {
+       "key": "i",
+       "label": "outline (imenu)",
+       "cmd": "imenu",
+       "does": "Jump to a place in the buffer chosen using a buffer menu or mouse menu"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "markdown",
+   "name": "Markdown",
+   "summary": "Preview, export, outline, links, lint and format.",
+   "modes": ["markdown-mode", "gfm-mode", "markdown-ts-mode"],
+   "files": [],
+   "menu": "ide-markdown-menu",
+   "open": "C-c m",
+   "tools": [
+    {
+     "role": "Language server",
+     "exe": "marksman"
+    },
+    {
+     "role": "Linter",
+     "exe": "markdownlint-cli2"
+    },
+    {
+     "role": "Converter",
+     "exe": "pandoc"
+    }
+   ],
+   "run": "S-<f10>",
+   "groups": [
+    {
+     "title": "Preview",
+     "items": [
+      {
+       "key": "p",
+       "label": "live preview",
+       "cmd": "ide-markdown-preview",
+       "does": "Open the live preview beside the editor (or refresh it)"
+      },
+      {
+       "key": "P",
+       "label": "preview mode off/on",
+       "cmd": "ide-markdown-preview-mode",
+       "does": "Show a pandoc-rendered, theme-coloured preview beside the editor and keep it current"
+      },
+      {
+       "key": "a",
+       "label": "auto refresh: save/idle/off",
+       "cmd": "ide-markdown-preview-cycle-auto",
+       "does": "Cycle automatic refresh: on save, while idle, off"
+      },
+      {
+       "key": "F",
+       "label": "follow point",
+       "cmd": "ide-markdown-preview-toggle-follow",
+       "does": "Toggle scrolling the preview along with point"
+      },
+      {
+       "key": "s",
+       "label": "sync scroll now",
+       "cmd": "ide-markdown-preview-sync",
+       "does": "Scroll the preview to the source line at point"
+      },
+      {
+       "key": "b",
+       "label": "open in system browser",
+       "cmd": "ide-markdown-open-rendered",
+       "does": "Render this buffer and open the HTML in the system browser"
+      }
+     ]
+    },
+    {
+     "title": "Export / convert",
+     "items": [
+      {
+       "key": "e",
+       "label": "export with pandoc",
+       "cmd": "ide-markdown-export",
+       "does": "Export the file with pandoc to FORMAT next to it; progress and errors show in the drawer"
+      },
+      {
+       "key": "o",
+       "label": "Org interop...",
+       "cmd": "ide-markdown-org-menu",
+       "does": "Markdown and Org interoperability (pandoc)"
+      },
+      {
+       "key": "O",
+       "label": "orgtbl for tables",
+       "cmd": "ide-markdown-orgtbl-mode",
+       "does": "Edit pipe tables with Org's table commands (the classic orgtbl trick)"
+      }
+     ]
+    },
+    {
+     "title": "Structure",
+     "items": [
+      {
+       "key": "t",
+       "label": "TOC insert/update",
+       "cmd": "ide-markdown-toc",
+       "does": "Insert a table of contents at point, or update the one between the markers"
+      },
+      {
+       "key": "h",
+       "label": "promote subtree",
+       "cmd": "markdown-promote-subtree",
+       "does": "Promote the current subtree of ATX headings"
+      },
+      {
+       "key": "H",
+       "label": "demote subtree",
+       "cmd": "markdown-demote-subtree",
+       "does": "Demote the current subtree of ATX headings"
+      },
+      {
+       "key": "g",
+       "label": "go to heading",
+       "cmd": "consult-imenu",
+       "does": "Select item from flattened `imenu' using `completing-read' with preview"
+      },
+      {
+       "key": "w",
+       "label": "word count",
+       "cmd": "ide-markdown-word-count",
+       "does": "Report words and reading time of the region or buffer, ignoring code and front matter"
+      },
+      {
+       "key": "x",
+       "label": "toggle task [ ]/[x]",
+       "cmd": "ide-markdown-toggle-task",
+       "does": "Cycle the list item at point: plain, [ ], [x], plain (Org-style task toggling)"
+      },
+      {
+       "key": "n",
+       "label": "renumber list",
+       "cmd": "markdown-cleanup-list-numbers",
+       "does": "Update the numbering of ordered lists"
+      }
+     ]
+    },
+    {
+     "title": "Links / images",
+     "items": [
+      {
+       "key": "l",
+       "label": "insert link",
+       "cmd": "markdown-insert-link",
+       "does": "Insert new or update an existing link, with interactive prompt"
+      },
+      {
+       "key": "i",
+       "label": "insert image",
+       "cmd": "markdown-insert-image",
+       "does": "Insert new or update an existing image, with interactive prompt"
+      },
+      {
+       "key": "I",
+       "label": "paste clipboard image",
+       "cmd": "ide-markdown-paste-image",
+       "does": "Save the clipboard image under `ide-markdown-image-dir' and insert a link to it with ALT text"
+      },
+      {
+       "key": "f",
+       "label": "insert footnote",
+       "cmd": "markdown-insert-footnote",
+       "does": "Insert footnote with a new number and move point to footnote definition"
+      },
+      {
+       "key": "T",
+       "label": "insert table",
+       "cmd": "markdown-insert-table",
+       "does": "Insert an empty pipe table"
+      },
+      {
+       "key": "c",
+       "label": "insert code block",
+       "cmd": "ide-markdown-insert-code-block",
+       "does": "Insert a fenced code block of LANG, around the region when one is active"
+      },
+      {
+       "key": "k",
+       "label": "check relative links",
+       "cmd": "ide-markdown-check-links",
+       "does": "Report broken relative links, wiki links and anchors in the project's Markdown files"
+      }
+     ]
+    },
+    {
+     "title": "Lint / format",
+     "items": [
+      {
+       "key": "L",
+       "label": "fix lint issues",
+       "cmd": "ide-markdown-lint-fix",
+       "does": "Apply markdownlint's autofixes to the buffer (unsaved text included)"
+      },
+      {
+       "key": "m",
+       "label": "lint project",
+       "cmd": "ide-markdown-lint-project",
+       "does": "Lint every Markdown file of the project; findings go to the drawer"
+      },
+      {
+       "key": "M",
+       "label": "fix whole project",
+       "cmd": "ide-markdown-lint-fix-project",
+       "does": "Autofix every Markdown file of the project (asks first; files are rewritten)"
+      },
+      {
+       "key": "=",
+       "label": "format (prettier)",
+       "cmd": "ide-reformat-buffer",
+       "does": "Reformat the buffer with the LSP server or apheleia"
+      },
+      {
+       "key": "A",
+       "label": "align tables",
+       "cmd": "ide-markdown-align-tables",
+       "does": "Align every pipe table of the buffer (those in code blocks are left alone)"
+      },
+      {
+       "key": "S",
+       "label": "toggle format on save",
+       "cmd": "ide-markdown-toggle-format-on-save",
+       "does": "Toggle prettier-on-save in this buffer"
+      },
+      {
+       "key": "z",
+       "label": "spell check",
+       "cmd": "ide-markdown-spell",
+       "does": "Toggle Flyspell here, reporting when no working spell checker is installed"
+      }
+     ]
+    },
+    {
+     "title": "Run / server",
+     "items": [
+      {
+       "key": "r",
+       "label": "run block at point",
+       "cmd": "ide-markdown-run-block",
+       "does": "Run the fenced code block at point after confirmation"
+      },
+      {
+       "key": "R",
+       "label": "run block, result below",
+       "does": "run block, result below"
+      },
+      {
+       "key": "E",
+       "label": "start marksman",
+       "cmd": "ide-markdown-start-server",
+       "does": "Start marksman for this buffer whatever `ide-markdown-lsp' says"
+      },
+      {
+       "key": "N",
+       "label": "rename (LSP)",
+       "cmd": "eglot-rename",
+       "does": "rename (LSP)"
+      },
+      {
+       "key": "D",
+       "label": "references",
+       "cmd": "xref-find-references",
+       "does": "Find references to the identifier at point"
+      },
+      {
+       "key": "C",
+       "label": "TOC code action (LSP)",
+       "cmd": "ide-markdown-lsp-toc",
+       "does": "Ask marksman for its table-of-contents code action at point"
+      },
+      {
+       "key": "X",
+       "label": "restart server",
+       "cmd": "eglot-reconnect",
+       "does": "restart server"
+      },
+      {
+       "key": "U",
+       "label": "trust project (enables lint)",
+       "cmd": "ide-lang-trust-project",
+       "does": "Trust this project's files, so linters that run project code (ESLint, ...) work"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "bash",
+   "name": "Bash",
+   "summary": "Run, check, format and explain shell scripts.",
+   "modes": ["bash-ts-mode", "sh-mode"],
+   "files": [".bash", ".envrc"],
+   "menu": "ide-bash-dispatch",
+   "open": "C-c m",
+   "tools": [
+    {
+     "role": "Language server",
+     "exe": "bash-language-server"
+    },
+    {
+     "role": "Linter",
+     "exe": "shellcheck"
+    },
+    {
+     "role": "Formatter",
+     "exe": "shfmt"
+    }
+   ],
+   "groups": [
+    {
+     "title": "Run",
+     "items": [
+      {
+       "key": "r",
+       "label": "run (no arguments)",
+       "cmd": "ide-run-current",
+       "does": "Run the current file/target in the bottom drawer"
+      },
+      {
+       "key": "a",
+       "label": "run with arguments...",
+       "cmd": "ide-bash-run-with-args",
+       "does": "Run this script with ARGS (a shell string) in the drawer; the buffer accepts input"
+      },
+      {
+       "key": "x",
+       "label": "trace (bash -x)",
+       "cmd": "ide-bash-trace",
+       "does": "Run this script with `bash -x' to see every command as it executes"
+      },
+      {
+       "key": "E",
+       "label": "make executable",
+       "cmd": "ide-bash-make-executable",
+       "does": "chmod +x the file"
+      }
+     ]
+    },
+    {
+     "title": "Check",
+     "items": [
+      {
+       "key": "n",
+       "label": "syntax check (bash -n)",
+       "cmd": "ide-bash-syntax-check",
+       "does": "Check this script for syntax errors with `bash -n' (nothing is executed)"
+      },
+      {
+       "key": "s",
+       "label": "shellcheck file (follow sources)",
+       "cmd": "ide-bash-shellcheck-file",
+       "does": "Run shellcheck on the file, following `source'd files, with results in the drawer"
+      },
+      {
+       "key": "!",
+       "label": "diagnostics list",
+       "cmd": "flymake-show-buffer-diagnostics",
+       "does": "Show listing of Flymake diagnostics for current buffer"
+      },
+      {
+       "key": "w",
+       "label": "shellcheck wiki for code",
+       "cmd": "ide-bash-shellcheck-wiki",
+       "does": "Open the shellcheck wiki page for CODE (default: the diagnostic at point) in the browser"
+      },
+      {
+       "key": "d",
+       "label": "disable this check",
+       "cmd": "ide-bash-disable-check",
+       "does": "Insert `# shellcheck disable=SCxxxx' above the line of the diagnostic at point"
+      }
+     ]
+    },
+    {
+     "title": "Edit / explore",
+     "items": [
+      {
+       "key": "f",
+       "label": "format (shfmt)",
+       "cmd": "apheleia-format-buffer",
+       "does": "Run code formatter asynchronously on current buffer, preserving point"
+      },
+      {
+       "key": "h",
+       "label": "help for command at point",
+       "cmd": "ide-bash-help-at-point",
+       "does": "Show the manual of the command at point: man page, builtin help, tldr or --help output"
+      },
+      {
+       "key": "c",
+       "label": "code actions",
+       "cmd": "eglot-code-actions",
+       "does": "code actions"
+      },
+      {
+       "key": "o",
+       "label": "outline (imenu)",
+       "cmd": "imenu",
+       "does": "Jump to a place in the buffer chosen using a buffer menu or mouse menu"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dockerfile",
+   "name": "Dockerfile and Compose",
+   "summary": "Build, run, scan and lint images; Compose actions.",
+   "modes": ["dockerfile-ts-mode", "dockerfile-mode"],
+   "files": [".dockerfile"],
+   "menu": "ide-dockerfile-dispatch",
+   "open": "C-c m",
+   "tools": [
+    {
+     "role": "Language server",
+     "exe": "docker-langserver"
+    },
+    {
+     "role": "Linter",
+     "exe": "hadolint"
+    },
+    {
+     "role": "Scanner",
+     "exe": "trivy"
+    }
+   ],
+   "run": "S-<f10>",
+   "groups": [
+    {
+     "title": "Build",
+     "items": [
+      {
+       "key": "b",
+       "label": "build",
+       "cmd": "ide-dockerfile-build",
+       "does": "docker build this Dockerfile"
+      },
+      {
+       "key": "B",
+       "label": "build with ARGs...",
+       "cmd": "ide-dockerfile-build-with-args",
+       "does": "docker build, asking for a value of each ARG declared in the file"
+      },
+      {
+       "key": "s",
+       "label": "build a stage...",
+       "cmd": "ide-dockerfile-build-stage",
+       "does": "docker build --target a stage chosen from the FROM ... AS lines"
+      },
+      {
+       "key": "k",
+       "label": "buildx bake...",
+       "cmd": "ide-dockerfile-bake",
+       "does": "docker buildx bake a target of the nearest docker-bake.hcl (or the compose build section)"
+      },
+      {
+       "key": "K",
+       "label": "bake --print",
+       "cmd": "ide-dockerfile-bake-print",
+       "does": "Show the resolved bake configuration (docker buildx bake --print) without building"
+      }
+     ]
+    },
+    {
+     "title": "Run",
+     "items": [
+      {
+       "key": "r",
+       "label": "build and run",
+       "cmd": "ide-dockerfile-build-and-run",
+       "does": "Build, then run the image interactively in a terminal"
+      },
+      {
+       "key": "i",
+       "label": "run an image...",
+       "cmd": "ide-dockerfile-run-image",
+       "does": "Run IMAGE interactively (docker run --rm -it) in a terminal"
+      },
+      {
+       "key": "d",
+       "label": "docker (containers, images)",
+       "cmd": "docker",
+       "does": "Transient for docker"
+      }
+     ]
+    },
+    {
+     "title": "Scan / lint",
+     "items": [
+      {
+       "key": "t",
+       "label": "trivy config scan",
+       "cmd": "ide-dockerfile-trivy-config",
+       "does": "Scan this directory's Dockerfile and IaC for misconfigurations (trivy config)"
+      },
+      {
+       "key": "T",
+       "label": "trivy image scan...",
+       "cmd": "ide-dockerfile-trivy-image",
+       "does": "Scan IMAGE for vulnerabilities and secrets (trivy image; needs the vulnerability database)"
+      },
+      {
+       "key": "!",
+       "label": "diagnostics list",
+       "cmd": "flymake-show-buffer-diagnostics",
+       "does": "Show listing of Flymake diagnostics for current buffer"
+      },
+      {
+       "key": "w",
+       "label": "hadolint rule docs",
+       "cmd": "ide-dockerfile-hadolint-wiki",
+       "does": "Open the wiki page of the hadolint rule at point in the in-Emacs browser"
+      }
+     ]
+    },
+    {
+     "title": "Compose / server",
+     "items": [
+      {
+       "key": "c",
+       "label": "compose menu",
+       "cmd": "ide-compose-dispatch",
+       "does": "Docker Compose for the compose file of this buffer"
+      },
+      {
+       "key": "o",
+       "label": "outline (imenu)",
+       "cmd": "imenu",
+       "does": "Jump to a place in the buffer chosen using a buffer menu or mouse menu"
+      },
+      {
+       "key": "R",
+       "label": "restart language server",
+       "cmd": "eglot-reconnect",
+       "does": "restart language server"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "terraform",
+   "name": "Terraform",
+   "summary": "Lint, validate, scan and explore; plan and apply live in the IaC menu.",
+   "modes": ["terraform-mode"],
+   "files": [".tf", ".tfvars"],
+   "menu": "ide-terraform-dispatch",
+   "open": "C-c m",
+   "tools": [
+    {
+     "role": "Language server",
+     "exe": "terraform-ls"
+    },
+    {
+     "role": "CLI",
+     "exe": "terraform"
+    },
+    {
+     "role": "Linter",
+     "exe": "tflint"
+    },
+    {
+     "role": "Scanner",
+     "exe": "trivy"
+    }
+   ],
+   "groups": [
+    {
+     "title": "Lint / validate",
+     "items": [
+      {
+       "key": "l",
+       "label": "tflint (module)",
+       "cmd": "ide-terraform-tflint",
+       "does": "Run tflint over the module of this file and show everything it finds in the drawer"
+      },
+      {
+       "key": "I",
+       "label": "tflint --init (plugins)",
+       "cmd": "ide-terraform-tflint-init",
+       "does": "Install the plugins named in .tflint.hcl (tflint --init; needs network) into the sandbox"
+      },
+      {
+       "key": "v",
+       "label": "validate",
+       "cmd": "ide-terraform-validate",
+       "does": "terraform validate for this module (run `terraform init' first for providers)"
+      },
+      {
+       "key": "f",
+       "label": "fmt diff",
+       "cmd": "ide-terraform-fmt-check",
+       "does": "Show what `terraform fmt' would change in this module (diff), without changing anything"
+      },
+      {
+       "key": "!",
+       "label": "diagnostics list",
+       "cmd": "flymake-show-buffer-diagnostics",
+       "does": "Show listing of Flymake diagnostics for current buffer"
+      }
+     ]
+    },
+    {
+     "title": "Scan",
+     "items": [
+      {
+       "key": "t",
+       "label": "trivy config scan",
+       "cmd": "ide-terraform-trivy-config",
+       "does": "Scan this module for security misconfigurations (trivy config)"
+      }
+     ]
+    },
+    {
+     "title": "Explore",
+     "items": [
+      {
+       "key": "d",
+       "label": "registry docs at point",
+       "cmd": "ide-terraform-docs-at-point",
+       "does": "Open the registry documentation of the resource or data source at point in the browser"
+      },
+      {
+       "key": "p",
+       "label": "providers",
+       "cmd": "ide-terraform-providers",
+       "does": "Show the provider requirements tree of this module"
+      },
+      {
+       "key": "c",
+       "label": "console",
+       "cmd": "ide-terraform-console",
+       "does": "Open `terraform console' for this module in the drawer"
+      },
+      {
+       "key": "o",
+       "label": "outline (imenu)",
+       "cmd": "imenu",
+       "does": "Jump to a place in the buffer chosen using a buffer menu or mouse menu"
+      }
+     ]
+    },
+    {
+     "title": "Run",
+     "items": [
+      {
+       "key": "x",
+       "label": "init / plan / apply ...",
+       "cmd": "iac-dispatch",
+       "does": "Run Terraform / Packer commands in the bottom drawer"
+      },
+      {
+       "key": "R",
+       "label": "restart terraform-ls",
+       "cmd": "eglot-reconnect",
+       "does": "restart terraform-ls"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "go",
+   "name": "Go",
+   "summary": "gopls, goimports on save, go-test in the drawer and Delve debugging (no language menu).",
+   "modes": ["go-ts-mode", "go-mod-ts-mode"],
+   "files": [".go", "go.mod"],
+   "tools": [
+    {
+     "role": "Language server",
+     "exe": "gopls"
+    },
+    {
+     "role": "Debugger",
+     "exe": "dlv"
+    }
+   ],
+   "groups": []
+  },
+  {
+   "id": "python",
+   "name": "Python",
+   "summary": "Pyright and Ruff, pytest in the drawer, debugpy, automatic virtualenvs (no language menu).",
+   "modes": ["python-ts-mode", "python-mode"],
+   "files": [".py"],
+   "tools": [
+    {
+     "role": "Language server",
+     "exe": "pyright-langserver"
+    },
+    {
+     "role": "Formatter",
+     "exe": "ruff"
+    },
+    {
+     "role": "Linter",
+     "exe": "ruff"
+    },
+    {
+     "role": "Runtime",
+     "exe": "python"
+    },
+    {
+     "role": "Runtime",
+     "exe": "uv"
+    }
+   ],
+   "groups": []
+  },
+  {
+   "id": "ansible",
+   "name": "Ansible",
+   "summary": "Ansible minor mode on YAML, ansible-doc and ansible-language-server (no language menu).",
+   "modes": ["yaml-ts-mode"],
+   "files": ["playbooks/, roles/, group_vars/"],
+   "tools": [
+    {
+     "role": "Language server",
+     "exe": "ansible-language-server"
+    },
+    {
+     "role": "CLI",
+     "exe": "ansible"
+    }
+   ],
+   "groups": []
+  }
  ]
 }
 </script>
@@ -3330,6 +5414,45 @@ const renderFeatures = () => {
 FCATS.forEach(c => fchips.append(h('button', { class: 'chip', type: 'button', 'aria-pressed': String(c === 'All'), onclick: e => { fcat = c; $$('.chip', fchips).forEach(x => x.setAttribute('aria-pressed', String(x === e.currentTarget))); renderFeatures(); } }, c)));
 renderFeatures();
 
+/* ---------- languages ---------- */
+const lgrid = $('#lgrid');
+const LANGS = DATA.languages || [];
+const langText = l => [l.id, l.name, l.summary, l.modes.join(' '), l.files.join(' '), l.menu || '', l.tools.map(t => t.role + ' ' + t.exe).join(' '),
+  l.groups.map(g => g.title + ' ' + g.items.map(i => [i.key, i.label, i.cmd || '', i.does].join(' ')).join(' ')).join(' ')].join(' ').toLowerCase();
+const langCard = l => {
+  const det = h('details', {}, h('summary', { text: l.groups.length ? 'What you can do (' + l.groups.reduce((n, g) => n + g.items.length, 0) + ')' : 'What you can do' }));
+  if (l.menu) det.append(h('p', { style: 'margin:.4rem 0' }, 'Open the menu with ', keycaps('C-c m'), ' (', h('code', { text: l.menu }), ').'));
+  else det.append(h('p', { style: 'margin:.4rem 0', text: 'No dedicated menu: ' + l.summary }));
+  if (l.run || l.debug) det.append(h('p', { style: 'margin:.4rem 0' }, l.run ? [keycaps(l.run), ' run  '] : null, l.debug ? [keycaps(l.debug), ' debug'] : null));
+  l.groups.forEach(g => { det.append(h('div', { class: 'lgroup', text: g.title }));
+    g.items.forEach(i => det.append(h('div', { class: 'lrow' }, keycaps(i.key), h('div', {}, h('b', { text: i.label }), ' ', i.cmd ? h('code', { text: i.cmd, title: 'Copy M-x ' + i.cmd, onclick: () => copy('M-x ' + i.cmd) }) : null, h('small', { text: i.does }))))); });
+  const card = h('article', { class: 'card lcard', id: 'lang-' + l.id },
+    h('h3', {}, l.name, h('a', { href: '#lang-' + l.id, 'aria-label': 'Link to ' + l.name, text: '#' })),
+    h('p', { text: l.summary }),
+    h('div', { class: 'lmeta', 'aria-label': 'Modes and file types' }, l.modes.map(m => h('code', { text: m })), l.files.map(f => h('code', { text: f }))),
+    l.tools.length ? h('div', { class: 'lmeta', role: 'group', 'aria-label': 'Tooling' }, l.tools.map(t => h('a', { class: 'tchip', href: '#tool-' + t.exe, title: t.role + ': ' + t.exe }, h('small', { text: t.role }), t.exe))) : null,
+    det);
+  return card;
+};
+const renderLangs = () => {
+  const q = $('#langsearch').value.trim().toLowerCase();
+  $$('.lcard', lgrid).forEach(c => { c.hidden = !!q && !c.dataset.text.includes(q); });
+  let n = $$('.lcard:not([hidden])', lgrid).length;
+  const empty = $('.empty', lgrid);
+  if (!n && !empty) lgrid.append(h('div', { class: 'empty', text: 'No language matches.' }));
+  if (n && empty) empty.remove();
+};
+LANGS.forEach(l => { const c = langCard(l); c.dataset.text = langText(l); lgrid.append(c); });
+$('#langsearch').addEventListener('input', renderLangs);
+$('#langtoggle').addEventListener('click', e => { const all = $$('.lcard details', lgrid), open = all.some(d => !d.open); all.forEach(d => d.open = open); e.currentTarget.textContent = open ? 'Collapse all' : 'Expand all'; });
+const openLangLink = () => {
+  const c = location.hash.startsWith('#lang-') ? document.getElementById(location.hash.slice(1)) : null;
+  if (c && c.classList.contains('lcard')) { $('#langsearch').value = ''; renderLangs(); $('details', c).open = true; c.scrollIntoView({ block: 'start' }); }
+};
+window.addEventListener('hashchange', openLangLink);
+if (location.hash.startsWith('#languages') && qParam) { $('#langsearch').value = qParam; renderLangs(); }
+openLangLink();
+
 /* ---------- user extension: examples and recipes ---------- */
 const codeBox = (text, label) => {
   const pre = h('pre', {}, h('code', { style: 'background:none;border:0;padding:0;font-size:inherit', text }));
@@ -3364,7 +5487,7 @@ DATA.modules.forEach(m => mt.append(h('tr', {}, h('td', {}, h('code', { text: m.
 let tcat = 'All';
 const TCATS = ['All', ...new Set(DATA.tools.map(t => t.cat))];
 const tt = $('#tooltable'), tchips = $('#tchips');
-const renderTools = () => { clear(tt); DATA.tools.filter(t => tcat === 'All' || t.cat === tcat).forEach(t => tt.append(h('tr', {}, h('td', {}, h('code', { text: t.exe })), h('td', { text: t.desc }), h('td', {}, h('code', { text: t.spec }))))); };
+const renderTools = () => { clear(tt); DATA.tools.filter(t => tcat === 'All' || t.cat === tcat).forEach(t => tt.append(h('tr', { id: 'tool-' + t.exe }, h('td', {}, h('code', { text: t.exe })), h('td', { text: t.desc }), h('td', {}, h('code', { text: t.spec }))))); };
 TCATS.forEach(c => tchips.append(h('button', { class: 'chip', type: 'button', 'aria-pressed': String(c === 'All'), onclick: e => { tcat = c; $$('.chip', tchips).forEach(x => x.setAttribute('aria-pressed', String(x === e.currentTarget))); renderTools(); } }, c)));
 renderTools();
 const mk = $('#maketable');

@@ -13,7 +13,7 @@
 (require 'subr-x)
 (require 'seq)
 
-(dolist (f '(transient magit devops-azdo devops-azdo-magit minuet corfu))
+(dolist (f '(transient magit eglot devops-azdo devops-azdo-magit minuet corfu))
   (require f nil t))
 
 (defvar docs--root (file-name-as-directory (expand-file-name user-emacs-directory)))
@@ -208,6 +208,67 @@
   "The page must work offline: no CDN scripts, fonts or stylesheets."
   (should-not (string-match-p "\\(src\\|href\\)=\"https?://" docs--html))
   (should-not (string-match-p "@import\\|url(http" docs--html)))
+
+;;; Languages ---------------------------------------------------------------------
+
+(defun docs--lang-cards () (docs--get 'languages))
+
+(ert-deftest docs-language-table-matches-reality ()
+  "The hand-written table cannot drift: executables, commands and menus all exist."
+  (let (bad)
+    (dolist (e ide-docs-language-table)
+      (dolist (r (plist-get (cdr e) :tools))
+        (dolist (x (cdr r))
+          (unless (assoc x ide-mise-required-executables) (push (list (car e) 'exe x) bad))))
+      (dolist (f (append (plist-get (cdr e) :run) (plist-get (cdr e) :debug)))
+        (unless (fboundp f) (push (list (car e) 'fn f) bad)))
+      (when (rassq (car e) ide-lang-menus)
+        (unless (commandp (car e)) (push (list (car e) 'not-command) bad))))
+    (should-not bad)
+    (should (eq (key-binding (kbd "C-c m")) 'ide-lang-menu))))
+
+(ert-deftest docs-language-cards-valid ()
+  (let ((ids (mapcar (lambda (c) (alist-get 'id c)) (docs--lang-cards))) bad)
+    (should (>= (length ids) 14))
+    (should (equal ids (delete-dups (copy-sequence ids))))
+    (dolist (c (docs--lang-cards))
+      (dolist (k '(id name summary modes tools groups))
+        (unless (alist-get k c) (when (memq k '(id name summary)) (push (list (alist-get 'id c) k) bad))))
+      (dolist (tl (alist-get 'tools c))
+        (unless (assoc (alist-get 'exe tl) ide-mise-required-executables) (push (list (alist-get 'id c) (alist-get 'exe tl)) bad)))
+      (dolist (m (alist-get 'modes c)) (unless (stringp m) (push (list (alist-get 'id c) 'mode) bad)))
+      (dolist (g (alist-get 'groups c))
+        (dolist (i (alist-get 'items g))
+          (when-let* ((cmd (alist-get 'cmd i))) (unless (fboundp (intern cmd)) (push cmd bad))))))
+    (should-not bad)))
+
+(ert-deftest docs-language-cards-match-live-menus ()
+  "Every registered language menu has a card and the card's entries equal the transient layout."
+  (let (bad)
+    (dolist (m ide-lang-menus)
+      (let ((card (cl-find (symbol-name (cdr m)) (docs--lang-cards) :key (lambda (c) (alist-get 'menu c)) :test #'equal)))
+        (if (null card) (push (list (cdr m) 'no-card) bad)
+          (let ((doc (mapcar (lambda (g) (cons (alist-get 'title g)
+                                               (mapcar (lambda (i) (list (alist-get 'key i) (alist-get 'cmd i))) (alist-get 'items g))))
+                             (alist-get 'groups card)))
+                (live (mapcar (lambda (g) (cons (or (car g) "Commands")
+                                                (mapcar (lambda (i) (list (nth 0 i) (and (nth 2 i) (symbol-name (nth 2 i))))) (cdr g))))
+                              (ide-docs--layout-groups (get (cdr m) 'transient--layout)))))
+            (unless (equal doc live) (push (list (cdr m) 'layout-differs) bad))
+            (unless (equal (alist-get 'modes card) (mapcar #'symbol-name (car m))) (push (list (cdr m) 'modes) bad))))))
+    (should-not bad)))
+
+(ert-deftest docs-language-run-debug-keys-are-real ()
+  "A card claims S-<f10>/S-<f9> only when its language hooks them."
+  (should (eq (key-binding (kbd "S-<f10>")) 'ide-run-current))
+  (should (eq (key-binding (kbd "S-<f9>")) 'ide-debug-current))
+  (let ((facts (ide-docs--facts-languages)) bad)
+    (dolist (c (docs--lang-cards))
+      (let ((f (cl-find (alist-get 'id c) facts :key (lambda (x) (plist-get x :id)) :test #'equal)))
+        (unless (and f (eq (and (plist-get f :run) t) (and (alist-get 'run c) t))
+                     (eq (and (plist-get f :debug) t) (and (alist-get 'debug c) t)))
+          (push (alist-get 'id c) bad))))
+    (should-not bad)))
 
 (ert-run-tests-batch-and-exit)
 

@@ -442,6 +442,24 @@
     (should (member "IDE_NO_USER=1" env))
     (should (cl-some (lambda (e) (string-prefix-p "DOCS_FILE=" e)) env))))
 
+(ert-deftest docs-upd-language-card-added-and-removed ()
+  "A registered language menu gets a card, keeps hand-written text, and loses it when unregistered."
+  (let* ((data (ide-docs--parse-data (docs-upd--slurp docs-upd--page)))
+         (old (alist-get 'languages data)))
+    (defalias 'zz-lang-dispatch (lambda () "Zz: test menu." (interactive)))
+    (put 'zz-lang-dispatch 'transient--layout (vector 1 'transient-columns nil (list (vector 1 'transient-column '(:description "Run") (list (list 1 'transient-suffix '(:key "r" :description "Go" :command zz-lang-dispatch)))))))
+    (unwind-protect
+        (let* ((ide-lang-menus (cons (cons '(zz-mode) 'zz-lang-dispatch) ide-lang-menus))
+               (edited (vconcat (mapcar (lambda (c) (if (equal (alist-get 'id c) "rust") (ide-docs--put c 'summary "HAND") c)) old)))
+               (r (ide-docs--merge-languages edited (ide-docs--facts-languages)))
+               (card (cl-find "zz-lang" (append (car r) nil) :key (lambda (c) (alist-get 'id c)) :test #'equal)))
+          (should (member "zz-lang" (nth 1 r)))
+          (should card)
+          (should (equal (alist-get 'summary (cl-find "rust" (append (car r) nil) :key (lambda (c) (alist-get 'id c)) :test #'equal)) "HAND"))
+          (let ((r2 (ide-docs--merge-languages (car r) (let ((ide-lang-menus (cdr ide-lang-menus))) (ide-docs--facts-languages)))))
+            (should (member "zz-lang" (nth 2 r2)))))
+      (fmakunbound 'zz-lang-dispatch))))
+
 (ert-deftest docs-upd-agent-task-prompt ()
   (let ((p (ide-docs-agent-task-prompt)))
     (should (string-match-p (regexp-quote docs-upd--root) p))
