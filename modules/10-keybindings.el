@@ -85,26 +85,37 @@
         ((fboundp 'apheleia-format-buffer) (call-interactively #'apheleia-format-buffer))
         (t (indent-region (point-min) (point-max)))))
 
+(defvar ide-run-command-functions nil
+  "Abnormal hook: each function returns the shell command that runs the current
+buffer, or nil.  Language modules add theirs; the first non-nil answer wins.")
+
+(defvar ide-debug-functions nil
+  "Abnormal hook: a function starts a debug session for the current buffer and
+returns non-nil, or returns nil to leave it to the next one.")
+
 (defun ide-run-current ()
   "Run the current file/target in the bottom drawer."
   (interactive)
   (let* ((file (and buffer-file-name (shell-quote-argument buffer-file-name)))
          (default-directory (if-let* ((p (project-current))) (project-root p) default-directory))
-         (cmd (cond
+         (cmd (or
+               (run-hook-with-args-until-success 'ide-run-command-functions)
+               (cond
                ((derived-mode-p 'python-base-mode)
                 (if (string-match-p "test_\\|_test\\.py" (or buffer-file-name ""))
                     (format "python -m pytest %s" file) (format "python %s" file)))
                ((derived-mode-p 'go-ts-mode)
                 (if (string-suffix-p "_test.go" (or buffer-file-name "")) "go test ./..." "go run ."))
                ((derived-mode-p 'bash-ts-mode 'sh-mode) (format "bash %s" file))
-               ((derived-mode-p 'terraform-mode) "terraform validate"))))
+               ((derived-mode-p 'terraform-mode) "terraform validate")))))
     (compile (or cmd (read-shell-command "Run: " compile-command)))))
 
 (defun ide-debug-current ()
   "Start a debug session."
   (interactive)
   (require 'dap-mode)
-  (call-interactively #'dap-debug))
+  (unless (run-hook-with-args-until-success 'ide-debug-functions)
+    (call-interactively #'dap-debug)))
 
 (defun ide-escape ()
   "IDE-style Escape: quit prompts, dismiss popups, focus the editor."

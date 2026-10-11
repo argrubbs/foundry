@@ -39,6 +39,7 @@ terraform-ls                            = "latest"
 rust   = { version = "stable", profile = "minimal", components = "rust-analyzer,clippy,rustfmt,rust-src" }
 "aqua:nextest-rs/nextest/cargo-nextest" = "latest"
 taplo  = "latest"
+"cargo:evcxr_repl" = "latest"
 
 # Web: TypeScript / JavaScript / HTML / CSS
 "npm:typescript"                    = "latest"

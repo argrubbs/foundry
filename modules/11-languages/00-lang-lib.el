@@ -24,11 +24,14 @@
 (declare-function ide-add-drawer-buffer "02-layout")
 (declare-function ide-docs--use-xwidget-p "15-docs")
 (declare-function xwidget-webkit-browse-url "xwidget")
+(declare-function which-key-add-key-based-replacements "which-key")
 (declare-function treesit-node-at "treesit")
 (declare-function treesit-node-parent "treesit")
 (declare-function treesit-node-type "treesit")
 
 ;;;; Running ------------------------------------------------------------------------
+
+(defgroup ide-lang nil "Language support." :group 'tools)
 
 (defconst ide-lang-run-buffer-regexp "\\*run: .*\\*"
   "Buffers made by `ide-lang-run' dock into the bottom drawer.")
@@ -167,6 +170,54 @@ quiet while the buffer has unsaved changes."
                          (add-hook 'flymake-diagnostic-functions fn nil t)
                          (unless (bound-and-true-p flymake-mode) (flymake-mode 1))))))
     fn))
+
+;;;; Language menus and server settings ------------------------------------------------------
+
+(defvar ide-lang-menus nil
+  "Alist of (MODES . COMMAND): the per-language menu `ide-lang-menu' opens (C-c m).")
+
+(defun ide-lang-register-menu (modes command)
+  "Make COMMAND the `ide-lang-menu' for buffers derived from any of MODES."
+  (setq ide-lang-menus (cl-remove command ide-lang-menus :key #'cdr))
+  (push (cons modes command) ide-lang-menus))
+
+;;;###autoload
+(defun ide-lang-menu ()
+  "Open the menu of the language of this buffer: build, test, debug, docs, server."
+  (interactive)
+  (if-let* ((cmd (cl-loop for (modes . c) in ide-lang-menus
+                          when (apply #'derived-mode-p modes) return c)))
+      (call-interactively cmd)
+    (user-error "No language menu for %s" major-mode)))
+
+(defvar eglot-workspace-configuration)
+
+(defun ide-lang-workspace-config (key value)
+  "Set KEY (a keyword such as :rust-analyzer) to VALUE in the default Eglot
+workspace configuration, keeping what other languages put there."
+  ;; Eglot loads lazily; 06-lsp's :config (registered first) sets the base value.
+  (with-eval-after-load 'eglot
+    (setq-default eglot-workspace-configuration
+                  (plist-put (copy-sequence (default-value 'eglot-workspace-configuration))
+                             key value))))
+
+(defun ide-lang-run-then (name command callback &optional dir)
+  "Like `ide-lang-run', and call CALLBACK once COMMAND finishes successfully."
+  (let ((buf (ide-lang-run name command dir)))
+    (with-current-buffer buf
+      (add-hook 'compilation-finish-functions
+                (lambda (b status)
+                  (when (and (eq b buf) (string-prefix-p "finished" status))
+                    (funcall callback)))
+                nil t))
+    buf))
+
+(with-eval-after-load '10-keybindings
+  (defvar ide-keys-mode-map)
+  (define-key ide-keys-mode-map (kbd "C-c m") #'ide-lang-menu))
+
+(with-eval-after-load 'which-key
+  (which-key-add-key-based-replacements "C-c m" "language menu"))
 
 ;;;; Tree-sitter helpers ----------------------------------------------------------------------
 
