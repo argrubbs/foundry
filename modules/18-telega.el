@@ -24,6 +24,11 @@
 (defvar ide-keys-mode-map)
 (defvar telega-prefix-map)
 (defvar telega-directory)
+(defvar telega-database-dir)
+(defvar telega-server-logfile)
+(defvar telega-cache-dir)
+(defvar telega-temp-dir)
+(defvar telega-docker-volumes)
 (defvar telega-use-docker)
 (defvar telega-chat-mode-hook)
 (defvar telega-chat-fill-column)
@@ -51,9 +56,32 @@
   (unless (file-directory-p telega-directory)
     (make-directory telega-directory t))
 
+  ;; Ensure TDLib database, logfile, cache, and temp directory match telega-directory
+  (setq telega-database-dir telega-directory
+        telega-server-logfile (expand-file-name "telega-server.log" telega-directory)
+        telega-cache-dir (expand-file-name "cache" telega-directory)
+        telega-temp-dir (expand-file-name "temp" telega-directory))
+  (with-eval-after-load 'telega-customize
+    (setq telega-database-dir telega-directory
+          telega-server-logfile (expand-file-name "telega-server.log" telega-directory)
+          telega-cache-dir (expand-file-name "cache" telega-directory)
+          telega-temp-dir (expand-file-name "temp" telega-directory)))
+
   ;; 2. Docker integration: Use the official pre-built telega-server container
   ;; To use a locally compiled telega-server instead, set this to nil.
   (setq telega-use-docker t)
+
+  ;; Bind mount ~/.telega into container as well (via telega-docker-volumes)
+  ;; so telega-server can access both paths without permission denied errors.
+  (let ((home-telega (expand-file-name "~/.telega")))
+    (unless (file-directory-p home-telega)
+      (make-directory home-telega t))
+    (setq telega-docker-volumes
+          (delete-dups (cons home-telega
+                             (or (bound-and-true-p telega-docker-volumes)
+                                 '("/usr/share/X11/xkb"))))))
+  (with-eval-after-load 'telega-customize
+    (add-to-list 'telega-docker-volumes (expand-file-name "~/.telega")))
 
   ;; Keybindings on ide-keys-mode-map (available once 10-keybindings loads)
   (with-eval-after-load '10-keybindings

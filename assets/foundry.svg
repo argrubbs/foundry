@@ -1,0 +1,126 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="100%" height="100%">
+  <defs>
+    <!-- Dark anvil shading & highlights -->
+    <linearGradient id="anvilBody" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#4a5263" />
+      <stop offset="100%" stop-color="#2c3340" />
+    </linearGradient>
+    <linearGradient id="anvilTop" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#616b80" />
+      <stop offset="100%" stop-color="#3d4657" />
+    </linearGradient>
+    <linearGradient id="anvilBase" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#384050" />
+      <stop offset="100%" stop-color="#1f242d" />
+    </linearGradient>
+
+    <!-- Molten Emacs 'E' gradient -->
+    <linearGradient id="moltenE" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#fff5a5" />
+      <stop offset="25%" stop-color="#ffb347" />
+      <stop offset="70%" stop-color="#ff5722" />
+      <stop offset="100%" stop-color="#e64a19" />
+    </linearGradient>
+
+    <!-- Hammer wood & steel -->
+    <linearGradient id="handleGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#a47148" />
+      <stop offset="50%" stop-color="#b88355" />
+      <stop offset="100%" stop-color="#7a4f2d" />
+    </linearGradient>
+    <linearGradient id="hammerHead" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#6c778c" />
+      <stop offset="100%" stop-color="#3b4252" />
+    </linearGradient>
+
+    <!-- Soft glow filter for heat/sparks -->
+    <filter id="glow" x="-25%" y="-25%" width="150%" height="150%">
+      <feGaussianBlur stdDeviation="4" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Ambient Shadow -->
+  <ellipse cx="64" cy="116" rx="46" ry="7" fill="#15181f" opacity="0.35" />
+
+  <!-- === ANVIL BASE & BODY === -->
+  <!-- Base Plate -->
+  <path d="M 28 104 L 100 104 C 103 104 105 107 104 110 L 101 114 C 100 116 97 118 94 118 L 34 118 C 31 118 28 116 27 114 L 24 110 C 23 107 25 104 28 104 Z"
+        fill="url(#anvilBase)" stroke="#1a1e26" stroke-width="2.5" stroke-linejoin="round" />
+
+  <!-- Waist & Horn (Body) -->
+  <path d="M 40 104 
+           C 43 90, 47 78, 42 70 
+           L 18 70 
+           C 12 70, 10 65, 14 62
+           C 20 57, 30 54, 38 52
+           L 96 52 
+           C 98 52, 100 54, 100 56
+           L 98 70 
+           L 86 70 
+           C 81 78, 85 90, 88 104 
+           Z"
+        fill="url(#anvilBody)" stroke="#1a1e26" stroke-width="2.5" stroke-linejoin="round" />
+
+  <!-- Anvil Face / Top Plate -->
+  <path d="M 36 50 
+           L 96 50 
+           C 99 50, 102 52, 101 55 
+           L 98 62 
+           C 97 64, 95 65, 93 65 
+           L 36 65 
+           C 28 65, 19 62, 15 59 
+           C 17 56, 26 50, 36 50 Z"
+        fill="url(#anvilTop)" stroke="#1a1e26" stroke-width="2.5" stroke-linejoin="round" />
+
+  <!-- Top Face Rim Highlight -->
+  <path d="M 37 52 L 95 52" stroke="#7e8ba3" stroke-width="1.5" stroke-linecap="round" />
+
+  <!-- === FORGED 'E' (THE FOUNDRY GLOW) === -->
+  <!-- Back Glow / Radiance -->
+  <circle cx="62" cy="46" r="18" fill="#ff7043" opacity="0.25" filter="url(#glow)" />
+
+  <!-- Glowing Emacs 'E' Symbol -->
+  <g filter="url(#glow)">
+    <path d="M 48 34 
+             C 48 29, 53 26, 60 26 
+             L 74 26 
+             C 77 26, 79 28, 79 31 
+             C 79 34, 77 36, 74 36 
+             L 58 36 
+             L 58 43 
+             L 70 43 
+             C 73 43, 75 45, 75 48 
+             C 75 51, 73 53, 70 53 
+             L 58 53 
+             L 58 60 
+             L 75 60 
+             C 78 60, 80 62, 80 65 
+             C 80 68, 78 70, 75 70 
+             L 60 70 
+             C 53 70, 48 67, 48 62 
+             Z"
+          fill="url(#moltenE)" stroke="#ffe082" stroke-width="1.2" stroke-linejoin="round" />
+  </g>
+
+  <!-- Sparks / Embers around the Anvil -->
+  <circle cx="38" cy="38" r="1.75" fill="#ffd54f" opacity="0.9" />
+  <circle cx="43" cy="28" r="1.25" fill="#ff7043" opacity="0.8" />
+  <circle cx="85" cy="32" r="1.5" fill="#ffe082" opacity="0.9" />
+  <circle cx="88" cy="42" r="1.25" fill="#ff5722" opacity="0.85" />
+  <polygon points="84,23 85.5,25.5 88,27 85.5,28.5 84,31 82.5,28.5 80,27 82.5,25.5" fill="#fff9c4" opacity="0.8" />
+
+  <!-- === SMITH'S HAMMER (RESTING) === -->
+  <g transform="rotate(18 100 80)">
+    <!-- Wooden Handle -->
+    <rect x="97" y="56" width="6" height="42" rx="3" fill="url(#handleGrad)" stroke="#1a1e26" stroke-width="2" />
+    <line x1="99" y1="58" x2="99" y2="94" stroke="#d79b6d" stroke-width="1" stroke-linecap="round" opacity="0.6" />
+
+    <!-- Hammer Head -->
+    <rect x="91" y="94" width="18" height="15" rx="3" fill="url(#hammerHead)" stroke="#1a1e26" stroke-width="2" stroke-linejoin="round" />
+    <path d="M 93 96 L 107 96" stroke="#8d99ae" stroke-width="1.2" stroke-linecap="round" />
+  </g>
+</svg>
