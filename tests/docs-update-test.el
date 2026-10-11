@@ -487,6 +487,23 @@
   (should (eq (key-binding (kbd "C-c h s")) 'ide-docs-search))
   (should (eq (key-binding (kbd "C-c h c")) 'ide-docs-for-command)))
 
+(ert-deftest docs-upd-for-command-routing ()
+  (let* ((data (ide-docs--parse-data (ide-docs--slurp ide-docs-file)))
+         (lang-cmds (ide-docs--lang-commands data))
+         shown-url)
+    (should (> (length lang-cmds) 0))
+    (cl-letf (((symbol-function 'ide-docs--show) (lambda (u) (setq shown-url u))))
+      ;; Language-specific command routes to #languages with ?q=
+      (let ((cmd (car lang-cmds)))
+        (ide-docs-for-command cmd)
+        (should (string-match-p (format "\\?q=%s#languages\\'" (regexp-quote cmd)) shown-url)))
+      ;; Global keybinding command routes to #keys with ?q=
+      (ide-docs-for-command 'ide-toggle-project-tree)
+      (should (string-match-p "\\?q=ide-toggle-project-tree#keys\\'" shown-url))
+      ;; Unknown command falls back to search in #keys
+      (ide-docs-for-command "nonexistent-command-xyz")
+      (should (string-match-p "\\?q=nonexistent-command-xyz#keys\\'" shown-url)))))
+
 ;;;; Real validator and gptel adapter ----------------------------------------------------------
 
 (defun docs-upd--validate-real (file)

@@ -115,9 +115,10 @@ CALLBACK is called once with (REPLY-STRING ERROR); REPLY-STRING is nil on failur
 
 (defun ide-docs--url (&optional section query)
   "Return the file URL for the page, at SECTION and filtered by QUERY."
-  (concat "file://" (url-hexify-string (expand-file-name ide-docs-file) url-path-allowed-chars)
-          (when (and query (not (string-empty-p query))) (concat "?q=" (url-hexify-string query)))
-          (when (and section (not (string-empty-p section))) (concat "#" section))))
+  (let ((query (if (and query (symbolp query)) (symbol-name query) query)))
+    (concat "file://" (url-hexify-string (expand-file-name ide-docs-file) url-path-allowed-chars)
+            (when (and query (not (string-empty-p query))) (concat "?q=" (url-hexify-string query)))
+            (when (and section (not (string-empty-p section))) (concat "#" section)))))
 
 (defun ide-docs--use-xwidget-p ()
   (pcase ide-docs-viewer
@@ -152,7 +153,7 @@ CALLBACK is called once with (REPLY-STRING ERROR); REPLY-STRING is nil on failur
          (name (if (symbolp command) (symbol-name command) command)))
     (if (or (seq-some (lambda (k) (equal (alist-get 'cmd k) name)) (alist-get 'keybinds data))
             (not (member name (ide-docs--lang-commands data))))
-        (ide-docs-search command)
+        (ide-docs-search name)
       (ide-docs--show (ide-docs--url "languages" name)))))
 
 (defun ide-docs--lang-commands (data)

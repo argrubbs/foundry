@@ -183,9 +183,41 @@
 
 (ert-deftest devops-dockerfile-bake-targets ()
   (let ((hcl (ide-devops-test--tmp "docker-bake.hcl" "group \"default\" {\n  targets = [\"app\"]\n}\ntarget \"app\" {\n}\ntarget \"web\" {\n}\n"))
-        (json (ide-devops-test--tmp "docker-bake.json" "{\"target\":{\"a\":{},\"b\":{}}}")))
+        (json (ide-devops-test--tmp "docker-bake.json" "{\"target\":{\"a\":{},\"b\":{}}}"))
+        (compose (ide-devops-test--tmp "compose.yaml" "services:\n  web:\n    image: nginx\n  db:\n    image: postgres\nnetworks:\n  net:\n")))
     (should (equal (ide-dockerfile--bake-targets hcl) '("app" "web")))
-    (should (equal (ide-dockerfile--bake-targets json) '("a" "b")))))
+    (should (equal (ide-dockerfile--bake-targets json) '("a" "b")))
+    (should (equal (ide-dockerfile--bake-targets compose) '("web" "db")))))
+
+(ert-deftest devops-dockerfile-hadolint-wiki-links ()
+  (let (url diag)
+    (cl-letf (((symbol-function 'ide-lang-browse) (lambda (u) (setq url u)))
+              ((symbol-function 'flymake-diagnostics) (lambda (&rest _) diag)))
+      (with-temp-buffer
+        (insert "FROM ubuntu\n")
+        ;; No diagnostic on empty line -> base wiki
+        (ide-dockerfile-hadolint-wiki)
+        (should (equal url "https://github.com/hadolint/hadolint/wiki"))
+        ;; With DL diagnostic
+        (setq diag (list (flymake-make-diagnostic (current-buffer) 1 5 :warning "hadolint: DL3006: tag it")))
+        (ide-dockerfile-hadolint-wiki)
+        (should (equal url "https://github.com/hadolint/hadolint/wiki/DL3006"))
+        ;; With SC diagnostic
+        (setq diag (list (flymake-make-diagnostic (current-buffer) 1 5 :warning "hadolint: SC2086: quote it")))
+        (ide-dockerfile-hadolint-wiki)
+        (should (equal url "https://www.shellcheck.net/wiki/SC2086"))))))
+
+(ert-deftest devops-terminal-creates-drawer-ghostel-buffer ()
+  (skip-unless (fboundp 'ghostel))
+  (let ((buf (ide-devops--terminal "my-service" "echo test" default-directory)))
+    (unwind-protect
+        (progn
+          (should (buffer-live-p buf))
+          (should (string-prefix-p "*ghostel: my-service" (buffer-name buf)))
+          (with-current-buffer buf
+            (should (derived-mode-p 'ghostel-mode))
+            (should-not ghostel-kill-buffer-on-exit)))
+      (when (buffer-live-p buf) (kill-buffer buf)))))
 
 (ert-deftest devops-hadolint-parser-maps-levels ()
   (with-temp-buffer
@@ -231,6 +263,24 @@
     (with-current-buffer (find-file-noselect good)
       (unwind-protect (should (equal (sort (ide-compose--services) #'string<) '("db" "web")))
         (kill-buffer)))))
+
+(ert-deftest devops-compose-interactive-actions ()
+  (let (runs terms)
+    (cl-letf (((symbol-function 'ide-compose--run) (lambda (name &rest args) (push (cons name args) runs)))
+              ((symbol-function 'ide-devops--terminal) (lambda (name cmd dir) (push (list name cmd dir) terms)))
+              ((symbol-function 'ide-compose--services) (lambda () '("web" "db"))))
+      (with-temp-buffer
+        (setq buffer-file-name "/p/compose.yaml")
+        (ide-compose-mode 1)
+        (ide-compose-up-foreground)
+        (should (equal (car runs) '("up" "up" "--build")))
+        (ide-compose-restart)
+        (should (equal (car runs) '("restart" "restart")))
+        (ide-compose-logs "web")
+        (should (equal (car runs) '("logs" "logs" "-f" "--tail" "200" "web")))
+        (ide-compose-exec "web")
+        (should (equal (caar terms) "compose exec web"))
+        (should (string-match-p "exec web sh -c" (cadar terms)))))))
 
 ;;;; Terraform --------------------------------------------------------------------------
 

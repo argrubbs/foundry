@@ -33,6 +33,7 @@
 (defvar apheleia-mode-alist)
 (defvar ghostel-shell)
 (defvar ghostel-buffer-name)
+(defvar ghostel-kill-buffer-on-exit)
 (defvar imenu-create-index-function)
 (declare-function ghostel "ghostel")
 (declare-function docker "docker")
@@ -105,8 +106,12 @@ Uses ghostel when installed, otherwise a comint compilation in the drawer."
   (let ((default-directory (file-name-as-directory dir)))
     (if (require 'ghostel nil t)
         (let ((ghostel-shell (list "sh" "-c" command))
-              (ghostel-buffer-name (format "*%s*" name)))
-          (ghostel))
+              (ghostel-buffer-name (format "*ghostel: %s*" name)))
+          (let ((buf (ghostel t)))
+            (when (buffer-live-p buf)
+              (with-current-buffer buf
+                (setq-local ghostel-kill-buffer-on-exit nil)))
+            buf))
       (ide-lang-run name command dir t))))
 
 (defun ide-devops--trivy-cache ()
@@ -583,13 +588,23 @@ With RUN, then run the image interactively in a terminal."
   (ide-devops--local-config ide-dockerfile--bake-files))
 
 (defun ide-dockerfile--bake-targets (file)
-  "Target names declared in bake FILE (HCL `target \"x\"' blocks or JSON keys)."
+  "Target names declared in bake FILE (HCL `target \"x\"' blocks, JSON keys, or compose services)."
   (with-temp-buffer
     (insert-file-contents file)
     (cond
      ((string-suffix-p ".json" file)
       (mapcar #'symbol-name (map-keys (alist-get 'target (json-parse-buffer :object-type 'alist) nil))))
-     ((string-match-p "\\.ya?ml\\'" file) nil)
+     ((string-match-p "\\.ya?ml\\'" file)
+      (goto-char (point-min))
+      (when (re-search-forward "^[ \t]*services:[ \t]*$" nil t)
+        (let ((end (save-excursion
+                     (if (re-search-forward "^[A-Za-z0-9_-]+:[ \t]*$" nil t)
+                         (match-beginning 0)
+                       (point-max))))
+              res)
+          (while (re-search-forward "^  \\([A-Za-z0-9_.-]+\\):[ \t]*$" end t)
+            (push (match-string 1) res))
+          (nreverse res))))
      (t (let (res)
           (goto-char (point-min))
           (while (re-search-forward "^[ \t]*target[ \t]+\"\\([^\"]+\\)\"" nil t) (push (match-string 1) res))
@@ -626,7 +641,8 @@ With RUN, then run the image interactively in a terminal."
 (defun ide-dockerfile-hadolint-wiki ()
   "Open the wiki page of the hadolint rule at point in the in-Emacs browser."
   (interactive)
-  (let ((code (cl-loop for d in (flymake-diagnostics (point))
+  (let ((code (cl-loop for d in (or (flymake-diagnostics (point))
+                                    (flymake-diagnostics (line-beginning-position) (line-end-position)))
                        when (string-match "\\b\\(DL[0-9]+\\|SC[0-9]+\\)\\b" (flymake-diagnostic-text d))
                        return (match-string 1 (flymake-diagnostic-text d)))))
     (ide-lang-browse (cond ((null code) "https://github.com/hadolint/hadolint/wiki")

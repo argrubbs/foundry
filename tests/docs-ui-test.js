@@ -136,6 +136,37 @@ JSDOM.fromFile(file, {
   $$('#tchips .chip').find(c => c.textContent === 'Cloud').click();
   ok($$('#tooltable tr').length === DATA.tools.filter(t => t.cat === 'Cloud').length, 'cloud tools: ' + $$('#tooltable tr').length);
 
+  // languages cards, filter, expand, and deep links
+  const nLangs = (DATA.languages || []).length;
+  ok(nLangs >= 8, `at least 8 languages in data, got ${nLangs}`);
+  ok($$('.lcard').length === nLangs, `renders ${nLangs} language cards`);
+
+  // language filter
+  const lsearch = $('#langsearch');
+  lsearch.value = 'rust'; lsearch.dispatchEvent(new window.Event('input'));
+  const visibleRust = $$('.lcard:not([hidden])').length;
+  ok(visibleRust >= 1 && visibleRust < nLangs, `filter "rust" narrows cards (${visibleRust})`);
+  lsearch.value = 'zzzz-nothing'; lsearch.dispatchEvent(new window.Event('input'));
+  ok($('#lgrid .empty') && $$('.lcard:not([hidden])').length === 0, 'empty state for no language match');
+  lsearch.value = ''; lsearch.dispatchEvent(new window.Event('input'));
+  ok($$('.lcard:not([hidden])').length === nLangs, 'clearing filter restores all language cards');
+
+  // expand / collapse all
+  const toggleBtn = $('#langtoggle');
+  ok(toggleBtn.textContent.includes('Expand all'), 'initially Expand all');
+  toggleBtn.click();
+  ok($$('.lcard details').every(d => d.open), 'toggle opens all language details');
+  ok(toggleBtn.textContent.includes('Collapse all'), 'toggle button says Collapse all');
+  toggleBtn.click();
+  ok($$('.lcard details').every(d => !d.open), 'toggle closes all language details');
+  ok(toggleBtn.textContent.includes('Expand all'), 'toggle button says Expand all again');
+
+  // hashchange deep link to language card
+  window.location.hash = '#lang-rust';
+  window.dispatchEvent(new window.HashChangeEvent('hashchange'));
+  const rustCard = $('#lang-rust');
+  ok(rustCard && rustCard.querySelector('details').open, '#lang-rust deep link opens its details');
+
   // menu chips come from the data
   const linked = id => DATA.menus.some(m => m.groups.some(g => g.items.some(i => i.menu === id)));
   const tops = DATA.menus.filter(m => m.top !== undefined ? m.top : !linked(m.id));
@@ -167,6 +198,15 @@ JSDOM.fromFile(file, {
   ok(d2.querySelector('#kbsearch').value === 'azdo-pr-vote', 'q param fills the search box');
   const rows2 = d2.querySelectorAll('.kbrow').length;
   ok(rows2 >= 1 && rows2 < nKb, 'q param filters the rows (' + rows2 + ')');
+
+  // ?q= deep link to #languages pre-fills the language filter
+  const domLang = await JSDOM.fromFile(file, { url: 'file://' + path.resolve(file) + '?q=rust#languages', runScripts: 'dangerously', pretendToBeVisual: true, virtualConsole: vc,
+    beforeParse(w) { w.IntersectionObserver = class { observe() {} }; w.HTMLElement.prototype.scrollIntoView = () => {}; } });
+  await tick();
+  const dLang = domLang.window.document;
+  ok(dLang.querySelector('#langsearch').value === 'rust', 'q param fills the language search box');
+  const langRows = dLang.querySelectorAll('.lcard:not([hidden])').length;
+  ok(langRows >= 1 && langRows < nLangs, `q param filters language cards (${langRows})`);
 
   console.log(`jsdom UI test: ${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
