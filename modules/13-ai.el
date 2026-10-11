@@ -78,12 +78,14 @@
 (declare-function gptel-make-gemini "gptel-gemini")
 (declare-function ide-run-with-timeout "00-core")
 (declare-function gptel-request "gptel")
+(declare-function gptel-abort "gptel-request")
 (declare-function gptel-add-file "gptel-context")
 (declare-function gptel "gptel")
 (declare-function gptel-mode "gptel")
 (defvar gptel-backend)
 (defvar gptel-model)
 (defvar gptel-default-mode)
+(defvar gptel-mode-map)
 
 (use-package gptel
   :commands (gptel gptel-send gptel-menu gptel-rewrite gptel-add gptel-add-file)
@@ -413,6 +415,7 @@ WHOLE-BUFFER non-nil means the entire buffer is about to be sent."
     (user-error "%s looks private; not adding it to a hosted model's context" (file-name-nondirectory file))))
 
 (with-eval-after-load 'gptel
+  (define-key gptel-mode-map (kbd "C-c C-k") #'gptel-abort)
   (advice-add 'gptel-add :before #'ide-ai--guard-gptel-context)
   (advice-add 'gptel-add-file :before #'ide-ai--guard-gptel-file))
 
