@@ -81,12 +81,13 @@ Only literal values are read from it (strings, numbers, quoted symbols)."
 
 (add-to-list 'auto-mode-alist '("\\.sql\\'" . sql-mode))
 
-(use-package sql-indent
-  :init (setq sqlind-basic-offset 2)
-  :hook (sql-mode . sqlind-minor-mode))
+(unless (featurep 'lang-sql)
+  (use-package sql-indent
+    :init (setq sqlind-basic-offset 2)
+    :hook (sql-mode . sqlind-minor-mode))
 
-(use-package sqlup-mode
-  :hook ((sql-mode sql-interactive-mode) . sqlup-mode))
+  (use-package sqlup-mode
+    :hook ((sql-mode sql-interactive-mode) . sqlup-mode)))
 
 (with-eval-after-load 'eglot
   (add-to-list 'eglot-server-programs '(sql-mode . ("sqls"))))

@@ -98,14 +98,23 @@
         (when (string-suffix-p ".el" f) (setq files (append files (list f))))))
     files))
 
+(defun ide--module-feature (file)
+  "Return the feature symbol provided by module FILE."
+  (let ((base (file-name-base file)))
+    (cond
+     ((string= base "00-lang-lib") 'lang-lib)
+     ((string= base "org-roam") 'ide-org-roam)
+     (t (intern base)))))
+
 (dolist (file (ide--module-files))
   (condition-case err
-      (progn
-        (let ((t0 (float-time)))
-          (load (file-name-sans-extension file) nil 'nomessage)
-          (when (getenv "IDE_PROFILE")
-            (message "[profile] load %-22s %.0f ms" (file-name-nondirectory file)
-                     (* 1000 (- (float-time) t0)))))
+      (let ((feat (ide--module-feature file)))
+        (unless (featurep feat)
+          (let ((t0 (float-time)))
+            (load (file-name-sans-extension file) nil 'nomessage)
+            (when (getenv "IDE_PROFILE")
+              (message "[profile] load %-22s %.0f ms" (file-name-nondirectory file)
+                       (* 1000 (- (float-time) t0))))))
         nil)
     (error (display-warning 'ide (format "Module %s failed: %s"
                                          (file-name-nondirectory file) (error-message-string err))

@@ -227,11 +227,19 @@ Checks for exact `id', exact `uuid'/`guid', `TABLE_id', or any column ending in 
 (defun ide-sql-grid--find-identifier-in-node (node)
   "Find the first identifier child in NODE."
   (when node
-    (if (string-match-p "\\`\\(?:identifier\\|relation\\|table_reference\\|object_reference\\)\\'"
-                        (treesit-node-type node))
-        (ide-sql-grid--clean-identifier (treesit-node-text node))
-      (cl-some #'ide-sql-grid--find-identifier-in-node
-               (treesit-node-children node)))))
+    (let ((type (treesit-node-type node)))
+      (cond
+       ((member type '("object_reference" "identifier"))
+        (ide-sql-grid--clean-identifier (treesit-node-text node)))
+       ((equal type "relation")
+        (or (cl-some (lambda (c)
+                       (when (member (treesit-node-type c) '("object_reference" "identifier"))
+                         (ide-sql-grid--clean-identifier (treesit-node-text c))))
+                     (treesit-node-children node))
+            (ide-sql-grid--clean-identifier (treesit-node-text node))))
+       (t
+        (cl-some #'ide-sql-grid--find-identifier-in-node
+                 (treesit-node-children node)))))))
 
 (defun ide-sql-grid--extract-table-treesit (sql)
   "Use `treesit' from `modules/05-treesitter.el' to extract target table name from SQL."
@@ -242,12 +250,25 @@ Checks for exact `id', exact `uuid'/`guid', `TABLE_id', or any column ending in 
         (insert sql)
         (let* ((parser (treesit-parser-create 'sql))
                (root (treesit-parser-root-node parser))
-               (query "((from_clause (relation (identifier) @table)))
-                       ((from_clause (table_reference (identifier) @table)))
-                       ((from_clause (identifier) @table))")
+               (query "([
+                 (from (relation (object_reference) @table))
+                 (from (relation (identifier) @table))
+                 (from (relation) @rel)
+                 (from_clause (relation (identifier) @table))
+                 (from_clause (table_reference (identifier) @table))
+                 (from_clause (identifier) @table)
+               ])")
                (captures (ignore-errors (treesit-query-capture root query))))
           (if captures
-              (ide-sql-grid--clean-identifier (treesit-node-text (cdr (car captures))))
+              (let ((node (cdr (car captures))))
+                (ide-sql-grid--clean-identifier
+                 (if (equal (treesit-node-type node) "relation")
+                     (or (cl-some (lambda (c)
+                                    (when (member (treesit-node-type c) '("object_reference" "identifier"))
+                                      (treesit-node-text c)))
+                                  (treesit-node-children node))
+                         (treesit-node-text node))
+                   (treesit-node-text node))))
             (ide-sql-grid--treesit-find-table root)))))))
 
 (defun ide-sql-grid--extract-table-heuristic (sql)
