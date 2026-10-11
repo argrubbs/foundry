@@ -45,6 +45,39 @@ Ways out, gentlest first: toggle one effect; `C-c j m`; `./launch.sh --plain` (o
 which gives stock doom-one with nothing extra; `git switch main` if you keep this on its own branch.
 `transparency` is off by default (needs a compositor).
 
+## Languages
+
+Every language is meant to be worked in without leaving Emacs: server, formatting, linting,
+running, tests, debugging, a REPL and docs where the language has them. **`C-c m` opens the menu for
+the language of the buffer**, `S-<f10>` runs it and `S-<f9>` debugs it. The code is in
+`modules/11-languages/` (`00-lang-lib.el` holds the shared pieces); each has tests in `tests/lang-*-test.el`.
+
+| Language | Server | Format / lint | Also |
+|---|---|---|---|
+| Rust | rust-analyzer | rustfmt, clippy | cargo menu, test at point, related tests, macro expansion, codelldb debugging, docs.rs, evcxr REPL |
+| TypeScript / JavaScript / HTML / CSS | `tsc --lsp` (TS 7), html/css servers | Prettier, ESLint | package scripts (npm/pnpm/yarn/bun), vitest and jest at point, Node debugging (also through tsx and vitest), Node REPL, Emmet, live preview in the in-Emacs browser |
+| SQL | sqls | sql-formatter, sqlfluff | connections (`.sql-connections.eld`, never committed), run statement/region/file, EXPLAIN, schema browsing, CSV export; SQLite, PostgreSQL, MariaDB/MySQL and SQL Server |
+| Lua | lua-language-server | stylua | REPL, busted at point, `.luarc.json` presets |
+| PowerShell | PowerShell Editor Services | PSScriptAnalyzer | Pester at point, debugger, REPL, `Get-Help` in Emacs |
+| Helm / Kubernetes / CI YAML | helm-ls, yaml-language-server | yamllint, actionlint, kubeconform | helm lint/template/install, `kubectl explain` for the field at point, apply/diff dry runs, kube-linter, trivy |
+| TOML | taplo | taplo | sort keys, schemas |
+| Markdown | marksman | markdownlint, Prettier | live pandoc preview, Markdown/Org conversion, TOC, run a fenced block, link checker |
+| Bash / Dockerfile / Compose / Terraform | bash-language-server, docker-langserver, terraform-ls | shfmt, shellcheck, hadolint, tflint | build/run/scan images, compose, trivy |
+
+Notes:
+
+- Extra linters are Flymake backends next to the language server. Emacs 31 refuses to run a backend
+  in files it does not trust, so linters that execute project code (ESLint, markdownlint,
+  sqlfluff) wait until you run `M-x ide-lang-trust-project` for that project; the plain
+  analysers (shellcheck, hadolint, yamllint, ...) run anywhere.
+- Tools come from `mise.toml` (`M-x ide-mise-setup`, `M-x ide-mise-doctor`). Cargo, rustup and the Go,
+  uv, npm and pip caches are kept inside this directory too (`ide-contain-tool-state`).
+- Debuggers are downloaded on demand: `M-x ide-rust-install-debugger`, `M-x ide-web-install-debugger`,
+  `M-x ide-powershell-install-pses`.
+- Not included yet: Nix, and Lua debugging.
+- Known gaps: sqls cannot load columns on SQL Server (a bug in sqls), and `kubectl` apply and diff need
+  a reachable cluster. `kind` is installed for a throwaway local one.
+
 ## Ansible
 
 YAML that looks like Ansible (a playbook, role, `group_vars`/`host_vars`, or a file with

@@ -232,7 +232,7 @@ footer{border-top:1px solid var(--line);margin-top:4rem;padding-top:1.4rem;color
     <div class="card"><h3>Tool windows, not split chaos</h3><p>Compilation output, terminals, diagnostics, container logs and cloud consoles dock into a single bottom drawer (<code>popper</code> + <code>display-buffer-alist</code>). The project tree sits left, the structure outline right. <kbd>Esc</kbd> always returns focus to your code.</p></div>
     <div class="card"><h3>Zero dotfile pollution</h3><p>Everything — packages, caches, auto-saves, databases, even the installed CLIs and Azure login state — lives inside <code>~/.config/emacs-foundry/</code>. Your <code>~/.emacs.d</code> is never touched.</p></div>
     <div class="card"><h3>No browser required for DevOps</h3><p>Pull requests, review threads, votes, completion, Boards work items and pipeline status are driven through the Azure DevOps REST API and surfaced as Magit sections and transient menus.</p></div>
-    <div class="card"><h3>Portable tooling</h3><p>One <code>mise.toml</code> declares 24 CLIs and language servers. <code>M-x ide-mise-setup</code> (or <code>make tools</code>) bootstraps a checksum-verified <code>mise</code> and installs them into the sandbox on any Linux or macOS machine.</p></div>
+    <div class="card"><h3>Portable tooling</h3><p>One <code>mise.toml</code> declares 54 CLIs and language servers. <code>M-x ide-mise-setup</code> (or <code>make tools</code>) bootstraps a checksum-verified <code>mise</code> and installs them into the sandbox on any Linux or macOS machine.</p></div>
   </div>
 </section>
 
@@ -438,19 +438,19 @@ make doctor</pre></div>
    "l": "to first frame"
   },
   {
-   "v": "80",
+   "v": "81",
    "l": "documented keybindings"
   },
   {
-   "v": "24",
+   "v": "54",
    "l": "CLIs and servers via mise"
   },
   {
-   "v": "29",
+   "v": "38",
    "l": "Emacs Lisp modules"
   },
   {
-   "v": "199",
+   "v": "346",
    "l": "automated tests"
   }
  ],
@@ -560,6 +560,14 @@ make doctor</pre></div>
    "cat": "Tool windows",
    "ctx": "global",
    "equiv": "Esc"
+  },
+  {
+   "keys": "C-c m",
+   "cmd": "ide-lang-menu",
+   "title": "Lang Menu",
+   "desc": "Open the menu of the language of this buffer: build, test, debug, docs, server",
+   "cat": "Tool windows",
+   "ctx": "global"
   },
   {
    "keys": "M-.",
@@ -2083,7 +2091,246 @@ make doctor</pre></div>
    "ico": "…",
    "title": "Other commands",
    "body": "Further commands: update the docs without an agent, or hand the task to gptel-agent.",
-   "cmds": ["ide-docs-update-facts-only", "ide-docs-update-with-agent", "ide-juice-apply"]
+   "cmds": [
+    "ide-docs-update-facts-only",
+    "ide-docs-update-with-agent",
+    "ide-juice-apply",
+    "ide-bash-disable-check",
+    "ide-bash-dispatch",
+    "ide-bash-help-at-point",
+    "ide-bash-make-executable",
+    "ide-bash-run-with-args",
+    "ide-bash-shellcheck-file",
+    "ide-bash-shellcheck-wiki",
+    "ide-bash-syntax-check",
+    "ide-bash-trace",
+    "ide-compose-build",
+    "ide-compose-config",
+    "ide-compose-dispatch",
+    "ide-compose-down",
+    "ide-compose-exec",
+    "ide-compose-logs",
+    "ide-compose-ps",
+    "ide-compose-pull",
+    "ide-compose-restart",
+    "ide-compose-up",
+    "ide-compose-up-foreground",
+    "ide-compose-validate",
+    "ide-dockerfile-bake",
+    "ide-dockerfile-bake-print",
+    "ide-dockerfile-build",
+    "ide-dockerfile-build-and-run",
+    "ide-dockerfile-build-stage",
+    "ide-dockerfile-build-with-args",
+    "ide-dockerfile-dispatch",
+    "ide-dockerfile-hadolint-wiki",
+    "ide-dockerfile-run-image",
+    "ide-dockerfile-trivy-config",
+    "ide-dockerfile-trivy-image",
+    "ide-helm-dependency-update",
+    "ide-helm-goto-values",
+    "ide-helm-install-dry-run",
+    "ide-helm-lint",
+    "ide-helm-open-chart-yaml",
+    "ide-helm-open-values",
+    "ide-helm-package",
+    "ide-helm-select-values",
+    "ide-helm-template",
+    "ide-helm-template-and-validate",
+    "ide-helm-uninstall",
+    "ide-helm-upgrade-install",
+    "ide-helm-values-usages",
+    "ide-k8s-actionlint-project",
+    "ide-k8s-apply-dry-run-client",
+    "ide-k8s-apply-dry-run-server",
+    "ide-k8s-diff",
+    "ide-k8s-dispatch",
+    "ide-k8s-docs",
+    "ide-k8s-explain",
+    "ide-k8s-insert-schema-comment",
+    "ide-k8s-kube-linter",
+    "ide-k8s-kubel",
+    "ide-k8s-kustomize",
+    "ide-k8s-set-context",
+    "ide-k8s-set-namespace",
+    "ide-k8s-trivy",
+    "ide-lang-trust-project",
+    "ide-lua-check-project",
+    "ide-lua-dispatch",
+    "ide-lua-manual",
+    "ide-lua-repl",
+    "ide-lua-run-file",
+    "ide-lua-send-buffer",
+    "ide-lua-send-line",
+    "ide-lua-send-region",
+    "ide-lua-test-all",
+    "ide-lua-test-at-point",
+    "ide-lua-test-file",
+    "ide-lua-write-luarc",
+    "ide-lua-write-stylua-config",
+    "ide-markdown-align-tables",
+    "ide-markdown-check-links",
+    "ide-markdown-copy-as-org",
+    "ide-markdown-export",
+    "ide-markdown-file-to-org",
+    "ide-markdown-insert-code-block",
+    "ide-markdown-lint-fix",
+    "ide-markdown-lint-fix-project",
+    "ide-markdown-lint-project",
+    "ide-markdown-lsp-toc",
+    "ide-markdown-menu",
+    "ide-markdown-open-rendered",
+    "ide-markdown-org-menu",
+    "ide-markdown-paste-image",
+    "ide-markdown-paste-org",
+    "ide-markdown-paste-rich",
+    "ide-markdown-preview",
+    "ide-markdown-preview-cycle-auto",
+    "ide-markdown-preview-sync",
+    "ide-markdown-preview-toggle-follow",
+    "ide-markdown-region-to-org",
+    "ide-markdown-run-block",
+    "ide-markdown-spell",
+    "ide-markdown-start-server",
+    "ide-markdown-to-org",
+    "ide-markdown-toc",
+    "ide-markdown-toggle-format-on-save",
+    "ide-markdown-toggle-task",
+    "ide-markdown-word-count",
+    "ide-org-copy-as-markdown",
+    "ide-org-export-markdown",
+    "ide-org-file-to-markdown",
+    "ide-org-paste-markdown",
+    "ide-org-region-to-markdown",
+    "ide-org-to-markdown",
+    "ide-powershell-analyze",
+    "ide-powershell-browse-commands",
+    "ide-powershell-debug",
+    "ide-powershell-dispatch",
+    "ide-powershell-help",
+    "ide-powershell-help-online",
+    "ide-powershell-install-pester",
+    "ide-powershell-install-pses",
+    "ide-powershell-repl",
+    "ide-powershell-restart-server",
+    "ide-powershell-run",
+    "ide-powershell-send-buffer",
+    "ide-powershell-send-defun",
+    "ide-powershell-send-line",
+    "ide-powershell-send-region",
+    "ide-powershell-show-log",
+    "ide-powershell-test-all",
+    "ide-powershell-test-at-point",
+    "ide-powershell-test-file",
+    "ide-rust-add",
+    "ide-rust-bench",
+    "ide-rust-build",
+    "ide-rust-check",
+    "ide-rust-clean",
+    "ide-rust-clippy",
+    "ide-rust-clippy-fix",
+    "ide-rust-debug",
+    "ide-rust-dispatch",
+    "ide-rust-doc",
+    "ide-rust-docs-at-point",
+    "ide-rust-expand-macro",
+    "ide-rust-fmt",
+    "ide-rust-install-debugger",
+    "ide-rust-open-cargo-toml",
+    "ide-rust-parent-module",
+    "ide-rust-related-tests",
+    "ide-rust-reload-workspace",
+    "ide-rust-remove",
+    "ide-rust-repl",
+    "ide-rust-repl-send-region",
+    "ide-rust-run",
+    "ide-rust-run-at-point",
+    "ide-rust-runnables",
+    "ide-rust-test-all",
+    "ide-rust-test-at-point",
+    "ide-rust-test-file",
+    "ide-rust-tree",
+    "ide-rust-update",
+    "ide-sql-add-connection",
+    "ide-sql-connect",
+    "ide-sql-copy-csv",
+    "ide-sql-describe-table",
+    "ide-sql-dispatch",
+    "ide-sql-docs",
+    "ide-sql-edit-connections",
+    "ide-sql-explain",
+    "ide-sql-explain-analyze",
+    "ide-sql-export-csv",
+    "ide-sql-fix",
+    "ide-sql-format",
+    "ide-sql-history",
+    "ide-sql-insert-template",
+    "ide-sql-parse",
+    "ide-sql-repl",
+    "ide-sql-restart-server",
+    "ide-sql-result-rerun",
+    "ide-sql-result-toggle-csv",
+    "ide-sql-rule-docs",
+    "ide-sql-run-buffer",
+    "ide-sql-run-dwim",
+    "ide-sql-run-file",
+    "ide-sql-run-migrations",
+    "ide-sql-run-paragraph",
+    "ide-sql-run-region",
+    "ide-sql-run-statement",
+    "ide-sql-tables",
+    "ide-terraform-console",
+    "ide-terraform-dispatch",
+    "ide-terraform-docs-at-point",
+    "ide-terraform-fmt-check",
+    "ide-terraform-providers",
+    "ide-terraform-tflint",
+    "ide-terraform-tflint-init",
+    "ide-terraform-trivy-config",
+    "ide-terraform-validate",
+    "ide-toml-dispatch",
+    "ide-toml-insert-schema",
+    "ide-toml-sort-keys",
+    "ide-toml-sort-tables",
+    "ide-toml-validate",
+    "ide-web-add",
+    "ide-web-audit",
+    "ide-web-debug-file",
+    "ide-web-debug-script",
+    "ide-web-debug-test",
+    "ide-web-dev-server",
+    "ide-web-dev-server-open",
+    "ide-web-dispatch",
+    "ide-web-docs-at-point",
+    "ide-web-docs-npm",
+    "ide-web-docs-typescript",
+    "ide-web-eslint-fix",
+    "ide-web-fix-all",
+    "ide-web-format",
+    "ide-web-install",
+    "ide-web-install-debugger",
+    "ide-web-open-package-json",
+    "ide-web-organize-imports",
+    "ide-web-outdated",
+    "ide-web-preview",
+    "ide-web-preview-live",
+    "ide-web-preview-live-stop",
+    "ide-web-remove",
+    "ide-web-remove-unused-imports",
+    "ide-web-repl",
+    "ide-web-repl-send-buffer",
+    "ide-web-repl-send-region",
+    "ide-web-run-script",
+    "ide-web-serve",
+    "ide-web-stop-server",
+    "ide-web-test-all",
+    "ide-web-test-at-point",
+    "ide-web-test-file",
+    "ide-web-test-watch",
+    "ide-web-toggle-test",
+    "ide-web-typecheck",
+    "ide-web-typecheck-watch"
+   ]
   }
  ],
  "modules": [
@@ -2144,6 +2391,10 @@ make doctor</pre></div>
    "desc": "The IDE keymap and the services menu."
   },
   {
+   "file": "modules/11-languages/00-lang-lib.el",
+   "desc": "Shared helpers for the language modules"
+  },
+  {
    "file": "modules/11-languages/lang-python.el",
    "desc": "Pyright, ruff, pytest, envrc."
   },
@@ -2158,6 +2409,38 @@ make doctor</pre></div>
   {
    "file": "modules/11-languages/lang-ansible.el",
    "desc": "Ansible mode, docs, language server; enables lisp/ansible-intelligence."
+  },
+  {
+   "file": "modules/11-languages/lang-devops.el",
+   "desc": "TOML, shell, Dockerfile/Compose, Terraform linting"
+  },
+  {
+   "file": "modules/11-languages/lang-k8s.el",
+   "desc": "Helm, Kubernetes manifests, CI pipelines: YAML tooling"
+  },
+  {
+   "file": "modules/11-languages/lang-lua.el",
+   "desc": "Lua: lua-language-server, stylua, REPL, busted, manual"
+  },
+  {
+   "file": "modules/11-languages/lang-markdown.el",
+   "desc": "Markdown: marksman, markdownlint, prettier, pandoc preview, Org interop"
+  },
+  {
+   "file": "modules/11-languages/lang-powershell.el",
+   "desc": "PowerShell: PSES, Pester, REPL, help, debugger"
+  },
+  {
+   "file": "modules/11-languages/lang-rust.el",
+   "desc": "Rust: rust-analyzer, cargo, tests, debugger, docs"
+  },
+  {
+   "file": "modules/11-languages/lang-sql.el",
+   "desc": "SQL: connections, run and explain, schema, sqls, sqlfluff, formatter"
+  },
+  {
+   "file": "modules/11-languages/lang-web.el",
+   "desc": "TypeScript, JavaScript, JSX/TSX, HTML, CSS"
   },
   {
    "file": "modules/12-devops/devops-docker.el",
@@ -2356,6 +2639,186 @@ make doctor</pre></div>
    "desc": "Go debugger (delve)",
    "cat": "Language servers",
    "spec": "go:github.com/go-delve/delve/cmd/dlv"
+  },
+  {
+   "exe": "cargo",
+   "desc": "cargo",
+   "cat": "Other",
+   "spec": "rust"
+  },
+  {
+   "exe": "rust-analyzer",
+   "desc": "rust-analyzer",
+   "cat": "Other",
+   "spec": "rust"
+  },
+  {
+   "exe": "cargo-nextest",
+   "desc": "cargo-nextest",
+   "cat": "Other",
+   "spec": "aqua:nextest-rs/nextest/cargo-nextest"
+  },
+  {
+   "exe": "taplo",
+   "desc": "taplo",
+   "cat": "Other",
+   "spec": "taplo"
+  },
+  {
+   "exe": "tsc",
+   "desc": "tsc",
+   "cat": "Other",
+   "spec": "npm:typescript"
+  },
+  {
+   "exe": "tsx",
+   "desc": "tsx",
+   "cat": "Other",
+   "spec": "npm:tsx"
+  },
+  {
+   "exe": "prettier",
+   "desc": "prettier",
+   "cat": "Other",
+   "spec": "npm:prettier"
+  },
+  {
+   "exe": "eslint",
+   "desc": "eslint",
+   "cat": "Other",
+   "spec": "npm:eslint"
+  },
+  {
+   "exe": "vscode-html-language-server",
+   "desc": "vscode-html-language-server",
+   "cat": "Other",
+   "spec": "npm:vscode-langservers-extracted"
+  },
+  {
+   "exe": "vscode-css-language-server",
+   "desc": "vscode-css-language-server",
+   "cat": "Other",
+   "spec": "npm:vscode-langservers-extracted"
+  },
+  {
+   "exe": "sqls",
+   "desc": "sqls",
+   "cat": "Other",
+   "spec": "go:github.com/sqls-server/sqls"
+  },
+  {
+   "exe": "sqlfluff",
+   "desc": "sqlfluff",
+   "cat": "Other",
+   "spec": "pypi:sqlfluff"
+  },
+  {
+   "exe": "sql-formatter",
+   "desc": "sql-formatter",
+   "cat": "Other",
+   "spec": "npm:sql-formatter"
+  },
+  {
+   "exe": "sqlcmd",
+   "desc": "sqlcmd",
+   "cat": "Other",
+   "spec": "github:microsoft/go-sqlcmd"
+  },
+  {
+   "exe": "lua-language-server",
+   "desc": "lua-language-server",
+   "cat": "Other",
+   "spec": "lua-language-server"
+  },
+  {
+   "exe": "stylua",
+   "desc": "stylua",
+   "cat": "Other",
+   "spec": "stylua"
+  },
+  {
+   "exe": "pwsh",
+   "desc": "pwsh",
+   "cat": "Other",
+   "spec": "powershell"
+  },
+  {
+   "exe": "helm_ls",
+   "desc": "helm_ls",
+   "cat": "Other",
+   "spec": "helm-ls"
+  },
+  {
+   "exe": "kubeconform",
+   "desc": "kubeconform",
+   "cat": "Other",
+   "spec": "kubeconform"
+  },
+  {
+   "exe": "kube-linter",
+   "desc": "kube-linter",
+   "cat": "Other",
+   "spec": "kube-linter"
+  },
+  {
+   "exe": "kind",
+   "desc": "kind",
+   "cat": "Other",
+   "spec": "kind"
+  },
+  {
+   "exe": "trivy",
+   "desc": "trivy",
+   "cat": "Other",
+   "spec": "trivy"
+  },
+  {
+   "exe": "yamllint",
+   "desc": "yamllint",
+   "cat": "Other",
+   "spec": "pypi:yamllint"
+  },
+  {
+   "exe": "actionlint",
+   "desc": "actionlint",
+   "cat": "Other",
+   "spec": "actionlint"
+  },
+  {
+   "exe": "shellcheck",
+   "desc": "shellcheck",
+   "cat": "Other",
+   "spec": "shellcheck"
+  },
+  {
+   "exe": "shfmt",
+   "desc": "shfmt",
+   "cat": "Other",
+   "spec": "shfmt"
+  },
+  {
+   "exe": "hadolint",
+   "desc": "hadolint",
+   "cat": "Other",
+   "spec": "hadolint"
+  },
+  {
+   "exe": "tflint",
+   "desc": "tflint",
+   "cat": "Other",
+   "spec": "tflint"
+  },
+  {
+   "exe": "marksman",
+   "desc": "marksman",
+   "cat": "Other",
+   "spec": "marksman"
+  },
+  {
+   "exe": "markdownlint-cli2",
+   "desc": "markdownlint-cli2",
+   "cat": "Other",
+   "spec": "npm:markdownlint-cli2"
   }
  ],
  "make": [
