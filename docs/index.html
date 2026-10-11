@@ -266,17 +266,20 @@ footer{border-top:1px solid var(--line);margin-top:4rem;padding-top:1.4rem;color
   <div class="grid g2">
     <div>
       <div class="codebox"><button class="btn copy" type="button" data-copy-target="qs1">Copy</button>
-<pre id="qs1"><span class="cm"># 1. launch beside your normal Emacs</span>
+<pre id="qs1"><span class="cm"># 1. one-line install (curl | bash)</span>
+curl -fsSL https://raw.githubusercontent.com/argrubbs/foundry/main/quickstart.sh | bash
+
+<span class="cm"># 2. or launch beside your normal Emacs</span>
 cd ~/.config/emacs-foundry
 ./launch.sh
 
-<span class="cm"># 2. optional: add it to your application menu</span>
+<span class="cm"># 3. optional: add it to your application menu</span>
 make desktop
 
-<span class="cm"># 3. install the CLIs and language servers (≈2 GB)</span>
+<span class="cm"># 4. optional: install all 54 CLIs and language servers (≈2 GB)</span>
 make tools
 
-<span class="cm"># 4. see what is available</span>
+<span class="cm"># 5. see what is available</span>
 make doctor</pre></div>
     </div>
     <div>

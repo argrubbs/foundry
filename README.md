@@ -4,7 +4,20 @@ A sandboxed, full-featured Emacs IDE: tool windows, Magit with Azure DevOps, Kub
 Terraform, AI and Org, installed entirely under one directory.
 
 
-Run: `./launch.sh` (or `emacs --init-directory ~/.config/emacs-foundry`).
+## Quick start
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/argrubbs/foundry/main/quickstart.sh | bash
+```
+
+Or clone manually:
+
+```bash
+git clone https://github.com/argrubbs/foundry.git ~/.config/emacs-foundry
+cd ~/.config/emacs-foundry
+./launch.sh
+```
+
 Nothing is written outside this directory (`var/`, `.cache/`, `elpaca/`).
 
 ## Make it yours (`user/`)
