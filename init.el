@@ -87,6 +87,7 @@
 ;;;; Module loader
 (defvar ide-modules-directory (expand-file-name "modules/" user-emacs-directory))
 (add-to-list 'load-path ide-modules-directory)
+(add-to-list 'load-path (expand-file-name "11-languages" ide-modules-directory))
 
 (defun ide--module-files ()
   "Return module files in load order."

@@ -484,11 +484,11 @@ make doctor</pre></div>
    "l": "CLIs and servers via mise"
   },
   {
-   "v": "39",
+   "v": "40",
    "l": "Emacs Lisp modules"
   },
   {
-   "v": "355",
+   "v": "370",
    "l": "automated tests"
   }
  ],
@@ -2368,7 +2368,15 @@ make doctor</pre></div>
     "ide-web-toggle-test",
     "ide-web-typecheck",
     "ide-web-typecheck-watch",
-    "ide-compose-down-volumes"
+    "ide-compose-down-volumes",
+    "ide-sql-grid-commit",
+    "ide-sql-grid-edit-cell",
+    "ide-sql-grid-mouse-edit-cell",
+    "ide-sql-grid-next-column",
+    "ide-sql-grid-next-row",
+    "ide-sql-grid-previous-column",
+    "ide-sql-grid-previous-row",
+    "ide-sql-grid-rollback"
    ]
   }
  ],
@@ -2432,6 +2440,10 @@ make doctor</pre></div>
   {
    "file": "modules/11-languages/00-lang-lib.el",
    "desc": "Shared helpers for the language modules"
+  },
+  {
+   "file": "modules/11-languages/ide-sql-grid.el",
+   "desc": "Editable data grids for SQL"
   },
   {
    "file": "modules/11-languages/lang-python.el",

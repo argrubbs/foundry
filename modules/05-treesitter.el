@@ -31,7 +31,9 @@
                          "tree-sitter-markdown-inline/src")
         ;; Jinja regions inside Ansible YAML (used by lisp/ansible-intelligence).
         (jinja      "https://github.com/cathaysia/tree-sitter-jinja"
-                    "v0.13.0" "tree-sitter-jinja/src")))
+                    "v0.13.0" "tree-sitter-jinja/src")
+        (sql        "https://github.com/DerekStride/tree-sitter-sql"
+                    "gh-pages")))
 
 (setq treesit-font-lock-level 4)
 
