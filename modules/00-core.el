@@ -70,8 +70,8 @@
   (add-hook hook (lambda () (setq-local tab-width 2))))
 
 (require 'ide-align nil t)
-(when (fboundp 'ide-align-mode)
-  (ide-align-mode 1))
+(when (fboundp 'global-ide-align-mode)
+  (global-ide-align-mode 1))
 
 (setq ring-bell-function #'ignore
       use-short-answers t

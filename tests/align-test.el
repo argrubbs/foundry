@@ -295,5 +295,64 @@
       (should (equal (buffer-string) "resource \"aws_s3_bucket\" \"b\" {\n  \n}"))
       (should (= (current-column) 2)))))
 
+(ert-deftest ide-align-test-minibuffer-no-hijack ()
+  "Test that minibuffers are never hijacked by ide-align."
+  (with-temp-buffer
+    (cl-letf (((symbol-function 'minibufferp) (lambda (&rest _) t)))
+      (ide-align--turn-on)
+      (should-not ide-align-mode)))
+  ;; Even if smart-return is invoked, it delegates to local RET (e.g. vertico-exit)
+  (with-temp-buffer
+    (let ((called nil))
+      (cl-letf (((symbol-function 'minibufferp) (lambda (&rest _) t))
+                ((symbol-function 'vertico-exit) (lambda () (interactive) (setq called t))))
+        (use-local-map (let ((map (make-sparse-keymap)))
+                         (define-key map (kbd "RET") #'vertico-exit)
+                         map))
+        (ide-align-smart-return)
+        (should called)))))
+
+(ert-deftest ide-align-test-dired-no-hijack ()
+  "Test that Dired buffers are never hijacked by ide-align and RET runs dired-find-file."
+  (with-temp-buffer
+    (dired-mode)
+    (ide-align--turn-on)
+    (should-not ide-align-mode)
+    (should (eq (key-binding (kbd "RET")) #'dired-find-file))
+    (let ((called nil))
+      (cl-letf (((symbol-function 'dired-find-file) (lambda () (interactive) (setq called t))))
+        (ide-align-smart-return)
+        (should called)))))
+
+(ert-deftest ide-align-test-special-modes-no-hijack ()
+  "Test that special modes (magit, comint, eshell, help) are never enabled."
+  (with-temp-buffer
+    (special-mode)
+    (ide-align--turn-on)
+    (should-not ide-align-mode))
+  (with-temp-buffer
+    (comint-mode)
+    (ide-align--turn-on)
+    (should-not ide-align-mode))
+  (with-temp-buffer
+    (eshell-mode)
+    (ide-align--turn-on)
+    (should-not ide-align-mode)))
+
+(ert-deftest ide-align-test-prog-mode-auto-enabled ()
+  "Test that ide-align-mode turns on automatically in programming and config modes."
+  (with-temp-buffer
+    (emacs-lisp-mode)
+    (ide-align--turn-on)
+    (should ide-align-mode))
+  (with-temp-buffer
+    (conf-mode)
+    (ide-align--turn-on)
+    (should ide-align-mode))
+  (with-temp-buffer
+    (terraform-mode)
+    (ide-align--turn-on)
+    (should ide-align-mode)))
+
 (provide 'align-test)
 ;;; align-test.el ends here

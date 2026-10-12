@@ -478,7 +478,7 @@ Covers Eglot LSP completions, Corfu, Cape, and schemas across all languages."
 If on a snippet field, advances to the next field or commits to `$0`
 inside the block body rather than inserting a literal newline."
   (interactive)
-  (if (bound-and-true-p yas--active-field-overlay)
+  (if (and (bound-and-true-p ide-align-mode) (bound-and-true-p yas--active-field-overlay))
       (let* ((field (overlay-get yas--active-field-overlay 'yas--field))
              (snippet (and field (yas--field-snippet field))))
         (if (or (null snippet)
@@ -488,39 +488,59 @@ inside the block body rather than inserting a literal newline."
           (condition-case nil
               (yas-next-field)
             (error (yas-exit-all-snippets)))))
-    (ide-align-smart-return)))
+    (let ((cmd (key-binding (kbd "RET"))))
+      (if (and cmd (not (memq cmd '(ide-align-yas-ret ide-align-smart-return))))
+          (call-interactively cmd)
+        (ide-align-smart-return)))))
 
 (defun ide-align--fix-snippet-exit-point (&rest _)
   "Ensure point lands inside the block body when a snippet exits."
-  (when (derived-mode-p 'terraform-mode 'hcl-mode)
+  (when (and (bound-and-true-p ide-align-mode)
+             (derived-mode-p 'terraform-mode 'hcl-mode))
     (ide-align--handle-terraform-block-completion)))
 
 (defun ide-align--yas-exit-snippet-advice (orig-fun &rest args)
   "Advise `yas-exit-snippet' to ensure point is properly placed inside blocks."
   (let ((res (apply orig-fun args)))
-    (ignore-errors (ide-align--fix-snippet-exit-point))
+    (when (bound-and-true-p ide-align-mode)
+      (ignore-errors (ide-align--fix-snippet-exit-point)))
     res))
+
+(with-eval-after-load 'yasnippet
+  (advice-add 'yas-exit-snippet :around #'ide-align--yas-exit-snippet-advice))
 
 ;;;; Smart Return Command -----------------------------------------------------
 
 ;;;###autoload
 (defun ide-align-smart-return ()
-  "Smart IDE Return: splits paired delimiters, indents YAML blocks, or indents."
+  "Smart IDE Return: splits paired delimiters, indents YAML blocks, or passes through."
   (interactive)
   (cond
-   ;; 1. Minibuffer or read-only: default newline
-   ((minibufferp) (exit-minibuffer))
-   (buffer-read-only (newline))
+   ;; 1. Minibuffer safeguard: pass through to the minibuffer's own RET command!
+   ((minibufferp)
+    (let ((ide-align-mode nil))
+      (let ((cmd (key-binding (kbd "RET"))))
+        (if (and cmd (not (eq cmd #'ide-align-smart-return)))
+            (if (commandp cmd) (call-interactively cmd) (funcall cmd))
+          (exit-minibuffer)))))
 
-   ;; 2. Active Yasnippet field: use smart snippet commit
+   ;; 2. Read-only or special modes (Dired, Magit, comint, etc.): pass through!
+   ((or buffer-read-only
+        (derived-mode-p 'special-mode 'dired-mode 'magit-mode 'comint-mode 'eshell-mode))
+    (let ((ide-align-mode nil))
+      (let ((cmd (key-binding (kbd "RET"))))
+        (when (and cmd (not (eq cmd #'ide-align-smart-return)))
+          (if (commandp cmd) (call-interactively cmd) (funcall cmd))))))
+
+   ;; 3. Active Yasnippet field: use smart snippet commit
    ((bound-and-true-p yas--active-field-overlay)
     (ide-align-yas-ret))
 
-   ;; 3. Point is between matching delimiters: split delimiters onto 3 lines
+   ;; 4. Point is between matching delimiters: split delimiters onto 3 lines
    ((ide-align--between-pair-p)
     (ide-align--split-delimiters))
 
-   ;; 4. YAML / Ansible: line ends with a bare mapping key colon
+   ;; 5. YAML / Ansible: line ends with a bare mapping key colon
    ((and (derived-mode-p 'yaml-ts-mode 'yaml-mode)
          (ide-align-yaml--line-ends-with-key-p))
     (let ((child-indent (+ (current-indentation)
@@ -529,23 +549,27 @@ inside the block body rather than inserting a literal newline."
       (newline)
       (indent-line-to child-indent)))
 
-   ;; 5. YAML / Ansible: general smart newline
+   ;; 6. YAML / Ansible: general smart newline
    ((derived-mode-p 'yaml-ts-mode 'yaml-mode)
     (let ((ci (current-indentation)))
       (newline)
       (indent-line-to ci)))
 
-   ;; 6. Markdown: preserve markdown-enter-key for list continuation
+   ;; 7. Markdown: preserve markdown-enter-key for list continuation
    ((and (derived-mode-p 'markdown-mode) (fboundp 'markdown-enter-key))
     (call-interactively #'markdown-enter-key))
 
-   ;; 7. Org mode: preserve org-return
+   ;; 8. Org mode: preserve org-return
    ((and (derived-mode-p 'org-mode) (fboundp 'org-return))
     (call-interactively #'org-return))
 
-   ;; 8. Default for programming modes: newline-and-indent
+   ;; 9. Default for programming modes: pass through to mode-specific RET or newline-and-indent
    (t
-    (newline-and-indent))))
+    (let ((ide-align-mode nil))
+      (let ((cmd (key-binding (kbd "RET"))))
+        (if (and cmd (not (eq cmd #'ide-align-smart-return)))
+            (if (commandp cmd) (call-interactively cmd) (funcall cmd))
+          (newline-and-indent)))))))
 
 ;;;; Minor Modes & Hooks ------------------------------------------------------
 
@@ -589,10 +613,30 @@ inside the block body rather than inserting a literal newline."
 
 ;;;###autoload
 (define-minor-mode ide-align-mode
-  "Global minor mode providing IDE parity for auto-alignment and delimiter splitting."
-  :global t
+  "Buffer-local minor mode providing IDE parity for auto-alignment and delimiter splitting."
+  :lighter nil
   :keymap ide-align-mode-map
   (if ide-align-mode
+      (progn
+        (when (derived-mode-p 'yaml-ts-mode 'yaml-mode)
+          (ide-align--setup-yaml))
+        (when (derived-mode-p 'terraform-mode 'hcl-mode)
+          (ide-align--setup-terraform)))
+    (when (derived-mode-p 'yaml-ts-mode 'yaml-mode)
+      (ide-align-yaml-mode -1))))
+
+(defun ide-align--turn-on ()
+  "Turn on `ide-align-mode' in programming and config buffers.
+Never turn on in minibuffers, Dired, Magit, or special modes."
+  (unless (or (minibufferp)
+              (derived-mode-p 'special-mode 'dired-mode 'magit-mode 'comint-mode 'eshell-mode))
+    (when (derived-mode-p 'prog-mode 'conf-mode 'yaml-ts-mode 'yaml-mode 'terraform-mode 'hcl-mode)
+      (ide-align-mode 1))))
+
+;;;###autoload
+(define-globalized-minor-mode global-ide-align-mode ide-align-mode ide-align--turn-on
+  :group 'ide-align
+  (if global-ide-align-mode
       (progn
         ;; YAML hooks
         (add-hook 'yaml-ts-mode-hook #'ide-align--setup-yaml)
@@ -625,6 +669,8 @@ inside the block body rather than inserting a literal newline."
     (with-eval-after-load 'yasnippet
       (advice-remove 'yas-exit-snippet #'ide-align--yas-exit-snippet-advice)
       (remove-hook 'yas-after-exit-snippet-hook #'ide-align--fix-snippet-exit-point))))
+
+(defalias 'ide-align-global-mode #'global-ide-align-mode)
 
 (provide 'ide-align)
 ;;; ide-align.el ends here
