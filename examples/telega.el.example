@@ -1,0 +1,57 @@
+;;; telega.el --- Telegram client integration -*- lexical-binding: t; -*-
+
+;;; Commentary:
+;; Telegram client configuration for Foundry.
+;; Documentation: https://zevlg.github.io/telega.el
+;;
+;; Telega runs on top of Telegram's TDLib. By default, this configuration uses
+;; the official pre-built Docker container (`zevlg/telega-server:latest`),
+;; avoiding the lengthy compilation of TDLib and its C++ dependencies.
+;;
+;; Keybindings:
+;;   C-c t     `telega' (Open root chats overview)
+;;   C-c T     `telega-prefix-map' (Navigation, chat folders, calls, etc.)
+;;
+;; Install into user/ with: M-x ide-user-install-example RET telega RET
+
+;;; Code:
+
+(defvar ide-var-dir)
+(declare-function ide-add-drawer-buffer "02-layout")
+
+(when (fboundp 'ide-add-drawer-buffer)
+  (ide-add-drawer-buffer "\\*telega-server\\*")
+  (ide-add-drawer-buffer "\\*Telegram Notification Messages\\*"))
+
+(use-package telega
+  :commands (telega telega-server-version)
+  :bind (("C-c t" . telega)
+         ("C-c T" . telega-prefix-map)
+         ("C-c x t" . telega)
+         ("C-c x T" . telega-prefix-map))
+  :init
+  (setq telega-directory (expand-file-name "telega/" ide-var-dir)
+        telega-database-dir telega-directory
+        telega-server-logfile (expand-file-name "telega-server.log" telega-directory)
+        telega-cache-dir (expand-file-name "cache" telega-directory)
+        telega-temp-dir (expand-file-name "temp" telega-directory)
+        telega-use-docker t)
+  :config
+  (add-hook 'telega-chat-mode-hook #'telega-completions-setup-capf)
+  (when (require 'telega-transient nil t)
+    (when (fboundp 'telega-transient-keymaps-mode)
+      (telega-transient-keymaps-mode 1)))
+  (when (require 'telega-mnz nil t)
+    (when (fboundp 'global-telega-mnz-mode)
+      (global-telega-mnz-mode 1)))
+  (require 'ol-telega nil t)
+  (require 'telega-dired-dwim nil t)
+  (when (fboundp 'telega-notifications-mode)
+    (telega-notifications-mode 1))
+  (setq telega-chat-fill-column 80
+        telega-emoji-use-images t
+        telega-completing-read-function #'completing-read
+        telega-symbol-folder "📁"))
+
+(provide 'user-telega)
+;;; telega.el ends here

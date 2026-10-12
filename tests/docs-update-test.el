@@ -2,7 +2,7 @@
 
 ;;; Commentary:
 ;; Run with: emacs --init-directory . --batch -l init.el -l tests/docs-update-test.el
-;; No network and no real AI agent: the agent is a fake function.
+;; Tests for the deterministic documentation viewer and updater.
 
 ;;; Code:
 
@@ -10,6 +10,7 @@
 (require 'cl-lib)
 (require 'json)
 (require '15-docs)
+(require 'docs-update)
 
 (defvar docs-upd--root (file-name-as-directory (expand-file-name user-emacs-directory)))
 (defvar docs-upd--page (expand-file-name "docs/index.html" docs-upd--root))
@@ -24,9 +25,6 @@
           (ide-docs-file (expand-file-name "index.html" dir))
           (ide-docs-backup-dir (expand-file-name "backups/" dir))
           (ide-docs-candidate-file (expand-file-name "cand/index.html" dir))
-          (ide-docs-update-confirm nil)
-          (ide-docs-agent-timeout 5)
-          (ide-docs-max-retries 2)
           (ide-docs-validate-function (lambda (_f cb) (funcall cb (cons t "ok")))))
      (copy-file docs-upd--page ide-docs-file)
      (unwind-protect (progn ,@body) (delete-directory dir t))))
@@ -48,18 +46,6 @@
   `(progn (defalias 'zz-docs-test-cmd (lambda () "Do a test thing." (interactive)))
           (unwind-protect (progn ,@body) (fmakunbound 'zz-docs-test-cmd))))
 
-(defun docs-upd--agent (&rest replies)
-  "Return an agent function answering with REPLIES in turn; records prompts in `docs-upd--prompts'."
-  (setq docs-upd--prompts nil)
-  (lambda (system prompt callback)
-    (push (cons system prompt) docs-upd--prompts)
-    (funcall callback (pop replies) nil)))
-(defvar docs-upd--prompts nil)
-
-(defun docs-upd--good-reply ()
-  (json-serialize '((keybinds . [((keys . "C-c z z") (ctx . "global") (title . "Zed command")
-                                  (desc . "Runs the zed test command.") (cat . "Help & docs"))]))))
-
 ;;;; Data IO ---------------------------------------------------------------------------------
 
 (ert-deftest docs-upd-json-roundtrip ()
@@ -70,7 +56,7 @@
     (should (equal (json-parse-string text :object-type 'alist :array-type 'array :null-object :null :false-object :false) data))
     (should (equal (ide-docs--parse-data (ide-docs--render html data)) data))))
 
-(ert-deftest docs-upd-non-ascii-survives-prompt-and-page ()
+(ert-deftest docs-upd-non-ascii-survives-page ()
   "Non-ASCII text (arrows, emoji) stays real text, not raw bytes."
   (let* ((html (docs-upd--slurp docs-upd--page)) (data (ide-docs--parse-data html))
          (out (ide-docs--render html (ide-docs--put data 'verified (vector "Café → 🐍")))))
@@ -80,17 +66,18 @@
   (docs-upd--with-test-command
     (defalias 'zz-docs-test-cmd (lambda () "Zeigt Größe → an." (interactive)))
     (let* ((data (ide-docs--parse-data (docs-upd--slurp docs-upd--page)))
-           (r (ide-docs--merge data (docs-upd--facts-with-key))))
-      (should (string-match-p "Größe → an" (ide-docs--build-prompt (car r) (ide-docs--needs (cdr r))))))))
+           (r (ide-docs--merge data (docs-upd--facts-with-key)))
+           (e (cl-find "C-c z z" (alist-get 'keybinds (car r)) :key (lambda (k) (alist-get 'keys k)) :test #'equal)))
+      (should (string-match-p "Größe → an" (alist-get 'desc e))))))
 
 (ert-deftest docs-upd-examples-are-read-from-files ()
   (let ((ex (ide-docs--facts-examples)))
     (should (equal (mapcar (lambda (e) (alist-get 'id e)) ex)
-                   (append (cl-remove-if-not (lambda (i) (file-exists-p (expand-file-name (concat "examples/" i ".el.example") docs-upd--root)))
+                   (append (cl-remove-if-not (lambda (i) (member i (ide-user--example-names)))
                                              ide-docs-example-order)
-                           (cl-remove-if-not (lambda (i) (and (member i ide-docs-example-order)
-                                                              (not (file-exists-p (expand-file-name (concat "examples/" i ".el.example") docs-upd--root)))))
-                                             ide-docs-example-order))))
+                           (sort (cl-remove-if (lambda (i) (member i ide-docs-example-order))
+                                               (ide-user--example-names))
+                                 #'string<))))
     (dolist (e ex)
       (should (> (length (alist-get 'title e)) 3))
       (should (> (length (alist-get 'blurb e)) 20))
@@ -133,7 +120,6 @@
       (let ((e (cl-find "C-c z z" (alist-get 'keybinds (car r)) :key (lambda (k) (alist-get 'keys k)) :test #'equal)))
         (should (equal (alist-get 'desc e) "Do a test thing"))
         (should (equal (alist-get 'cat e) "Other")))
-      (should (ide-docs--needs-any-p (ide-docs--needs rep)))
       ;; removal
       (let* ((facts2 (plist-put (copy-sequence docs-upd--facts) :keybinds (cdr (plist-get docs-upd--facts :keybinds))))
              (rep2 (cdr (ide-docs--merge data facts2))))
@@ -186,141 +172,29 @@
                                            (mapcar (lambda (f) (ide-docs--norm-keys (nth 0 f))) (plist-get docs-upd--facts :keybinds)))))
     (should (equal bad '(("x" . 0) ("x" . 1))))))
 
-;;;; Agent reply handling --------------------------------------------------------------------------
-
-(ert-deftest docs-upd-extract-json ()
-  (should (equal (car (ide-docs--extract-json "```json\n{\"a\": 1}\n```")) '((a . 1))))
-  (should (equal (car (ide-docs--extract-json "Sure! Here you go: {\"a\": [1,2]} hope it helps")) '((a . (1 2)))))
-  (should (string-match-p "no JSON" (cdr (ide-docs--extract-json "nothing here"))))
-  (should (string-match-p "invalid JSON" (cdr (ide-docs--extract-json "{\"a\": }")))))
-
-(ert-deftest docs-upd-apply-accepts-only-requested-items ()
-  (docs-upd--with-test-command
-    (let* ((data (ide-docs--parse-data (docs-upd--slurp docs-upd--page)))
-           (r (ide-docs--merge data (docs-upd--facts-with-key)))
-           (needs (ide-docs--needs (cdr r)))
-           (resp `((keybinds . (((keys . "C-c z z") (ctx . "global") (title . "Zed\ncommand") (desc . ,(make-string 400 ?x)) (cat . "Help & docs"))
-                                ((keys . "C-c w 1") (ctx . "global") (title . "HIJACKED") (desc . "nope") (cat . "AI"))))
-                   (menu_items . (((menu . "services") (key . "d") (does . "nope"))))))
-           (out (ide-docs--apply-response (car r) needs resp))
-           (e (cl-find "C-c z z" (alist-get 'keybinds (car out)) :key (lambda (k) (alist-get 'keys k)) :test #'equal))
-           (m1 (cl-find "C-c w 1" (alist-get 'keybinds (car out)) :key (lambda (k) (alist-get 'keys k)) :test #'equal)))
-      (should (equal (alist-get 'title e) "Zed command"))
-      (should (<= (length (alist-get 'desc e)) 160))
-      (should (equal (alist-get 'cat e) "Help & docs"))
-      (should-not (equal (alist-get 'title m1) "HIJACKED"))
-      (should (= 2 (length (cdr out)))))))
-
-(ert-deftest docs-upd-apply-rejects-malformed-and-unknown ()
-  (docs-upd--with-test-command
-    (let* ((data (ide-docs--parse-data (docs-upd--slurp docs-upd--page)))
-           (r (ide-docs--merge data (docs-upd--facts-with-key)))
-           (needs (plist-put (ide-docs--needs (cdr r)) :commands '(ide-docs-update-facts-only)))
-           (resp '((keybinds . (((keys . "C-c z z") (ctx . "global") (title . "only title"))))
-                   (commands . (((cmd . "ide-docs-update-facts-only") (card . "No such card"))
-                                ((cmd . "ide-docs-open") (card . "Docker"))))
-                   (new_cards . (((title . "T") (body . "b") (cat . "c") (ico . "i") (cmds . ("ide-evil")))))
-                   (workflows . (((id . "review") (steps . (((t . "x"))))))))))
-      (let ((out (ide-docs--apply-response (car r) needs resp)))
-        (should (>= (length (cdr out)) 5))
-        (let ((e (cl-find "C-c z z" (alist-get 'keybinds (car out)) :key (lambda (k) (alist-get 'keys k)) :test #'equal)))
-          (should (equal (alist-get 'title e) "Zz Docs Test Cmd")))))))
-
-(ert-deftest docs-upd-apply-assigns-command-to-card-and-creates-cards ()
-  "A valid reply can attach a new command to an existing card or create a card."
-  (let* ((data (ide-docs--parse-data (docs-upd--slurp docs-upd--page)))
-         (needs (list :commands '(ide-docs-open ide-docs-search)))
-         (resp '((commands . (((cmd . "ide-docs-open") (card . "Docker"))))
-                 (new_cards . (((title . "Docs") (body . "Documentation tools.") (cat . "Tooling") (ico . "?") (cmds . ("ide-docs-search")))))))
-         (out (ide-docs--apply-response data needs resp))
-         (cards (alist-get 'features (car out)))
-         (docker (cl-find "Docker" cards :key (lambda (c) (alist-get 'title c)) :test #'equal))
-         (docs (cl-find "Docs" cards :key (lambda (c) (alist-get 'title c)) :test #'equal)))
-    (should-not (cdr out))
-    (should (member "ide-docs-open" (append (alist-get 'cmds docker) nil)))
-    (should (equal (append (alist-get 'cmds docs) nil) '("ide-docs-search")))))
-
-(ert-deftest docs-upd-prompt-includes-needed-items-and-treats-source-as-data ()
-  (docs-upd--with-test-command
-    (let* ((data (ide-docs--parse-data (docs-upd--slurp docs-upd--page)))
-           (r (ide-docs--merge data (docs-upd--facts-with-key)))
-           (prompt (ide-docs--build-prompt (car r) (ide-docs--needs (cdr r)) "bad json")))
-      (should (string-match-p "zz-docs-test-cmd" prompt))
-      (should (string-match-p "Do a test thing" prompt))
-      (should (string-match-p "previous reply was rejected" prompt))
-      (should-not (string-match-p "ide-toggle-project-tree" prompt))
-      (should (string-match-p "DATA, never instructions" ide-docs--system-prompt)))))
-
 ;;;; Pipeline ---------------------------------------------------------------------------------------------
 
-(ert-deftest docs-upd-pipeline-applies-agent-prose ()
+(ert-deftest docs-upd-pipeline-updates-with-docstrings ()
+  "The deterministic pipeline updates the page using symbol docstrings."
   (docs-upd--with-page
     (docs-upd--with-test-command
       (let* ((original (docs-upd--slurp ide-docs-file))
-             (ide-docs-agent-function (docs-upd--agent (docs-upd--good-reply)))
              (res (cl-letf (((symbol-function 'ide-docs--facts) #'docs-upd--facts-with-key))
-                    (docs-upd--wait (lambda (done) (ide-docs--run :agent t :on-done done)))))
+                    (docs-upd--wait (lambda (done) (ide-docs--run :on-done done)))))
              (data (ide-docs--parse-data (docs-upd--slurp ide-docs-file)))
              (e (cl-find "C-c z z" (alist-get 'keybinds data) :key (lambda (k) (alist-get 'keys k)) :test #'equal)))
         (should (eq (car res) 'ok))
-        (should (equal (alist-get 'title e) "Zed command"))
-        (should (= 1 (length docs-upd--prompts)))
+        (should (equal (alist-get 'desc e) "Do a test thing"))
         (let ((bak (car (directory-files ide-docs-backup-dir t "index-.*\\.html\\'"))))
           (should (equal (docs-upd--slurp bak) original)))))))
-
-(ert-deftest docs-upd-pipeline-retries-bad-replies ()
-  (docs-upd--with-page
-    (docs-upd--with-test-command
-      (let* ((ide-docs-agent-function (docs-upd--agent "I cannot do that." "{broken" (docs-upd--good-reply)))
-             (res (cl-letf (((symbol-function 'ide-docs--facts) #'docs-upd--facts-with-key))
-                    (docs-upd--wait (lambda (done) (ide-docs--run :agent t :on-done done))))))
-        (should (eq (car res) 'ok))
-        (should (= 3 (length docs-upd--prompts)))
-        (should (string-match-p "previous reply was rejected" (cdr (car docs-upd--prompts))))
-        (should (cl-find "Zed command" (alist-get 'keybinds (ide-docs--parse-data (docs-upd--slurp ide-docs-file)))
-                         :key (lambda (k) (alist-get 'title k)) :test #'equal))))))
-
-(ert-deftest docs-upd-pipeline-falls-back-to-docstrings ()
-  "If the agent never produces usable output, deterministic docstring text is still installed."
-  (docs-upd--with-page
-    (docs-upd--with-test-command
-      (let* ((ide-docs-max-retries 1)
-             (ide-docs-agent-function (docs-upd--agent "nope" "still nope" "never"))
-             (res (cl-letf (((symbol-function 'ide-docs--facts) #'docs-upd--facts-with-key))
-                    (docs-upd--wait (lambda (done) (ide-docs--run :agent t :on-done done)))))
-             (e (cl-find "C-c z z" (alist-get 'keybinds (ide-docs--parse-data (docs-upd--slurp ide-docs-file)))
-                         :key (lambda (k) (alist-get 'keys k)) :test #'equal)))
-        (should (eq (car res) 'ok))
-        (should (= 2 (length docs-upd--prompts)))
-        (should (equal (alist-get 'desc e) "Do a test thing"))))))
-
-(ert-deftest docs-upd-pipeline-survives-agent-error-and-timeout ()
-  (docs-upd--with-page
-    (docs-upd--with-test-command
-      (let ((ide-docs-max-retries 0))
-        ;; the agent function signals an error
-        (let* ((ide-docs-agent-function (lambda (&rest _) (error "backend exploded")))
-               (res (cl-letf (((symbol-function 'ide-docs--facts) #'docs-upd--facts-with-key))
-                      (docs-upd--wait (lambda (done) (ide-docs--run :agent t :on-done done))))))
-          (should (eq (car res) 'ok)))
-        ;; the agent never answers
-        (copy-file docs-upd--page ide-docs-file t)
-        (let* ((ide-docs-agent-timeout 0.3)
-               (ide-docs-agent-function (lambda (&rest _) nil))
-               (start (float-time))
-               (res (cl-letf (((symbol-function 'ide-docs--facts) #'docs-upd--facts-with-key))
-                      (docs-upd--wait (lambda (done) (ide-docs--run :agent t :on-done done))))))
-          (should (eq (car res) 'ok))
-          (should (< (- (float-time) start) 10)))))))
 
 (ert-deftest docs-upd-failed-validation-leaves-page-untouched ()
   (docs-upd--with-page
     (docs-upd--with-test-command
       (let* ((original (docs-upd--slurp ide-docs-file))
              (ide-docs-validate-function (lambda (_f cb) (funcall cb (cons nil "docs-check: FAILED something"))))
-             (ide-docs-agent-function (docs-upd--agent (docs-upd--good-reply)))
              (res (cl-letf (((symbol-function 'ide-docs--facts) #'docs-upd--facts-with-key))
-                    (docs-upd--wait (lambda (done) (ide-docs--run :agent t :on-done done))))))
+                    (docs-upd--wait (lambda (done) (ide-docs--run :on-done done))))))
         (should (eq (car res) 'failed))
         (should (equal (docs-upd--slurp ide-docs-file) original))
         (should-not (file-exists-p ide-docs-backup-dir))))))
@@ -331,36 +205,15 @@
       (let ((original (docs-upd--slurp ide-docs-file)) (validated nil)
             (ide-docs-validate-function (lambda (_f cb) (setq validated t) (funcall cb (cons t "ok")))))
         (should (eq 'dry-run (car (cl-letf (((symbol-function 'ide-docs--facts) #'docs-upd--facts-with-key))
-                                    (docs-upd--wait (lambda (done) (ide-docs--run :agent t :dry-run t :on-done done)))))))
+                                    (docs-upd--wait (lambda (done) (ide-docs--run :dry-run t :on-done done)))))))
         (should (equal (docs-upd--slurp ide-docs-file) original))
         (should-not validated)))
     ;; with the real facts the page is in sync, so nothing is written or validated
     (let ((original (docs-upd--slurp ide-docs-file)) (validated nil)
           (ide-docs-validate-function (lambda (_f cb) (setq validated t) (funcall cb (cons t "ok")))))
-      (should (eq 'unchanged (car (docs-upd--wait (lambda (done) (ide-docs--run :agent t :on-done done))))))
+      (should (eq 'unchanged (car (docs-upd--wait (lambda (done) (ide-docs--run :on-done done))))))
       (should (equal (docs-upd--slurp ide-docs-file) original))
       (should-not validated))))
-
-(ert-deftest docs-upd-no-agent-means-no-agent-calls ()
-  (docs-upd--with-page
-    (docs-upd--with-test-command
-      (let* ((ide-docs-agent-function (docs-upd--agent (docs-upd--good-reply)))
-             (res (cl-letf (((symbol-function 'ide-docs--facts) #'docs-upd--facts-with-key))
-                    (docs-upd--wait (lambda (done) (ide-docs--run :agent nil :on-done done))))))
-        (should (eq (car res) 'ok))
-        (should (null docs-upd--prompts))))))
-
-(ert-deftest docs-upd-agent-needs-consent ()
-  (docs-upd--with-page
-    (docs-upd--with-test-command
-      (let* ((ide-docs-update-confirm t)
-             (ide-docs-agent-function (docs-upd--agent (docs-upd--good-reply))))
-        (cl-letf (((symbol-function 'ide-docs--facts) #'docs-upd--facts-with-key)
-                  ((symbol-function 'y-or-n-p) (lambda (&rest _) nil))
-                  (noninteractive nil))
-          (let ((res (docs-upd--wait (lambda (done) (ide-docs--run :agent t :on-done done)))))
-            (should (eq (car res) 'ok))
-            (should (null docs-upd--prompts))))))))
 
 (ert-deftest docs-upd-install-backs-up-and-prunes ()
   (docs-upd--with-page
@@ -400,37 +253,6 @@
                                          (ide-docs-open) (should (eq (car shown) 'browser)))))
       (let ((ide-docs-file "/nonexistent/index.html")) (should-error (ide-docs-open) :type 'user-error)))))
 
-(ert-deftest docs-upd-user-config-never-leaks-into-facts ()
-  "Keys and commands a user adds under user/ must not reach the docs or break their checks."
-  (let* ((dir (file-name-as-directory (make-temp-file "udir" t)))
-         (ide-user-dir dir)
-         (core ide-user--core-keymap)
-         (file (expand-file-name "mine.el" dir)))
-    (unwind-protect
-        (progn
-          (with-temp-file file (insert "(defun ide-zz-mine () \"Mine.\" (interactive))\n"))
-          (load file nil t)
-          ;; the real snapshot (taken at startup, before any user file) is already in place
-          (unless ide-user--core-keymap (setq ide-user--core-keymap (copy-keymap ide-keys-mode-map)))
-          (define-key ide-keys-mode-map (kbd "C-c x z") #'ide-zz-mine)
-          (define-key ide-keys-mode-map (kbd "C-c x b") #'ignore)
-          (let* ((facts (ide-docs--facts)) (keys (mapcar #'car (plist-get facts :keybinds)))
-                 (data (ide-docs--parse-data (docs-upd--slurp docs-upd--page)))
-                 (report (cdr (ide-docs--merge data facts))))
-            (should-not (member "C-c x z" keys))
-            (should-not (member "C-c x b" keys))
-            (should-not (memq 'ide-zz-mine (plist-get facts :commands)))
-            ;; assert about this test's own items only, so a developer's real user/ files cannot interfere
-            (should-not (member (cons "C-c x z" "global") (plist-get report :kb-added)))
-            (should-not (member (cons "C-c x b" "global") (plist-get report :kb-added)))
-            (should-not (memq 'ide-zz-mine (plist-get report :uncovered)))
-            (should (ide-docs--user-defined-p 'ide-zz-mine))
-            (should-not (ide-docs--user-defined-p 'ide-docs-open))))
-      (define-key ide-keys-mode-map (kbd "C-c x z") nil)
-      (define-key ide-keys-mode-map (kbd "C-c x b") nil)
-      (fmakunbound 'ide-zz-mine)
-      (setq ide-user--core-keymap core)
-      (delete-directory dir t))))
 
 (ert-deftest docs-upd-validation-runs-without-user-files ()
   "The validator's Emacs must not load user/, whatever the user's own environment says."
@@ -460,51 +282,12 @@
             (should (member "zz-lang" (nth 2 r2)))))
       (fmakunbound 'zz-lang-dispatch))))
 
-(ert-deftest docs-upd-agent-task-prompt ()
-  (let ((p (ide-docs-agent-task-prompt)))
-    (should (string-match-p (regexp-quote docs-upd--root) p))
-    (should (string-match-p "make docs-update" p))
-    (should (string-match-p "make docs-check" p))))
-
-(ert-deftest docs-upd-update-with-agent-inserts-task-without-sending ()
-  "Starts gptel-agent in the config root and inserts (not sends) the task."
-  (require 'gptel-agent nil t)          ; load the real library first so it cannot overwrite the stub
-  (let (dir sent)
-    (cl-letf (((symbol-function 'gptel-agent)
-               (lambda (d &rest _) (setq dir d) (switch-to-buffer (generate-new-buffer "*gptel-agent:test*"))))
-              ((symbol-function 'gptel-send) (lambda (&rest _) (setq sent t))))
-      (ide-docs-update-with-agent)
-      (unwind-protect
-          (with-current-buffer "*gptel-agent:test*"
-            (should (equal dir docs-upd--root))
-            (should (string-match-p "make docs-check" (buffer-string)))
-            (should-not sent))
-        (kill-buffer "*gptel-agent:test*")))))
-
 (ert-deftest docs-upd-keys-are-bound ()
   (should (eq (key-binding (kbd "C-c h d")) 'ide-docs-open))
   (should (eq (key-binding (kbd "C-c h u")) 'ide-docs-update))
-  (should (eq (key-binding (kbd "C-c h s")) 'ide-docs-search))
-  (should (eq (key-binding (kbd "C-c h c")) 'ide-docs-for-command)))
+  (should (eq (key-binding (kbd "C-c h s")) 'ide-docs-search)))
 
-(ert-deftest docs-upd-for-command-routing ()
-  (let* ((data (ide-docs--parse-data (ide-docs--slurp ide-docs-file)))
-         (lang-cmds (ide-docs--lang-commands data))
-         shown-url)
-    (should (> (length lang-cmds) 0))
-    (cl-letf (((symbol-function 'ide-docs--show) (lambda (u) (setq shown-url u))))
-      ;; Language-specific command routes to #languages with ?q=
-      (let ((cmd (car lang-cmds)))
-        (ide-docs-for-command cmd)
-        (should (string-match-p (format "\\?q=%s#languages\\'" (regexp-quote cmd)) shown-url)))
-      ;; Global keybinding command routes to #keys with ?q=
-      (ide-docs-for-command 'ide-toggle-project-tree)
-      (should (string-match-p "\\?q=ide-toggle-project-tree#keys\\'" shown-url))
-      ;; Unknown command falls back to search in #keys
-      (ide-docs-for-command "nonexistent-command-xyz")
-      (should (string-match-p "\\?q=nonexistent-command-xyz#keys\\'" shown-url)))))
-
-;;;; Real validator and gptel adapter ----------------------------------------------------------
+;;;; Real validator ----------------------------------------------------------------------------
 
 (defun docs-upd--validate-real (file)
   "Run the real subprocess validator on FILE and wait for (OK . OUTPUT)."
@@ -528,22 +311,6 @@
       (let ((res (docs-upd--validate-real file)))
         (should-not (car res))
         (should (string-match-p "docs-keybindings-match-config" (cdr res)))))))
-
-(ert-deftest docs-upd-gptel-adapter ()
-  "The default agent function forwards system+prompt to gptel and reports replies and errors."
-  (require 'gptel)
-  (let (seen)
-    (cl-letf (((symbol-function 'gptel-request)
-               (lambda (prompt &rest args) (setq seen (list prompt (plist-get args :system) (plist-get args :stream)))
-                 (funcall (plist-get args :callback) "{\"ok\": true}" '(:status "ok")))))
-      (let (out) (ide-docs--gptel-agent "SYS" "PROMPT" (lambda (r e) (setq out (list r e))))
-           (should (equal out '("{\"ok\": true}" nil)))
-           (should (equal seen '("PROMPT" "SYS" nil)))))
-    (cl-letf (((symbol-function 'gptel-request)
-               (lambda (_p &rest args) (funcall (plist-get args :callback) nil '(:status "HTTP/2 401")))))
-      (let (out) (ide-docs--gptel-agent "S" "P" (lambda (r e) (setq out (list r e))))
-           (should (null (car out)))
-           (should (string-match-p "401" (cadr out)))))))
 
 (ert-run-tests-batch-and-exit)
 

@@ -24,24 +24,13 @@
 (require 'transient)
 (require 'comint)
 
-(defvar ide-run-command-functions)
-(defvar ide-debug-functions)
+(require '00-lang-lib)
+(require 'treesit)
+
 (defvar dap-codelldb-debug-path)
 (defvar dap-codelldb-download-url)
 (declare-function dap-debug "dap-mode")
-(declare-function ide-lang-run "00-lang-lib")
-(declare-function ide-lang-run-then "00-lang-lib")
-(declare-function ide-lang-root "00-lang-lib")
-(declare-function ide-lang-ancestor "00-lang-lib")
-(declare-function ide-lang-browse "00-lang-lib")
-(declare-function ide-lang-register-menu "00-lang-lib")
-(declare-function ide-lang-workspace-config "00-lang-lib")
-(declare-function ide-lang-fetch-extract "00-lang-lib")
-(declare-function treesit-node-text "treesit")
-(declare-function treesit-node-child-by-field-name "treesit")
 (declare-function treesit-node-prev-sibling "treesit")
-(declare-function treesit-node-type "treesit")
-(declare-function treesit-node-parent "treesit")
 
 (defgroup ide-rust nil "Rust support." :group 'ide-lang)
 
@@ -52,14 +41,12 @@
 
 ;;;; Mode and server ------------------------------------------------------------------
 
-(add-to-list 'auto-mode-alist '("\\.rs\\'" . rust-ts-mode))
-
-(with-eval-after-load 'eglot
-  (add-to-list 'eglot-server-programs '(rust-ts-mode . ("rust-analyzer"))))
-
-(add-hook 'rust-ts-mode-hook #'eglot-ensure)
-;; rustfmt's convention is 4 spaces.
-(add-hook 'rust-ts-mode-hook (lambda () (setq-local tab-width 4 indent-tabs-mode nil)))
+(ide-lang-setup 'rust-ts-mode
+  :auto-mode "\\.rs\\'"
+  :server '("rust-analyzer")
+  :tab-width 4
+  :indent-tabs nil
+  :format-on-save nil)
 
 (ide-lang-workspace-config
  :rust-analyzer
@@ -92,18 +79,17 @@
                            collect (list (format "%s  (%s)" (alist-get 'name tgt) kind)
                                          kind (alist-get 'name tgt) (alist-get 'name pkg)))))
 
-(defun ide-rust-build () "cargo build." (interactive) (ide-rust--cargo "build"))
-(defun ide-rust-check () "cargo check." (interactive) (ide-rust--cargo "check" "--all-targets"))
-(defun ide-rust-clippy () "cargo clippy." (interactive) (ide-rust--cargo "clippy" "--all-targets"))
-(defun ide-rust-clippy-fix ()
-  "Apply clippy's machine-applicable fixes (cargo clippy --fix)."
-  (interactive)
-  (ide-rust--cargo "clippy" "--fix" "--allow-dirty" "--allow-staged" "--all-targets"))
-(defun ide-rust-fmt () "cargo fmt." (interactive) (ide-rust--cargo "fmt" "--all"))
-(defun ide-rust-bench () "cargo bench." (interactive) (ide-rust--cargo "bench"))
-(defun ide-rust-clean () "cargo clean." (interactive) (ide-rust--cargo "clean"))
-(defun ide-rust-update () "cargo update." (interactive) (ide-rust--cargo "update"))
-(defun ide-rust-tree () "cargo tree." (interactive) (ide-rust--cargo "tree"))
+(dolist (spec '((ide-rust-build "build")
+                (ide-rust-check "check" "--all-targets")
+                (ide-rust-clippy "clippy" "--all-targets")
+                (ide-rust-clippy-fix "clippy" "--fix" "--allow-dirty" "--allow-staged" "--all-targets")
+                (ide-rust-fmt "fmt" "--all")
+                (ide-rust-bench "bench")
+                (ide-rust-clean "clean")
+                (ide-rust-update "update")
+                (ide-rust-tree "tree")))
+  (let ((fn (car spec)) (args (cdr spec)))
+    (defalias fn (lambda () (interactive) (apply #'ide-rust--cargo args)))))
 
 (defun ide-rust-add (crate)
   "cargo add CRATE (features: CRATE --features a,b)."
@@ -161,8 +147,7 @@
 
 (defun ide-rust--file-test-filter ()
   "Arguments selecting the tests of the current file."
-  (let* ((root (ide-lang-root))
-         (rel (file-relative-name buffer-file-name root)))
+  (let ((rel (ide-lang-relative-file)))
     (cond
      ((string-match "\\`tests/\\([^/]+\\)\\.rs\\'" rel) (list "--test" (match-string 1 rel)))
      ((string-match "\\`\\(?:.*/\\)?src/\\(.*\\)\\.rs\\'" rel)
@@ -214,8 +199,8 @@
       (setq all (cl-remove-if-not (lambda (r) (string-match-p pattern (plist-get r :label))) all)))
     (cond ((null all) nil)
           ((or pattern (null (cdr all))) (car all))
-          (t (let ((labels (mapcar (lambda (r) (plist-get r :label)) all)))
-               (nth (cl-position (completing-read "Run: " labels nil t) labels :test #'equal) all))))))
+          (t (let ((table (mapcar (lambda (r) (cons (plist-get r :label) r)) all)))
+               (cdr (assoc (completing-read "Run: " (mapcar #'car table) nil t) table)))))))
 
 (defun ide-rust-run-at-point ()
   "Run what rust-analyzer offers at point: the test, the binary or the benchmark."
@@ -227,22 +212,23 @@
 (defun ide-rust-test-at-point ()
   "Run the test at point (cargo test <path> -- --exact); the module's tests when point is in a mod."
   (interactive)
-  (cond
-   ((and (bound-and-true-p eglot--managed-mode) (ignore-errors (ide-rust--pick-runnable "\\`\\(test \\|doctest\\)")))
-    (ide-rust--run-runnable (ide-rust--pick-runnable "\\`\\(test \\|doctest\\)")))
-   ((ide-rust--test-name-at-point)
-    (ide-lang-run "cargo test" (ide-rust--test-command (ide-rust--test-name-at-point) "--" "--exact" "--nocapture")))
-   (t (user-error "No test at point"))))
+  (let ((runnable (and (bound-and-true-p eglot--managed-mode)
+                       (ignore-errors (ide-rust--pick-runnable "\\`\\(test \\|doctest\\)")))))
+    (cond
+     (runnable (ide-rust--run-runnable runnable))
+     ((ide-rust--test-name-at-point)
+      (ide-lang-run "cargo test" (ide-rust--test-command (ide-rust--test-name-at-point) "--" "--exact" "--nocapture")))
+     (t (user-error "No test at point")))))
 
 (defun ide-rust-related-tests ()
   "Run the tests that exercise the function at point (rust-analyzer's related tests)."
   (interactive)
   (let ((related (append (ide-rust--request :rust-analyzer/relatedTests) nil)))
     (unless related (user-error "No related tests found"))
-    (let* ((choices (mapcar (lambda (x) (plist-get (plist-get x :runnable) :label)) related))
-           (pick (completing-read "Related test: " choices nil t)))
-      (ide-rust--run-runnable
-       (plist-get (nth (cl-position pick choices :test #'equal) related) :runnable)))))
+    (let* ((table (mapcar (lambda (x) (cons (plist-get (plist-get x :runnable) :label)
+                                            (plist-get x :runnable)))
+                          related)))
+      (ide-rust--run-runnable (cdr (assoc (completing-read "Related test: " table nil t) table))))))
 
 (defun ide-rust-runnables ()
   "Choose any runnable at point (run, test, bench) and run it in the drawer."
@@ -378,27 +364,18 @@ the executable under the debugger with breakpoints, locals and the debug REPL."
 
 (defun ide-rust-repl-send-region (beg end)
   "Send the region (or the current function) to the evcxr REPL."
-  (interactive (if (use-region-p) (list (region-beginning) (region-end))
-                 (if-let* ((fn (ide-lang-ancestor '("function_item" "struct_item" "impl_item"))))
-                     (list (treesit-node-start fn) (treesit-node-end fn))
-                   (list (line-beginning-position) (line-end-position)))))
+  (interactive (ide-lang-region-or-node '("function_item" "struct_item" "impl_item")))
   (unless (get-buffer "*evcxr*") (ide-rust-repl))
   (comint-send-string (get-buffer-process "*evcxr*") (concat (buffer-substring-no-properties beg end) "\n")))
-
-(declare-function treesit-node-start "treesit")
-(declare-function treesit-node-end "treesit")
 
 ;;;; Run / debug hooks and menu -----------------------------------------------------------------------------
 
 (defun ide-rust--run-command ()
   (when (derived-mode-p 'rust-ts-mode)
-    (let ((rel (and buffer-file-name (file-relative-name buffer-file-name (ide-lang-root)))))
+    (let ((rel (ide-lang-relative-file)))
       (if (and rel (string-prefix-p "tests/" rel))
-          (mapconcat #'identity (ide-rust--test-command "--test" (file-name-base rel)) " ")
+          (ide-lang-command-string (ide-rust--test-command "--test" (file-name-base rel)))
         "cargo run"))))
-
-(add-hook 'ide-run-command-functions #'ide-rust--run-command)
-(add-hook 'ide-debug-functions (lambda () (when (derived-mode-p 'rust-ts-mode) (ide-rust-debug) t)))
 
 ;;;###autoload (autoload 'ide-rust-dispatch "lang-rust" nil t)
 (transient-define-prefix ide-rust-dispatch ()
@@ -437,7 +414,10 @@ the executable under the debugger with breakpoints, locals and the debug REPL."
     ("O" "project docs" ide-rust-doc)
     ("w" "reload workspace" ide-rust-reload-workspace)]])
 
-(ide-lang-register-menu '(rust-ts-mode rust-mode) #'ide-rust-dispatch)
+(ide-lang-register '(rust-ts-mode rust-mode)
+  :run #'ide-rust--run-command
+  :debug (lambda () (when (derived-mode-p 'rust-ts-mode) (ide-rust-debug) t))
+  :menu #'ide-rust-dispatch)
 
 (provide 'lang-rust)
 ;;; lang-rust.el ends here

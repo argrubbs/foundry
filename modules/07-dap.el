@@ -7,9 +7,7 @@
 
 ;;; Code:
 
-(declare-function dap-ui-breakpoints "dap-ui")
-(declare-function dap-ui-locals "dap-ui")
-(declare-function dap-ui-sessions "dap-ui")
+(eval-when-compile (require 'dap-ui nil t))
 
 (use-package dap-mode
   :commands (dap-debug dap-debug-last dap-breakpoint-toggle dap-hydra dap-ui-mode)

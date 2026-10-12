@@ -24,7 +24,7 @@
 Matches by path (playbooks, roles, vars directories) or, failing that, by a
 top-level play or task key near the top of the file."
   (or (and buffer-file-name
-           (string-match-p "\\(playbook\\|roles/\\|tasks/\\|handlers/\\|group_vars/\\|host_vars/\\)"
+           (string-match-p "\\(playbook\\|roles/\\|tasks/\\|handlers/\\|group_vars/\\|host_vars/\\|vars/\\)"
                            buffer-file-name)
            t)
       (save-excursion
@@ -33,9 +33,8 @@ top-level play or task key near the top of the file."
                                 (min (+ (point-min) 20000) (point-max)) t)
              t))))
 
-;; Variable definitions/references, Jinja completion and diagnostics.  It adds
-;; its xref backend ahead of Eglot's (declining outside Ansible/Jinja
-;; identifiers) and its completion, eldoc and Flymake sources after Eglot's.
+;; Variable definitions and references via xref.  It adds its xref backend
+;; ahead of Eglot's (declining outside Ansible/Jinja identifiers).
 (add-to-list 'load-path (expand-file-name "lisp/ansible-intelligence/" user-emacs-directory))
 (autoload 'ansible-intelligence-mode "ansible-intelligence" nil t)
 

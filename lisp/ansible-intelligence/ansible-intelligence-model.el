@@ -26,13 +26,21 @@ or content that diverges from disk sets `live-p' so it can only be used while
 its buffer snapshot is current."
   path mtime size hash live-p)
 
-(defun ansible-intelligence--source-canonical-path (file)
+(defun ansible-intelligence--canonical-path (file)
   "Return the canonical path for FILE without signalling on missing files."
   (when file
     (condition-case nil
         (file-truename file)
       (file-error
        (expand-file-name file)))))
+
+(defun ansible-intelligence--same-file-p (left right)
+  "Return non-nil when LEFT and RIGHT identify the same file."
+  (and left right
+       (equal (ansible-intelligence--canonical-path left)
+              (ansible-intelligence--canonical-path right))))
+
+(defalias 'ansible-intelligence--source-canonical-path #'ansible-intelligence--canonical-path)
 
 (defun ansible-intelligence--source-file-hash (file size)
   "Return a bounded SHA-256 hash for FILE when appropriate."
@@ -61,7 +69,7 @@ its buffer snapshot is current."
 The returned identity remains useful for a file that has disappeared, but
 callers validating a disk snapshot must still require the file to exist."
   (when file
-    (let* ((path (ansible-intelligence--source-canonical-path file))
+    (let* ((path (ansible-intelligence--canonical-path file))
            (attributes (and path (file-attributes path)))
            (size (and attributes (file-attribute-size attributes)))
            (mtime (and attributes
@@ -98,7 +106,7 @@ conservative modified-p fallback."
         (ansible-intelligence-source-identity-create
          :path (or (and disk
                         (ansible-intelligence-source-identity-path disk))
-                   (ansible-intelligence--source-canonical-path file))
+                   (ansible-intelligence--canonical-path file))
          :mtime (and disk
                       (ansible-intelligence-source-identity-mtime disk))
          :size (and disk
@@ -128,11 +136,6 @@ conservative modified-p fallback."
                (:constructor ansible-intelligence-reference-create))
   name range file kind path path-ranges)
 
-(cl-defstruct (ansible-intelligence-jinja-node
-               (:constructor ansible-intelligence-jinja-node-create))
-  "Buffer-independent representation of a Jinja tree-sitter node."
-  type range text children named)
-
 (cl-defstruct (ansible-intelligence-jinja-analysis
                (:constructor ansible-intelligence-jinja-analysis-create))
   "Cached, region-relative Jinja syntax and semantic data."
@@ -159,18 +162,10 @@ conservative modified-p fallback."
   "A source-ordered semantic entry suitable for native Imenu."
   name kind range category source confidence file)
 
-(cl-defstruct (ansible-intelligence-shell-range
-               (:constructor ansible-intelligence-shell-range-create))
-  "A block scalar owned by an Ansible shell-like action.
-
-This is deliberately structural metadata.  Shell identifiers are never added
-to the Ansible semantic symbol or reference index."
-  kind range action parser)
-
 (cl-defstruct (ansible-intelligence-document
                (:constructor ansible-intelligence-document-create))
   path kind tick parsed-at symbols references links errors tree jinja
-  outline shell-ranges source-identity)
+  outline source-identity)
 
 (cl-defstruct (ansible-intelligence-project-index
                (:constructor ansible-intelligence-project-index-create))

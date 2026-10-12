@@ -4,7 +4,7 @@ RUN   := $(EMACS) --init-directory $(ROOT)
 # Prefer the mise-installed tools (node) when present.
 export PATH := $(shell tr -d '()"' < var/mise/path.eld 2>/dev/null | tr ' ' ':'):$(PATH)
 
-.PHONY: all packages compile test docs-check docs-update docs-ui run clean tools doctor desktop
+.PHONY: all packages compile test docs docs-check docs-update docs-ui run clean tools doctor desktop
 
 all: packages compile test docs-check
 
@@ -27,9 +27,11 @@ docs-check:
 	IDE_NO_USER=1 $(RUN) --batch -l init.el -l tests/docs-check.el
 	$(RUN) --batch -l init.el -l tests/docs-update-test.el
 
-# Refresh docs/index.html from the live config without an AI agent (facts + docstrings).
+# Refresh docs/index.html deterministically from live facts and docstrings.
+docs: docs-update
+
 docs-update:
-	IDE_NO_USER=1 $(RUN) --batch -l init.el -f ide-docs-update-batch
+	IDE_NO_USER=1 $(RUN) --batch -l init.el -l lisp/docs-update.el -f ide-docs-update-batch
 
 # Drives docs/index.html in jsdom (needs node; jsdom is installed into .cache/ on first use).
 docs-ui:
@@ -53,4 +55,4 @@ run:
 	./launch.sh
 
 clean:
-	find . -path ./elpaca -prune -o -name '*.elc' -print -delete
+	find . -path ./elpaca -prune -o -name '*.elc' -print -exec rm -f {} +

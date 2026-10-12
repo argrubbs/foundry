@@ -41,9 +41,8 @@
   (startup-redirect-eln-cache
    (expand-file-name ".cache/eln-cache/" user-emacs-directory)))
 
-;; Theme background, so the first frame does not flash white before the theme is
-;; activated asynchronously: doom-ember (modules/17-juice.el), or doom-one when
-;; juice is off (IDE_NO_JUICE=1 / `./launch.sh --plain').
+;; Doom-ember theme bg/fg colors (modules/17-juice.el, lisp/themes/doom-ember-theme.el)
+;; so the first frame does not flash white before theme loads.
 (let ((plain (let ((v (getenv "IDE_NO_JUICE"))) (and v (not (string-empty-p v))))))
   (push `(background-color . ,(if plain "#282c34" "#1c1815")) default-frame-alist)
   (push `(foreground-color . ,(if plain "#bbc2cf" "#e3d9ca")) default-frame-alist)
@@ -53,8 +52,6 @@
 (push '(vertical-scroll-bars) default-frame-alist)
 (push '(width . (text-pixels . 1370)) default-frame-alist)
 (push '(height . (text-pixels . 1011)) default-frame-alist)
-(push '(width . (text-pixels . 1370)) initial-frame-alist)
-(push '(height . (text-pixels . 1011)) initial-frame-alist)
 (menu-bar-mode -1)
 (when (fboundp 'tool-bar-mode) (tool-bar-mode -1))
 (when (fboundp 'scroll-bar-mode) (scroll-bar-mode -1))

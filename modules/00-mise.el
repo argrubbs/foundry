@@ -10,7 +10,6 @@
 
 (require 'cl-lib)
 (require 'subr-x)
-(require 'json)
 
 (declare-function ide-run-with-timeout "00-core")
 

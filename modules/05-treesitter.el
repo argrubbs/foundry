@@ -69,22 +69,8 @@
         (conf-toml-mode . toml-ts-mode)))
 
 (add-to-list 'auto-mode-alist '("/go\\.mod\\'" . go-mod-ts-mode))
-(add-to-list 'auto-mode-alist '("\\.go\\'" . go-ts-mode))
 (add-to-list 'auto-mode-alist '("Dockerfile\\(\\..*\\)?\\'" . dockerfile-ts-mode))
 (add-to-list 'auto-mode-alist '("\\.ya?ml\\'" . yaml-ts-mode))
-
-;; Install grammars once, after the first interactive start, without blocking.
-(unless noninteractive
-  (add-hook 'elpaca-after-init-hook
-            (lambda ()
-              (when (cl-some (lambda (e) (not (treesit-language-available-p (car e))))
-                             treesit-language-source-alist)
-                (run-with-idle-timer 2 nil #'ide-treesit-install-grammars)))))
-
-(use-package combobulate
-  :ensure (:host github :repo "mickeynp/combobulate")
-  :hook ((python-ts-mode go-ts-mode yaml-ts-mode json-ts-mode bash-ts-mode) . combobulate-mode)
-  :init (setq combobulate-key-prefix "C-c o t"))
 
 (use-package expand-region :commands er/expand-region)
 

@@ -1,66 +1,31 @@
 ;;; ansible-intelligence-jinja.el --- Incremental Jinja regions in YAML -*- lexical-binding: t; -*-
 
 ;;; Commentary:
-;; Jinja is embedded in YAML scalar text.  This module deliberately parses
-;; only the scalar regions that contain Jinja delimiters.  The tree-sitter
-;; nodes are copied into buffer-independent model structs before temporary
-;; parser buffers are killed.
+;; Jinja is embedded in YAML scalar text.  This module parses only scalar
+;; regions containing Jinja delimiters and extracts variable definitions
+;; and references using robust lexical scanning.
 
 ;;; Code:
 
 (require 'cl-lib)
 (require 'subr-x)
 (require 'ansible-intelligence-model)
-(require 'ansible-intelligence-yaml)
-(require 'treesit nil t)
-
-(defgroup ansible-intelligence-jinja nil
-  "Bounded Jinja analysis for Ansible Intelligence."
-  :group 'ansible-intelligence)
-
-(defcustom ansible-intelligence-jinja-language 'jinja
-  "Tree-sitter language symbol used for Jinja regions."
-  :type 'symbol
-  :group 'ansible-intelligence-jinja)
-
-(defcustom ansible-intelligence-jinja-max-scalars 500
-  "Maximum YAML scalar nodes inspected during one analysis."
-  :type 'integer
-  :group 'ansible-intelligence-jinja)
-
-(defcustom ansible-intelligence-jinja-max-regions 1000
-  "Maximum Jinja delimiter regions inspected during one analysis."
-  :type 'integer
-  :group 'ansible-intelligence-jinja)
-
-(defcustom ansible-intelligence-jinja-max-scalar-bytes 65536
-  "Maximum UTF-8 bytes inspected for one YAML scalar."
-  :type 'integer
-  :group 'ansible-intelligence-jinja)
-
-(defcustom ansible-intelligence-jinja-max-total-bytes (* 1024 1024)
-  "Maximum UTF-8 bytes inspected across YAML scalars."
-  :type 'integer
-  :group 'ansible-intelligence-jinja)
-
-(defcustom ansible-intelligence-jinja-max-work 20000
-  "Maximum approximate AST and lexical work units per analysis."
-  :type 'integer
-  :group 'ansible-intelligence-jinja)
-
-(defcustom ansible-intelligence-jinja-max-node-depth 128
-  "Maximum copied tree-sitter node depth for one Jinja region."
-  :type 'integer
-  :group 'ansible-intelligence-jinja)
 
 (defconst ansible-intelligence-jinja-parser-version
-  "jinja-region-v1/tree-sitter-jinja-v0.13.0"
+  "jinja-region-v2/lexical"
   "Version included in Jinja cache keys.")
 
-(defconst ansible-intelligence-jinja--scalar-node-types
-  '("plain_scalar" "single_quote_scalar" "double_quote_scalar"
-    "block_scalar" "literal_scalar" "folded_scalar")
-  "YAML tree-sitter scalar node types that may contain Jinja.")
+(defconst ansible-intelligence-jinja-max-scalars 500
+  "Maximum YAML scalar nodes inspected during one analysis.")
+
+(defconst ansible-intelligence-jinja-max-regions 1000
+  "Maximum Jinja delimiter regions inspected during one analysis.")
+
+(defconst ansible-intelligence-jinja-max-scalar-bytes 65536
+  "Maximum UTF-8 bytes inspected for one YAML scalar.")
+
+(defconst ansible-intelligence-jinja-max-total-bytes (* 1024 1024)
+  "Maximum UTF-8 bytes inspected across YAML scalars.")
 
 (defconst ansible-intelligence-jinja--keywords
   '("and" "as" "autoescape" "block" "break" "call" "continue"
@@ -75,21 +40,6 @@
   '("when" "failed_when" "changed_when" "until" "loop")
   "High-confidence Ansible keys whose scalar values are expressions.")
 
-(defun ansible-intelligence-jinja--language ()
-  "Return the available configured Jinja tree-sitter language, or nil."
-  (when (fboundp 'treesit-language-available-p)
-    (seq-find
-     (lambda (language)
-       (condition-case nil
-           (treesit-language-available-p language)
-         (error nil)))
-     (delete-dups
-      (list ansible-intelligence-jinja-language 'jinja 'jinja2)))))
-
-(defun ansible-intelligence-jinja-grammar-available-p ()
-  "Return non-nil when the configured Jinja grammar can be loaded."
-  (and (ansible-intelligence-jinja--language) t))
-
 (defun ansible-intelligence-jinja--range (start end)
   "Create a model range from START through END."
   (ansible-intelligence-range-create :start start :end end))
@@ -98,35 +48,6 @@
   "Return a comparable key for RANGE."
   (cons (ansible-intelligence-range-start range)
         (ansible-intelligence-range-end range)))
-
-(defun ansible-intelligence-jinja--node-type (node)
-  "Return the type of tree-sitter NODE."
-  (treesit-node-type node))
-
-(defun ansible-intelligence-jinja--node-text (node)
-  "Return NODE text without relying on a live buffer after copying."
-  (condition-case nil
-      (treesit-node-text node)
-    (error "")))
-
-(defun ansible-intelligence-jinja--tree-scalar-ranges (tree)
-  "Return scalar ranges from YAML TREE."
-  (let (ranges)
-    (cl-labels
-        ((walk (node)
-           (let ((type (ansible-intelligence-jinja--node-type node)))
-             (if (member type ansible-intelligence-jinja--scalar-node-types)
-                 (push (ansible-intelligence-jinja--range
-                        (treesit-node-start node)
-                        (treesit-node-end node))
-                       ranges)
-               (dotimes (index (treesit-node-child-count node))
-                 (walk (treesit-node-child node index)))))))
-      (when tree (walk tree)))
-    (delete-dups
-     (mapcar (lambda (range)
-               (cons (ansible-intelligence-jinja--range-key range) range))
-             ranges))))
 
 (defun ansible-intelligence-jinja--comment-before-p (position)
   "Return non-nil when POSITION is after an unquoted YAML comment marker."
@@ -151,7 +72,7 @@
       comment)))
 
 (defun ansible-intelligence-jinja--fallback-scalar-ranges ()
-  "Return conservative line-based scalar ranges when YAML nodes are absent."
+  "Return conservative line-based scalar ranges."
   (let (ranges)
     (save-excursion
       (goto-char (point-min))
@@ -181,16 +102,12 @@
                (cons (ansible-intelligence-jinja--range-key range) range))
              ranges))))
 
-(defun ansible-intelligence-jinja--scalar-ranges (&optional yaml-tree)
-  "Return YAML scalar ranges from YAML-TREE or the defensive fallback."
-  (or (ansible-intelligence-jinja--tree-scalar-ranges yaml-tree)
-      (ansible-intelligence-jinja--fallback-scalar-ranges)))
+(defun ansible-intelligence-jinja--scalar-ranges (&optional _yaml-tree)
+  "Return YAML scalar ranges."
+  (ansible-intelligence-jinja--fallback-scalar-ranges))
 
 (defun ansible-intelligence-jinja--semantic-scalar (text start end)
-  "Return semantic scalar TEXT and exact source ranges.
-
-The first element is the trimmed semantic text, the second is its source
-scalar range, and the third excludes YAML quote delimiters when present."
+  "Return semantic scalar TEXT and exact source ranges."
   (let* ((left 0)
          (right (length text)))
     (while (and (< left right)
@@ -216,16 +133,11 @@ scalar range, and the third excludes YAML quote delimiters when present."
 
 (defun ansible-intelligence-jinja--bare-region
     (key scalar-range text &optional semantic-range)
-  "Create a synthetic Jinja region for KEY and scalar TEXT.
-
-The parser sees a wrapper beginning three characters before the source
-expression.  `:analysis-base' records that offset so all copied ranges map
-back to the original YAML scalar."
+  "Create a synthetic Jinja region for KEY and scalar TEXT."
   (let* ((range (or semantic-range scalar-range))
          (analysis-text (format "{{ %s }}" text))
          (key-data (list ansible-intelligence-jinja-parser-version
-                         (or (ansible-intelligence-jinja--language) 'fallback)
-                         'bare-expression key
+                         'fallback 'bare-expression key
                          (secure-hash 'sha256 analysis-text))))
     (list :kind 'bare-expression
           :range range
@@ -247,44 +159,8 @@ back to the original YAML scalar."
       (ansible-intelligence-jinja--bare-region
        key scalar-range semantic-text semantic-range))))
 
-(defun ansible-intelligence-jinja--bare-region-data-from-query (&optional yaml-tree)
-  "Return bare-expression regions from verified YAML structural records."
-  (let* ((facts (ansible-intelligence-yaml-query-extract yaml-tree))
-         (records (plist-get facts :pairs))
-         result)
-    (dolist (record records)
-      (let ((key (plist-get record :key)))
-        (when (member key ansible-intelligence-jinja--bare-expression-keys)
-          ;; A condition or loop is only an Ansible expression when it belongs
-          ;; to a task/play sequence mapping.  This prevents arbitrary YAML
-          ;; values named `when' in unrelated documents from becoming Jinja.
-          (when (ansible-intelligence-yaml--task-record-p record)
-            (let* ((value-node (plist-get record :value-node))
-                   (sequence-p
-                    (ansible-intelligence-yaml--sequence-node value-node)))
-              ;; A loop sequence is data, not a scalar loop expression.  Its
-              ;; members still go through the normal delimiter scanner, so an
-              ;; explicit `{{ ... }}` item remains semantic.
-              (unless (and (string= key "loop") sequence-p)
-                (dolist (node
-                         (ansible-intelligence-yaml--scalar-leaves
-                          value-node))
-                  (let ((text (ansible-intelligence-yaml--node-text node)))
-                    (unless (or (string-empty-p (string-trim text))
-                                (string-match-p "{{\\|{%\\|{#" text)
-                                (string= (treesit-node-type node) "block_scalar"))
-                      (push
-                       (ansible-intelligence-jinja--bare-region-from-scalar
-                        key text (treesit-node-start node)
-                        (treesit-node-end node))
-                       result))))))))))
-    (sort result
-          (lambda (left right)
-            (< (ansible-intelligence-range-start (plist-get left :range))
-               (ansible-intelligence-range-start (plist-get right :range)))))))
-
 (defun ansible-intelligence-jinja--bare-region-data-fallback ()
-  "Return conservative bare-expression regions without a YAML tree."
+  "Return conservative bare-expression regions from lines."
   (let (result active-key active-indent task-indent)
     (save-excursion
       (goto-char (point-min))
@@ -336,10 +212,9 @@ back to the original YAML scalar."
         (forward-line 1)))
     (nreverse result)))
 
-(defun ansible-intelligence-jinja--bare-region-data (&optional yaml-tree)
+(defun ansible-intelligence-jinja--bare-region-data (&optional _yaml-tree)
   "Return high-confidence bare Ansible expression regions."
-  (or (ansible-intelligence-jinja--bare-region-data-from-query yaml-tree)
-      (ansible-intelligence-jinja--bare-region-data-fallback)))
+  (ansible-intelligence-jinja--bare-region-data-fallback))
 
 (defun ansible-intelligence-jinja--delimiter-kind (text position)
   "Return the Jinja kind at POSITION in TEXT, or nil."
@@ -421,8 +296,7 @@ back to the original YAML scalar."
              (absolute-end (+ scalar-start region-end))
              (region-text (substring scalar-text marker-start region-end))
              (key (list ansible-intelligence-jinja-parser-version
-                        (or (ansible-intelligence-jinja--language) 'fallback)
-                        kind
+                        'fallback kind
                         (secure-hash 'sha256 region-text))))
         (push (list :kind kind
                     :range (ansible-intelligence-jinja--range
@@ -437,8 +311,6 @@ back to the original YAML scalar."
                     :complete (and closing t)
                     :error (unless closing "Jinja region is incomplete."))
               regions)
-        ;; An unterminated region is bounded by this scalar.  It must not
-        ;; consume an unrelated region in a later scalar.
         (setq position (if closing region-end (length scalar-text)))))
     (nreverse regions)))
 
@@ -475,8 +347,8 @@ back to the original YAML scalar."
      (let ((range (if (ansible-intelligence-symbol-p item)
                       (ansible-intelligence-symbol-range item)
                     item)))
-     (and (<= (ansible-intelligence-range-start range) start)
-          (<= end (ansible-intelligence-range-end range)))))
+       (and (<= (ansible-intelligence-range-start range) start)
+            (<= end (ansible-intelligence-range-end range)))))
    ranges))
 
 (defun ansible-intelligence-jinja--path-after (text start)
@@ -485,11 +357,7 @@ back to the original YAML scalar."
         path
         ranges)
     (cl-labels
-        ((space ()
-           (setq position
-                 (ansible-intelligence-jinja--skip-space-backward
-                  text position)))
-         (forward-space ()
+        ((forward-space ()
            (while (and (< position (length text))
                        (memq (aref text position) '(?\s ?\t ?\n ?\r)))
              (setq position (1+ position)))))
@@ -550,7 +418,6 @@ back to the original YAML scalar."
                     (push (ansible-intelligence-jinja--range
                            field-start field-end)
                           ranges))))
-            ;; Dynamic indexes are not facts about a nested field.
             (setq position (length text))))
          (t (setq position (length text)))))
       (list (nreverse path) (nreverse ranges)))))
@@ -653,23 +520,20 @@ DEFINITIONS contains relative ranges whose identifiers are not references."
                           (memq (aref text after) '(?\s ?\t ?\n ?\r)))
                 (setq after (1+ after)))
               (when (not
-                    (or (member name ansible-intelligence-jinja--keywords)
-                        (ansible-intelligence-jinja--definition-range-p
-                         definitions start end)
-                        (eq previous-char ?.)
-                        (eq previous-char ?|)
-                        (member previous-word '("is" "not"))
-                        ;; A single equals denotes a keyword argument.  Do not
-                        ;; confuse it with ==.
-                        (and (< after (length text))
-                             (= (aref text after) ?=)
-                             (or (= (1+ after) (length text))
-                                 (/= (aref text (1+ after)) ?=)))
-                        ;; Calls name a function/filter, not a variable.
-                        (and (< after (length text))
-                             (= (aref text after) ?\())))
+                     (or (member name ansible-intelligence-jinja--keywords)
+                         (ansible-intelligence-jinja--definition-range-p
+                          definitions start end)
+                         (eq previous-char ?.)
+                         (eq previous-char ?|)
+                         (member previous-word '("is" "not"))
+                         (and (< after (length text))
+                              (= (aref text after) ?=)
+                              (or (= (1+ after) (length text))
+                                  (/= (aref text (1+ after)) ?=)))
+                         (and (< after (length text))
+                              (= (aref text after) ?\())))
                 (pcase-let ((`(,path ,path-ranges)
-                              (ansible-intelligence-jinja--path-after text end)))
+                             (ansible-intelligence-jinja--path-after text end)))
                   (push
                    (ansible-intelligence-reference-create
                     :name name
@@ -679,69 +543,6 @@ DEFINITIONS contains relative ranges whose identifiers are not references."
                    references))))))
          (t (setq position (1+ position))))))
     (nreverse references)))
-
-(defun ansible-intelligence-jinja--node-error-p (node)
-  "Return non-nil when NODE or a descendant is an ERROR node."
-  (or (string= (ansible-intelligence-jinja--node-type node) "ERROR")
-      (cl-loop for index below (treesit-node-child-count node)
-               thereis (ansible-intelligence-jinja--node-error-p
-                        (treesit-node-child node index)))))
-
-(defun ansible-intelligence-jinja--isolated-block-statement-p (text)
-  "Return non-nil when TEXT is a block delimiter parsed without its pair."
-  (string-match-p
-   (concat
-    "\\`{%[-+]?[\t\n ]*\\(?:if\\|elif\\|else\\|endif\\|for\\|endfor\\|"
-    "block\\|endblock\\|with\\|endwith\\|filter\\|endfilter\\|macro\\|"
-    "endmacro\\|call\\|endcall\\|set\\|endset\\|trans\\|endtrans\\|"
-    "autoescape\\|endautoescape\\)\\_>")
-   text))
-
-(defun ansible-intelligence-jinja--copy-tree (node state depth)
-  "Copy NODE into a model tree, updating mutable work STATE."
-  (if (> depth ansible-intelligence-jinja-max-node-depth)
-      (progn
-        (setf (nth 1 state) t)
-        nil)
-    (setf (nth 0 state) (1+ (nth 0 state)))
-    (if (> (nth 0 state) ansible-intelligence-jinja-max-work)
-        (progn
-          (setf (nth 1 state) t)
-          nil)
-      (let (children)
-        (dotimes (index (treesit-node-child-count node))
-          (when-let* ((child
-                      (ansible-intelligence-jinja--copy-tree
-                       (treesit-node-child node index) state (1+ depth))))
-            (push child children)))
-        (ansible-intelligence-jinja-node-create
-         :type (ansible-intelligence-jinja--node-type node)
-         :range (ansible-intelligence-jinja--range
-                 (1- (treesit-node-start node))
-                 (1- (treesit-node-end node)))
-         :text (ansible-intelligence-jinja--node-text node)
-         :children (nreverse children)
-         :named (condition-case nil
-                    (treesit-node-check node 'named)
-                  (error t)))))))
-
-(defun ansible-intelligence-jinja--copy-tree-rebase (node base)
-  "Copy relative model NODE to absolute offsets at BASE."
-  (when node
-    (ansible-intelligence-jinja-node-create
-     :type (ansible-intelligence-jinja-node-type node)
-     :range
-     (ansible-intelligence-jinja--range
-      (+ base (ansible-intelligence-range-start
-               (ansible-intelligence-jinja-node-range node)))
-      (+ base (ansible-intelligence-range-end
-               (ansible-intelligence-jinja-node-range node))))
-     :text (ansible-intelligence-jinja-node-text node)
-     :children
-     (mapcar (lambda (child)
-               (ansible-intelligence-jinja--copy-tree-rebase child base))
-             (ansible-intelligence-jinja-node-children node))
-     :named (ansible-intelligence-jinja-node-named node))))
 
 (defun ansible-intelligence-jinja--rebase-reference (reference base)
   "Return REFERENCE with relative offsets rebased at BASE."
@@ -792,53 +593,11 @@ DEFINITIONS contains relative ranges whose identifiers are not references."
          (references (and complete
                           (ansible-intelligence-jinja--lexical-references
                            text definitions)))
-         (errors (delq nil (list error
-                                 "Jinja tree-sitter grammar unavailable; lexical fallback is active."))))
+         (errors (delq nil (list error))))
     (ansible-intelligence-jinja-analysis-create
      :key key :parser 'fallback :tree nil :references references
      :definitions definitions :errors errors :complete complete
      :work (+ (length references) (length definitions)))))
-
-(defun ansible-intelligence-jinja--parse-analysis (text key complete error)
-  "Parse TEXT with tree-sitter when available, falling back safely."
-  (let ((language (ansible-intelligence-jinja--language)))
-    (if (not language)
-        (ansible-intelligence-jinja--fallback-analysis text key complete error)
-      (condition-case parse-error
-          (with-temp-buffer
-            (insert text)
-            (treesit-parser-create language)
-            (let* ((root (treesit-buffer-root-node language))
-                   (state (list 0 nil))
-                   (tree (ansible-intelligence-jinja--copy-tree root state 0))
-                   (definitions
-                    (and complete
-                         (ansible-intelligence-jinja--definitions text)))
-                   (references
-                    (and complete
-                         (ansible-intelligence-jinja--lexical-references
-                          text definitions)))
-                   (grammar-error
-                    (and (ansible-intelligence-jinja--node-error-p root)
-                         (not (ansible-intelligence-jinja--isolated-block-statement-p
-                               text))
-                         "Jinja grammar recovery produced a partial AST."))
-                   (limit-error
-                    (and (nth 1 state)
-                         "Jinja AST work limit reached; lexical semantics are partial."))
-                   (errors
-                    (delq nil (list error grammar-error limit-error))))
-              (ansible-intelligence-jinja-analysis-create
-               :key key :parser language :tree tree :references references
-               :definitions definitions :errors errors
-               :complete (and complete (null errors))
-               :work (+ (nth 0 state) (length references)
-                        (length definitions)))))
-        (error
-         (ansible-intelligence-jinja--fallback-analysis
-          text key complete
-          (format "Jinja grammar parse failed (%s); lexical semantics are partial."
-                  (error-message-string parse-error))))))))
 
 (defun ansible-intelligence-jinja--analysis-for (region cache)
   "Return cached or newly parsed analysis for REGION using CACHE."
@@ -847,7 +606,7 @@ DEFINITIONS contains relative ranges whose identifiers are not references."
     (if analysis
         (cons analysis t)
       (let ((analysis
-             (ansible-intelligence-jinja--parse-analysis
+             (ansible-intelligence-jinja--fallback-analysis
               (or (plist-get region :analysis-text)
                   (plist-get region :text))
               key
@@ -858,9 +617,9 @@ DEFINITIONS contains relative ranges whose identifiers are not references."
 (defun ansible-intelligence-jinja--region-from (region analysis)
   "Materialize REGION from relative ANALYSIS data."
   (let* ((range (plist-get region :range))
-        (base (- (ansible-intelligence-range-start range)
-                 (or (plist-get region :analysis-base) 0)))
-        (references
+         (base (- (ansible-intelligence-range-start range)
+                  (or (plist-get region :analysis-base) 0)))
+         (references
           (mapcar (lambda (reference)
                     (ansible-intelligence-jinja--rebase-reference
                      reference base))
@@ -879,13 +638,16 @@ DEFINITIONS contains relative ranges whose identifiers are not references."
            :text (plist-get region :text)
            :key (plist-get region :key)
            :analysis analysis
-           :tree (ansible-intelligence-jinja--copy-tree-rebase
-                  (ansible-intelligence-jinja-analysis-tree analysis) base)
+           :tree nil
            :references references :definitions definitions
            :complete (ansible-intelligence-jinja-analysis-complete analysis)
            :error (car (ansible-intelligence-jinja-analysis-errors analysis)))
           :references references
           :definitions definitions)))
+
+(defun ansible-intelligence-jinja-grammar-available-p ()
+  "Return nil since tree-sitter Jinja is not used."
+  nil)
 
 (defun ansible-intelligence-jinja--region-kind (region)
   "Return the kind of REGION."
@@ -908,7 +670,7 @@ DEFINITIONS contains relative ranges whose identifiers are not references."
               (setf (ansible-intelligence-symbol-visibility-start symbol) end)))
            ((string-match "\\_<endfor\\_>" text)
             (when-let* ((open (seq-find (lambda (entry) (eq (car entry) 'for))
-                                       stack)))
+                                        stack)))
               (setq stack (delq open stack))
               (let ((close-start start))
                 (dolist (symbol
@@ -924,14 +686,13 @@ DEFINITIONS contains relative ranges whose identifiers are not references."
 (defun ansible-intelligence-jinja-analyze-buffer (&optional yaml-tree cache)
   "Analyze Jinja regions embedded in YAML scalars.
 
-YAML-TREE is an existing YAML tree-sitter root when available.  CACHE is a
-buffer-local hash table of region-relative analyses.  The returned snapshot
-contains absolute buffer ranges and no live tree-sitter nodes."
-(let ((scalar-ranges
-       (sort (ansible-intelligence-jinja--scalar-ranges yaml-tree)
-             (lambda (left right)
-               (< (ansible-intelligence-range-start (cdr left))
-                  (ansible-intelligence-range-start (cdr right))))))
+YAML-TREE is an optional YAML tree.  CACHE is a buffer-local hash table of
+region-relative analyses."
+  (let ((scalar-ranges
+         (sort (ansible-intelligence-jinja--scalar-ranges yaml-tree)
+               (lambda (left right)
+                 (< (ansible-intelligence-range-start (cdr left))
+                    (ansible-intelligence-range-start (cdr right))))))
         (scalar-count 0)
         (region-count 0)
         (bytes 0)
@@ -951,8 +712,8 @@ contains absolute buffer ranges and no live tree-sitter nodes."
             (push "Jinja region limit reached; analysis is partial." errors)
             (throw 'limit nil))
           (pcase-let ((`(,analysis . ,hit)
-                        (ansible-intelligence-jinja--analysis-for
-                         region-data cache)))
+                       (ansible-intelligence-jinja--analysis-for
+                        region-data cache)))
             (if hit
                 (setq cache-hits (1+ cache-hits))
               (setq cache-misses (1+ cache-misses)))
@@ -1007,9 +768,6 @@ contains absolute buffer ranges and no live tree-sitter nodes."
               (dolist (region-data
                        (ansible-intelligence-jinja--region-list scalar-range))
                 (consume-region region-data)))))
-        ;; Bare task expressions use synthetic wrappers but retain their YAML
-        ;; scalar ranges.  They are deliberately considered after delimiter
-        ;; regions so a normal `{{ ... }}` scalar is never double-counted.
         (dolist (region-data
                  (ansible-intelligence-jinja--bare-region-data yaml-tree))
           (consume-region region-data))))
@@ -1023,7 +781,7 @@ contains absolute buffer ranges and no live tree-sitter nodes."
                     (ansible-intelligence-range-start
                      (ansible-intelligence-jinja-region-range right)))))))
     (ansible-intelligence-jinja-snapshot-create
-     :parser (or (ansible-intelligence-jinja--language) 'fallback)
+     :parser 'fallback
      :regions regions
      :references
      (sort references
@@ -1049,172 +807,6 @@ contains absolute buffer ranges and no live tree-sitter nodes."
      :work work
      :cache-hits cache-hits
      :cache-misses cache-misses)))
-
-(defun ansible-intelligence-jinja--region-at (snapshot position)
-  "Return the Jinja region in SNAPSHOT containing POSITION."
-  (seq-find
-   (lambda (region)
-     (let ((range (ansible-intelligence-jinja-region-range region)))
-       (and (<= (ansible-intelligence-range-start range) position)
-            (<= position (ansible-intelligence-range-end range)))))
-   (and snapshot (ansible-intelligence-jinja-snapshot-regions snapshot))))
-
-(defun ansible-intelligence-jinja--identifier-backward (text position)
-  "Return `(START . END)' for the identifier before POSITION in TEXT."
-  (let ((end position))
-    (while (and (> position 0)
-                (ansible-intelligence-jinja--identifier-char-p
-                 (aref text (1- position))))
-      (setq position (1- position)))
-    (and (< position end) (cons position end))))
-
-(defun ansible-intelligence-jinja--bracket-backward (text position)
-  "Return a quoted field before POSITION, or nil."
-  (let ((cursor (ansible-intelligence-jinja--skip-space-backward text position)))
-    (when (and (> cursor 0) (= (aref text (1- cursor)) ?\]))
-      (let* ((close-position (1- cursor))
-             (open (cl-position ?\[ text :from-end t :end close-position)))
-        (when open
-          (let ((quote-pos (1+ open)))
-            (while (and (< quote-pos close-position)
-                        (memq (aref text quote-pos) '(?\s ?\t ?\n ?\r)))
-              (setq quote-pos (1+ quote-pos)))
-            (when (and (< quote-pos close-position)
-                       (memq (aref text quote-pos) '(?\" ?\')))
-              (let* ((quote-char (aref text quote-pos))
-                     (field-start (1+ quote-pos))
-                     (field-end (cl-position quote-char text
-                                              :start field-start)))
-                (when (and field-end (< field-end close-position))
-                  (list (substring text field-start field-end)
-                        field-start field-end open))))))))))
-
-(defun ansible-intelligence-jinja--incomplete-bracket (text)
-  "Return `(PREFIX START OPEN)' for an unfinished quoted bracket field."
-  (when-let* ((open (cl-position ?\[ text :from-end t)))
-    (let ((cursor (1+ open)))
-      (while (and (< cursor (length text))
-                  (memq (aref text cursor) '(?\s ?\t ?\n ?\r)))
-        (setq cursor (1+ cursor)))
-      (when (and (< cursor (length text))
-                 (memq (aref text cursor) '(?\" ?\')))
-        (let* ((quote-char (aref text cursor))
-               (start (1+ cursor))
-               (close (cl-position quote-char text :start start)))
-          (when (or (null close)
-                    (not (string-match-p "\\]" (substring text close))))
-            (list (substring text start (or close (length text)))
-                  start open)))))))
-
-(defun ansible-intelligence-jinja-completion-context (snapshot position)
-  "Return a snapshot-only field context at POSITION, or nil.
-
-The returned plist has `:base', `:path', `:start', `:end', and `:field-p'.
-No tree-sitter parser is invoked here."
-  (when-let* ((region (ansible-intelligence-jinja--region-at snapshot position))
-              (content-range
-               (ansible-intelligence-jinja-region-content-range region))
-              (region-range (ansible-intelligence-jinja-region-range region)))
-    (let* ((region-start (ansible-intelligence-range-start region-range))
-           (text (ansible-intelligence-jinja-region-text region))
-           (relative-position
-            (max 0 (min (length text) (- position region-start))))
-           (before (substring text 0 relative-position))
-           (identifier (ansible-intelligence-jinja--identifier-backward
-                        before (length before)))
-           (empty-cursor
-            (ansible-intelligence-jinja--skip-space-backward
-             before (length before)))
-           (bracket-prefix
-            (ansible-intelligence-jinja--incomplete-bracket
-             (substring before 0 empty-cursor)))
-           (prefix-start
-            (cond
-             (bracket-prefix (nth 1 bracket-prefix))
-             (identifier (car identifier))
-             (t empty-cursor)))
-           (prefix
-            (cond
-             (bracket-prefix (car bracket-prefix))
-             (identifier (substring before (car identifier) (cdr identifier)))
-             (t "")))
-           (cursor (if bracket-prefix (nth 2 bracket-prefix) prefix-start))
-           previous
-           (field-p (and bracket-prefix t)))
-      (when (or identifier bracket-prefix
-                (and (> cursor 0)
-                     (memq (aref before (1- cursor)) '(?. ?\] ?\[))))
-        (when bracket-prefix
-          (when-let* ((part
-                      (ansible-intelligence-jinja--identifier-backward
-                       before cursor)))
-            (push (substring before (car part) (cdr part)) previous)
-            (setq cursor (car part))))
-        (let ((first-pass (not bracket-prefix)))
-          (while (and (> cursor 0)
-                      (or first-pass
-                          (eq (aref before (1- cursor)) ?.)))
-            (setq first-pass nil
-                  cursor (ansible-intelligence-jinja--skip-space-backward
-                          before cursor))
-            (cond
-             ((and (> cursor 0) (= (aref before (1- cursor)) ?.))
-              (setq field-p t
-                    cursor (1- cursor))
-              (setq cursor (ansible-intelligence-jinja--skip-space-backward
-                            before cursor))
-              (if-let* ((bracket
-                        (ansible-intelligence-jinja--bracket-backward
-                         before cursor)))
-                  (progn
-                    (push (car bracket) previous)
-                    (setq cursor (nth 3 bracket))
-                    (when-let* ((part
-                                (ansible-intelligence-jinja--identifier-backward
-                                 before cursor)))
-                      (push (substring before (car part) (cdr part)) previous)
-                      (setq cursor (car part))))
-                (when-let* ((part
-                            (ansible-intelligence-jinja--identifier-backward
-                             before cursor)))
-                  (push (substring before (car part) (cdr part)) previous)
-                  (setq cursor (car part)))))
-             ((and (> cursor 0) (= (aref before (1- cursor)) ?\]))
-              (setq field-p t)
-              (when-let* ((bracket
-                          (ansible-intelligence-jinja--bracket-backward
-                           before cursor)))
-                (push (car bracket) previous)
-                 (setq cursor (nth 3 bracket))
-                 (when-let* ((part
-                             (ansible-intelligence-jinja--identifier-backward
-                              before cursor)))
-                   (push (substring before (car part) (cdr part)) previous)
-                   (setq cursor (car part)))))
-             (t (setq cursor 0))))
-          (let* ((parts (append previous
-                                 (unless (string-empty-p prefix)
-                                   (list prefix))))
-                 (base (car parts))
-                 (path (and base
-                            (if (string-empty-p prefix)
-                                (cdr parts)
-                              (butlast (cdr parts))))))
-            (when base
-              (list :base base :path path
-                    :start (+ region-start prefix-start)
-                    :end position :field-p field-p
-                    :bracket (or bracket-prefix
-                                 (and (> prefix-start 0)
-                                      (= (aref before (1- prefix-start)) ?\[)))
-                    :region region
-                    :content-range content-range))))))))
-
-(defun ansible-intelligence-jinja-root-name-at-point (snapshot position)
-  "Return the Jinja root identifier at POSITION from SNAPSHOT."
-  (plist-get (ansible-intelligence-jinja-completion-context
-              snapshot position)
-             :base))
 
 (provide 'ansible-intelligence-jinja)
 

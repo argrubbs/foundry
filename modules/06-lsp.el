@@ -7,7 +7,8 @@
 
 (eval-when-compile (require 'eglot))
 
-(ide-builtin eglot
+(use-package eglot
+  :ensure nil
   :commands (eglot eglot-ensure eglot-code-actions eglot-format-buffer)
   :hook ((python-ts-mode go-ts-mode go-mod-ts-mode terraform-mode yaml-ts-mode
           bash-ts-mode dockerfile-ts-mode) . eglot-ensure)
@@ -26,7 +27,8 @@
                   :pyright (:disableOrganizeImports t)
                   :python (:analysis (:typeCheckingMode "standard")))))
 
-(ide-builtin flymake
+(use-package flymake
+  :ensure nil
   :hook ((prog-mode . flymake-mode))
   :init (setq flymake-no-changes-timeout 0.5
               flymake-fringe-indicator-position 'right-fringe))
@@ -36,7 +38,8 @@
   :init (setq eldoc-box-max-pixel-width 700
               eldoc-box-only-multi-line t))
 
-(ide-builtin eldoc
+(use-package eldoc
+  :ensure nil
   :init (setq eldoc-idle-delay 0.3
               eldoc-echo-area-use-multiline-p 1))
 

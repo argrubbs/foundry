@@ -46,13 +46,14 @@
     (should (equal (buffer-string) "{\n  \n}"))
     (should (= (current-column) 2)))
 
-  ;; Go (tabs)
+  ;; Go (spaces, never tabs)
   (with-temp-buffer
     (go-ts-mode)
     (insert "func main() {}")
     (backward-char)
     (ide-align-smart-return)
-    (should (equal (buffer-string) "func main() {\n\t\n}"))
+    (should (equal (buffer-string) "func main() {\n    \n}"))
+    (should-not (string-match-p "\t" (buffer-string)))
     (should (= (current-column) 4)))
 
   ;; Rust
@@ -126,6 +127,40 @@
     (ide-align-yaml-electric-dash)
     (should (equal (buffer-substring (line-beginning-position) (line-end-position)) "---"))))
 
+(ert-deftest ide-align-test-yaml-electric-dash-under-bare-key ()
+  "Test typing `-' under a bare mapping key like `tasks:' preserves child indentation."
+  (with-temp-buffer
+    (yaml-ts-mode)
+    (ide-align-yaml-mode 1)
+    (insert "---\n- name: Eat the whole ass\n  hosts: localhost\n  tasks:\n    ")
+    ;; Point is at column 4 on line 5, indented below tasks:
+    (setq last-command nil)
+    (ide-align-yaml-electric-dash)
+    ;; It should stay under tasks: at column 4
+    (should (equal (buffer-substring (line-beginning-position) (line-end-position)) "    - "))
+    (should (= (current-column) 6))
+    ;; Repeated press should cycle to play level (column 0)
+    (setq last-command 'ide-align-yaml-electric-dash)
+    (ide-align-yaml-electric-dash)
+    (should (equal (buffer-substring (line-beginning-position) (line-end-position)) "- "))
+    (should (= (current-column) 2))
+    ;; Third press should cycle to document delimiter
+    (setq last-command 'ide-align-yaml-electric-dash)
+    (ide-align-yaml-electric-dash)
+    (should (equal (buffer-substring (line-beginning-position) (line-end-position)) "---"))))
+
+(ert-deftest ide-align-test-yaml-electric-dash-under-bare-key-empty-line ()
+  "Test typing `-' on an unindented line under `tasks:' auto-indents to child level."
+  (with-temp-buffer
+    (yaml-ts-mode)
+    (ide-align-yaml-mode 1)
+    (insert "---\n- name: Eat the whole ass\n  hosts: localhost\n  tasks:\n")
+    ;; Point is at column 0 on line 5
+    (setq last-command nil)
+    (ide-align-yaml-electric-dash)
+    (should (equal (buffer-substring (line-beginning-position) (line-end-position)) "    - "))
+    (should (= (current-column) 6))))
+
 (ert-deftest ide-align-test-yaml-electric-backspace ()
   "Test backspace in YAML dedents by 2 spaces."
   (with-temp-buffer
@@ -163,15 +198,15 @@
     (should (= (current-indentation) 4))))
 
 (ert-deftest ide-align-test-ansible-module-completion ()
-  "Test completing an Ansible module automatically appends `:` and indents."
+  "Test completing an Ansible module automatically appends `:` without extra newline."
   (with-temp-buffer
     (yaml-ts-mode)
     (ide-align-yaml-mode 1)
     (setq-local buffer-file-name "/tmp/playbook.yml")
     (insert "    - name: Test\n      ansible.builtin.debug")
     (ide-align--handle-ansible-module-completion)
-    (should (equal (buffer-string) "    - name: Test\n      ansible.builtin.debug:\n        "))
-    (should (= (current-column) 8))))
+    (should (equal (buffer-string) "    - name: Test\n      ansible.builtin.debug:"))
+    (should (= (current-column) 28))))
 
 (ert-deftest ide-align-test-terraform-snippet-point ()
   "Test expanding Terraform resource snippet places point inside block at column 2."
@@ -237,25 +272,44 @@
     (should (= (line-number-at-pos) 3))))
 
 (ert-deftest ide-align-test-yaml-schema-block-key-completion ()
-  "Test completing a YAML schema block key like `tasks:` moves to child indent."
+  "Test completing a YAML schema block key like `tasks` appends `:` without extra newline."
   (with-temp-buffer
     (yaml-ts-mode)
     (ide-align-yaml-mode 1)
-    (insert "- name: Play\n  tasks:")
+    (insert "- name: Play\n  tasks")
     (ide-align--post-completion-alignment)
-    (should (equal (buffer-string) "- name: Play\n  tasks:\n    "))
-    (should (= (current-column) 4))))
+    (should (equal (buffer-string) "- name: Play\n  tasks:"))
+    (should (= (current-column) 8))))
 
 (ert-deftest ide-align-test-go-block-completion ()
-  "Test completing func main() {} in Go expands with tab and point at column 4."
+  "Test completing func main() {} in Go expands with spaces and point at column 4."
   (with-temp-buffer
     (go-ts-mode)
     (ide-align-mode 1)
     (insert "func main() {}")
     (ide-align--post-completion-alignment)
-    (should (equal (buffer-string) "func main() {\n\t\n}"))
+    (should (equal (buffer-string) "func main() {\n    \n}"))
+    (should-not (string-match-p "\t" (buffer-string)))
     (should (= (current-column) 4))
     (should (= (line-number-at-pos) 2))))
+
+(ert-deftest ide-align-test-never-inserts-tabs-even-if-indent-tabs-mode-t ()
+  "Verify auto-alignment and smart-return never insert tabs even if indent-tabs-mode was t."
+  (with-temp-buffer
+    (go-ts-mode)
+    (setq-local indent-tabs-mode t)
+    (ide-align-mode 1)
+    (insert "func test() {}")
+    (ide-align--post-completion-alignment)
+    (should (equal (buffer-string) "func test() {\n    \n}"))
+    (should-not (string-match-p "\t" (buffer-string))))
+  (with-temp-buffer
+    (go-ts-mode)
+    (setq-local indent-tabs-mode t)
+    (insert "{}")
+    (backward-char)
+    (ide-align-smart-return)
+    (should-not (string-match-p "\t" (buffer-string)))))
 
 (ert-deftest ide-align-test-rust-block-completion ()
   "Test completing fn main() {} in Rust expands with 4 spaces."

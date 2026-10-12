@@ -50,17 +50,7 @@
 (declare-function ide-lang-define-linter "00-lang-lib")
 (declare-function ide-lang-register-menu "00-lang-lib")
 (declare-function iac-dispatch "lang-iac")
-(declare-function treesit-node-text "treesit")
-(declare-function treesit-node-type "treesit")
-(declare-function treesit-node-start "treesit")
-(declare-function treesit-node-end "treesit")
-(declare-function treesit-node-children "treesit")
-(declare-function treesit-node-parent "treesit")
-(declare-function treesit-node-child-by-field-name "treesit")
-(declare-function treesit-node-next-sibling "treesit")
-(declare-function treesit-node-prev-sibling "treesit")
-(declare-function treesit-buffer-root-node "treesit")
-(declare-function treesit-query-capture "treesit")
+(eval-when-compile (require 'treesit nil t))
 
 (defgroup ide-devops nil "TOML, shell, Docker and Terraform support." :group 'ide-lang)
 
@@ -72,7 +62,7 @@
 
 (defun ide-devops--dir ()
   "Directory of the current file (or `default-directory')."
-  (file-name-as-directory (if buffer-file-name (file-name-directory buffer-file-name) default-directory)))
+  (if buffer-file-name (file-name-directory buffer-file-name) default-directory))
 
 (defun ide-devops--quote (arg)
   "ARG quoted for a shell command line, left bare when it is made of safe characters."
@@ -80,7 +70,7 @@
 
 (defun ide-devops--cmdline (argv)
   "The shell command line for the list of arguments ARGV."
-  (mapconcat #'ide-devops--quote argv " "))
+  (mapconcat #'ide-devops--quote (delq nil argv) " "))
 
 (defun ide-devops--run (name command &optional dir comint)
   "Run COMMAND (string or argv list) in the drawer as *run: NAME* in DIR."
@@ -710,22 +700,22 @@ With RUN, then run the image interactively in a terminal."
       (let ((default-directory (file-name-directory file)))
         (process-lines "docker" "compose" "-f" file "config" "--services")))))
 
-(defun ide-compose-config () "Validate the compose file and show it resolved (docker compose config)."
-       (interactive) (ide-compose--run "config" "config"))
-(defun ide-compose-validate () "Quietly validate the compose file (docker compose config -q)."
-       (interactive) (ide-compose--run "validate" "config" "-q"))
-(defun ide-compose-up () "docker compose up --build -d." (interactive) (ide-compose--run "up" "up" "--build" "-d"))
-(defun ide-compose-up-foreground () "docker compose up --build (attached)."
-       (interactive) (ide-compose--run "up" "up" "--build"))
-(defun ide-compose-down () "docker compose down." (interactive) (ide-compose--run "down" "down"))
+(defmacro ide-compose--def (name &rest args)
+  `(defun ,name () (interactive) (ide-compose--run ,@args)))
+
+(ide-compose--def ide-compose-config "config" "config")
+(ide-compose--def ide-compose-validate "validate" "config" "-q")
+(ide-compose--def ide-compose-up "up" "up" "--build" "-d")
+(ide-compose--def ide-compose-up-foreground "up" "up" "--build")
+(ide-compose--def ide-compose-down "down" "down")
 (defun ide-compose-down-volumes ()
   "docker compose down -v: also remove the stack's named volumes."
   (interactive)
   (when (yes-or-no-p "Remove the stack's volumes too? ") (ide-compose--run "down" "down" "-v")))
-(defun ide-compose-ps () "docker compose ps." (interactive) (ide-compose--run "ps" "ps"))
-(defun ide-compose-pull () "docker compose pull." (interactive) (ide-compose--run "pull" "pull"))
-(defun ide-compose-build () "docker compose build." (interactive) (ide-compose--run "build" "build"))
-(defun ide-compose-restart () "docker compose restart." (interactive) (ide-compose--run "restart" "restart"))
+(ide-compose--def ide-compose-ps "ps" "ps")
+(ide-compose--def ide-compose-pull "pull" "pull")
+(ide-compose--def ide-compose-build "build" "build")
+(ide-compose--def ide-compose-restart "restart" "restart")
 
 (defun ide-compose-logs (service)
   "Follow the logs of SERVICE (empty: all services)."

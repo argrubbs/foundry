@@ -10,15 +10,6 @@
 
 (require 'doom-themes)
 
-(defgroup doom-ember-theme nil
-  "Options for the `doom-ember' theme."
-  :group 'doom-themes)
-
-(defcustom doom-ember-brighter-comments nil
-  "If non-nil, comments use a more vivid colour."
-  :group 'doom-ember-theme
-  :type 'boolean)
-
 (def-doom-theme doom-ember
   "A dark theme: warm charcoal surfaces lit by ember orange."
 
@@ -56,8 +47,8 @@
    (vertical-bar   (doom-darken base1 0.1))
    (selection      `(,(car (doom-blend orange bg 0.28)) ,@(cdr dark-blue)))
    (builtin        violet)
-   (comments       (if doom-ember-brighter-comments dark-cyan base5))
-   (doc-comments   (doom-lighten (if doom-ember-brighter-comments dark-cyan base5) 0.2))
+   (comments       base5)
+   (doc-comments   (doom-lighten base5 0.2))
    (constants      magenta)
    (functions      orange)
    (keywords       blue)

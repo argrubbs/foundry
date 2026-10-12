@@ -17,6 +17,8 @@
 
 (declare-function elpaca-process-queues "elpaca")
 (declare-function ide-mise-setup "00-mise")
+(declare-function ide-env-flag-p "00-core")
+(declare-function ide-slurp "00-core")
 (defvar ide-keys-mode-map)
 
 (defvar ide-user-dir (expand-file-name "user/" user-emacs-directory)
@@ -25,8 +27,6 @@
   "Shipped examples that can be copied into `ide-user-dir'.")
 (defvar ide-user-eval-new-forms t
   "When non-nil, `ide-user-add-package' evaluates the new form right away (set nil in tests).")
-(defvar ide-user--core-keymap nil
-  "Copy of `ide-keys-mode-map' taken just before the first user file loads.")
 (defvar ide-user-load-errors nil "Alist of (FILE . MESSAGE) for user files that failed to load.")
 
 ;;;; Loading -----------------------------------------------------------------
@@ -47,18 +47,13 @@
                       :error)
      nil)))
 
-(defun ide-user-core-keymap ()
-  "The IDE keymap as the core defines it, without keys the user added or changed."
-  (or ide-user--core-keymap ide-keys-mode-map))
-
 (defun ide-user-safe-mode-p ()
   "Non-nil when user files are skipped ($IDE_NO_USER is set)."
-  (let ((v (getenv "IDE_NO_USER"))) (and v (not (string-empty-p v)))))
+  (ide-env-flag-p "IDE_NO_USER"))
 
 (defun ide-user-load-all ()
   "Load every user file unless $IDE_NO_USER is set.  Return the number loaded."
   (setq ide-user-load-errors nil)
-  (unless ide-user--core-keymap (setq ide-user--core-keymap (copy-keymap ide-keys-mode-map)))
   (if (ide-user-safe-mode-p)
       (progn (add-hook 'emacs-startup-hook
                        (lambda () (message "Safe mode: user/ files were not loaded (IDE_NO_USER is set)")))
@@ -114,29 +109,26 @@ With a prefix argument, load the package at startup instead of on first use."
   (unless (ide-user--valid-package-name-p name) (user-error "Invalid package name: %S" name))
   (let ((file (expand-file-name "packages.el" ide-user-dir)))
     (make-directory ide-user-dir t)
-    ;; Never leave Emacs asking "file changed on disk": refuse to clobber unsaved
-    ;; edits, and silently refresh an unmodified visiting buffer afterwards.
+    ;; Refuse to clobber unsaved edits in an open buffer
     (when-let* ((buf (find-buffer-visiting file)))
       (when (buffer-modified-p buf)
         (user-error "Save or revert %s first; it has unsaved changes" (file-name-nondirectory file))))
     (when (and (file-exists-p file)
                (string-match-p (format "(use-package %s\\([ \n)]\\)" (regexp-quote name))
-                               (with-temp-buffer (insert-file-contents file) (buffer-string))))
+                               (ide-slurp file)))
       (user-error "%s is already configured in %s" name file))
-    (let ((form (ide-user--package-form name repo demand)))
-      (with-temp-buffer
-        (when (file-exists-p file) (insert-file-contents file))
+    (let* ((form (ide-user--package-form name repo demand))
+           (buf (find-file-noselect file)))
+      (with-current-buffer buf
         (when (zerop (buffer-size))
           (insert ";;; packages.el --- My packages -*- lexical-binding: t; -*-\n\n;;; Code:\n"))
         (goto-char (point-max))
         (unless (bolp) (insert "\n"))
         (insert "\n" form)
-        (write-region nil nil file nil 'silent))
+        (save-buffer))
       (when ide-user-eval-new-forms
         (eval (car (read-from-string form)) t)
         (when (fboundp 'elpaca-process-queues) (elpaca-process-queues)))
-      (when-let* ((buf (find-buffer-visiting file)))
-        (with-current-buffer buf (revert-buffer t t t)))
       (message "Added %s to %s; installing in the background (M-x elpaca-log to watch)" name file)
       file)))
 
@@ -165,16 +157,18 @@ With a prefix argument, load the package at startup instead of on first use."
                    (directory-files ide-examples-dir t "\\.example\\'")))
           #'string<)))
 
+(defconst ide-user--mise-line-re "\\`\\(\"[^\"]+\"\\|[A-Za-z0-9_:.@/-]+\\) *= *")
+
 (defun ide-user--merge-mise-tools (example-text)
   "Add the tools of EXAMPLE-TEXT to user/mise.toml, keeping what is already there."
   (let* ((file (expand-file-name "mise.toml" ide-user-dir))
          (new (cl-loop for line in (split-string example-text "\n")
-                       when (string-match "\\`\\(\"[^\"]+\"\\|[A-Za-z0-9_:.@/-]+\\) *= *" line) collect line))
-         (existing (if (file-exists-p file) (with-temp-buffer (insert-file-contents file) (buffer-string)) ""))
+                       when (string-match ide-user--mise-line-re line) collect line))
+         (existing (if (file-exists-p file) (ide-slurp file) ""))
          (have (cl-loop for line in (split-string existing "\n")
-                        when (string-match "\\`\\(\"[^\"]+\"\\|[A-Za-z0-9_:.@/-]+\\) *=" line) collect (match-string 1 line)))
-         (add (cl-remove-if (lambda (l) (string-match "\\`\\(\"[^\"]+\"\\|[A-Za-z0-9_:.@/-]+\\) *=" l)
-                              (member (match-string 1 l) have))
+                        when (string-match ide-user--mise-line-re line) collect (match-string 1 line)))
+         (add (cl-remove-if (lambda (l) (and (string-match ide-user--mise-line-re l)
+                                             (member (match-string 1 l) have)))
                             new)))
     (when add
       (with-temp-file file
@@ -197,7 +191,7 @@ With a prefix argument, load the package at startup instead of on first use."
             (if (file-exists-p dest) (message "Keeping your existing %s" dest)
               (copy-file f dest) (push dest copied))))
          ((string-suffix-p ".mise.example" base)
-          (setq tools (+ (or tools 0) (ide-user--merge-mise-tools (with-temp-buffer (insert-file-contents f) (buffer-string)))))))))
+          (setq tools (+ (or tools 0) (ide-user--merge-mise-tools (ide-slurp f))))))))
     (when copied (find-file (car copied)))
     (message "Installed example %s: %d file(s), %d tool(s) added" name (length copied) (or tools 0))
     (when (and tools (> tools 0) (fboundp 'ide-mise-setup)

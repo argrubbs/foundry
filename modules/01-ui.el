@@ -57,25 +57,13 @@
   (diff-hl-flydiff-mode 1)
   (unless (display-graphic-p) (diff-hl-margin-mode 1)))
 
-(use-package rainbow-delimiters :hook (prog-mode . rainbow-delimiters-mode))
-
 (set-face-attribute 'default nil :height 120)
-
-;; Frame geometry: 1370x1011 pixels for graphical sessions.
-(setq frame-resize-pixelwise t)
-(add-hook 'window-setup-hook
-          (lambda ()
-            (when (display-graphic-p)
-              (set-frame-size (selected-frame) 1370 1011 t))))
 
 ;; Branding.  Deliberately no `foundry-' symbols or feature: that namespace belongs to
 ;; the unrelated foundry.el package.
 (setq frame-title-format '("Foundry — " (:eval (if buffer-file-name (abbreviate-file-name buffer-file-name) "%b")))
       icon-title-format frame-title-format
       initial-scratch-message ";; Foundry — a full-featured Emacs IDE\n;; C-c h d  documentation    C-c w 8  Services & DevOps    C-c a M  AI model\n\n")
-
-;; Startup re-evaluates `scroll-bar-mode' after early-init; assert it again.
-(when (fboundp 'scroll-bar-mode) (scroll-bar-mode -1))
 
 ;; which-key (built in since Emacs 30): show the continuations of a pending prefix.
 (use-package which-key
@@ -86,14 +74,6 @@
   (which-key-idle-secondary-delay 0.05)
   (which-key-sort-order #'which-key-key-order-alpha)
   :config
-  (which-key-add-key-based-replacements
-    "C-c a" "ai"
-    "C-c d" "devops"
-    "C-c h" "help/docs"
-    "C-c l" "code (lsp)"
-    "C-c o" "org"
-    "C-c u" "user config"
-    "C-c w" "tool windows")
   (which-key-mode 1))
 
 (provide '01-ui)

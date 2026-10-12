@@ -7,14 +7,10 @@
 
 (defvar ide-cache-dir (expand-file-name ".cache/" user-emacs-directory))
 (defvar ide-var-dir (expand-file-name "var/" user-emacs-directory))
-(dolist (d (list ide-cache-dir ide-var-dir
-                 (expand-file-name "backups/" ide-cache-dir)
-                 (expand-file-name "auto-save/" ide-cache-dir)
-                 (expand-file-name "locks/" ide-cache-dir)))
-  (make-directory d t))
+(make-directory ide-cache-dir t)
+(make-directory ide-var-dir t)
 
 (prefer-coding-system 'utf-8)
-(set-default-coding-systems 'utf-8)
 
 (setq backup-directory-alist `(("." . ,(expand-file-name "backups/" ide-cache-dir)))
       auto-save-file-name-transforms `((".*" ,(expand-file-name "auto-save/" ide-cache-dir) t))
@@ -23,8 +19,6 @@
       backup-by-copying t
       version-control t
       delete-old-versions t
-      create-lockfiles t
-      custom-file (expand-file-name "custom.el" user-emacs-directory)
       transient-levels-file (expand-file-name "transient/levels.el" ide-var-dir)
       transient-values-file (expand-file-name "transient/values.el" ide-var-dir)
       transient-history-file (expand-file-name "transient/history.el" ide-var-dir)
@@ -43,17 +37,19 @@
 
 (setq-default indent-tabs-mode nil
               fill-column 100
-              standard-indent 2)
+              standard-indent 2
+              tab-width 2)
 
-;; Indentation policy: 2 spaces, unless the language's own style guide says
-;; otherwise.  Python keeps PEP 8's 4 (`python-indent-offset'), Go keeps gofmt's
-;; tabs (lang-go.el) and Rust keeps rustfmt's 4.  Modes without an offset
-;; variable (YAML, shell, ...) take it from `tab-width', which is also what
-;; Eglot sends to language servers as the formatting `tabSize'.
+;; Indentation policy: ALWAYS use spaces, NEVER tabs.
+;; 2 spaces default, unless the language's own style guide says otherwise
+;; (e.g. Python and Rust keep 4). Modes without an offset variable take it from `tab-width'.
+(add-hook 'prog-mode-hook (lambda () (unless (derived-mode-p 'makefile-mode) (setq indent-tabs-mode nil))))
+(add-hook 'text-mode-hook (lambda () (setq indent-tabs-mode nil)))
+(add-hook 'conf-mode-hook (lambda () (setq indent-tabs-mode nil)))
+
 (setq sh-basic-offset 2
       json-ts-mode-indent-offset 2
       typescript-ts-mode-indent-offset 2
-      typescript-ts-indent-offset 2
       js-indent-level 2
       css-indent-offset 2
       html-ts-indent-offset 2
@@ -62,12 +58,6 @@
       yaml-indent-offset 2
       terraform-indent-level 2
       hcl-indent-level 2)
-
-(dolist (hook '(yaml-ts-mode-hook yaml-mode-hook json-ts-mode-hook json-mode-hook
-                bash-ts-mode-hook sh-mode-hook terraform-mode-hook hcl-mode-hook
-                typescript-ts-mode-hook tsx-ts-mode-hook js-ts-mode-hook
-                lua-ts-mode-hook dockerfile-ts-mode-hook))
-  (add-hook hook (lambda () (setq-local tab-width 2))))
 
 (require 'ide-align nil t)
 (when (fboundp 'global-ide-align-mode)
@@ -82,7 +72,6 @@
       scroll-margin 3
       read-process-output-max (* 1024 1024)
       process-adaptive-read-buffering nil
-      load-prefer-newer t
       auto-revert-verbose nil
       global-auto-revert-non-file-buffers t)
 
@@ -93,14 +82,7 @@
 (save-place-mode 1)
 (recentf-mode 1)
 (column-number-mode 1)
-(global-display-line-numbers-mode 1)
-(dolist (h '(treemacs-mode-hook ghostel-mode-hook eshell-mode-hook shell-mode-hook
-             term-mode-hook magit-mode-hook org-mode-hook imenu-list-major-mode-hook))
-  (add-hook h (lambda () (display-line-numbers-mode -1))))
-
-(with-eval-after-load 'package
-  ;; Never let package.el write to ~/.emacs.d.
-  (setq package-user-dir (expand-file-name "elpa/" ide-cache-dir)))
+(add-hook 'prog-mode-hook #'display-line-numbers-mode)
 
 ;;;; Bounded subprocesses
 (defun ide-run-with-timeout (seconds program &rest args)
@@ -131,6 +113,14 @@ process had to be killed, or nil if PROGRAM could not be started."
                  (with-current-buffer err (buffer-string)))
       (kill-buffer out)
       (kill-buffer err))))
+
+(defun ide-env-flag-p (var)
+  "Non-nil when environment variable VAR is set to a non-empty string."
+  (let ((v (getenv var))) (and v (not (string-empty-p v)))))
+
+(defun ide-slurp (file)
+  "Return the contents of FILE as a string."
+  (with-temp-buffer (insert-file-contents file) (buffer-string)))
 
 (provide '00-core)
 ;;; 00-core.el ends here

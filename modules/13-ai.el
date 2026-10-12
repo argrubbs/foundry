@@ -22,12 +22,6 @@
 (defcustom ide-ai-gemini-model "gemini-2.0-flash" "Gemini model for inline completion." :type 'string)
 
 (declare-function minuet-auto-suggestion-mode "minuet")
-(declare-function minuet-accept-suggestion "minuet")
-(declare-function minuet-accept-suggestion-word "minuet")
-(declare-function minuet-accept-suggestion-line "minuet")
-(declare-function minuet-next-suggestion "minuet")
-(declare-function minuet-previous-suggestion "minuet")
-(declare-function minuet-dismiss-suggestion "minuet")
 (defvar minuet-provider)
 (defvar minuet-openai-fim-compatible-options)
 (defvar minuet-gemini-options)
@@ -43,12 +37,12 @@
     ('ollama
      (setq minuet-provider 'openai-fim-compatible
            minuet-openai-fim-compatible-options
-           (plist-put (plist-put (plist-put (plist-put (plist-put (copy-sequence minuet-openai-fim-compatible-options)
-                                                                 :end-point (concat ide-ai-ollama-host "/v1/completions"))
-                                                           :api-key (lambda () "ollama"))
-                                             :name "Ollama")
-                                 :optional '(:max_tokens 56))
-                      :model ide-ai-ollama-model)))
+           (let ((opts (copy-sequence minuet-openai-fim-compatible-options)))
+             (setq opts (plist-put opts :model ide-ai-ollama-model))
+             (setq opts (plist-put opts :end-point (concat ide-ai-ollama-host "/v1/completions")))
+             (setq opts (plist-put opts :api-key (lambda () "ollama")))
+             (setq opts (plist-put opts :name "Ollama"))
+             (plist-put opts :optional '(:max_tokens 56)))))
     ('gemini
      (setq minuet-provider 'gemini
            minuet-gemini-options (plist-put (copy-sequence minuet-gemini-options)
@@ -66,6 +60,14 @@
 (use-package minuet
   :ensure (:host github :repo "milanglacier/minuet-ai.el")
   :hook (prog-mode . ide-ai--maybe-enable-minuet)
+  :bind (:map minuet-active-mode-map
+         ("TAB" . minuet-accept-suggestion)
+         ("<tab>" . minuet-accept-suggestion)
+         ("C-<return>" . minuet-accept-suggestion-word)
+         ("S-<return>" . minuet-accept-suggestion-line)
+         ("M-n" . minuet-next-suggestion)
+         ("M-p" . minuet-previous-suggestion)
+         ("C-g" . minuet-dismiss-suggestion))
   :init
   (setq minuet-auto-suggestion-debounce-delay 0.4
         minuet-auto-suggestion-throttle-delay 1.0
@@ -76,14 +78,7 @@
   :config
   (ide-ai-apply-fim-backend)
   (add-to-list 'minuet-auto-suggestion-block-predicates
-               (lambda () (and (bound-and-true-p corfu--frame) (frame-visible-p corfu--frame))))
-  (define-key minuet-active-mode-map (kbd "TAB") #'minuet-accept-suggestion)
-  (define-key minuet-active-mode-map (kbd "<tab>") #'minuet-accept-suggestion)
-  (define-key minuet-active-mode-map (kbd "C-<return>") #'minuet-accept-suggestion-word)
-  (define-key minuet-active-mode-map (kbd "S-<return>") #'minuet-accept-suggestion-line)
-  (define-key minuet-active-mode-map (kbd "M-n") #'minuet-next-suggestion)
-  (define-key minuet-active-mode-map (kbd "M-p") #'minuet-previous-suggestion)
-  (define-key minuet-active-mode-map (kbd "C-g") #'minuet-dismiss-suggestion))
+               (lambda () (and (bound-and-true-p corfu--frame) (frame-visible-p corfu--frame)))))
 
 ;;;; gptel ------------------------------------------------------------------
 
@@ -95,7 +90,6 @@
 (declare-function gptel-abort "gptel-request")
 (declare-function gptel-add-file "gptel-context")
 (declare-function gptel "gptel")
-(declare-function gptel-mode "gptel")
 (defvar gptel-backend)
 (defvar gptel-model)
 (defvar gptel-default-mode)
@@ -338,7 +332,7 @@ Never touches the network: Ollama's installed models are only listed in the pick
 
 (defcustom ide-ai-private-file-regexps
   '("\\(\\`\\|/\\)\\.env\\(\\.[^/]*\\)?\\'"                       ; .env, .env.local
-    "\\.\\(tfvars\\|auto\\.tfvars\\)\\(\\.json\\)?\\'" "\\.tfstate\\(\\.[^/]*\\)?\\'"
+    "\\.tfvars\\(\\.json\\)?\\'" "\\.tfstate\\(\\.[^/]*\\)?\\'"
     "\\.\\(pem\\|key\\|p12\\|pfx\\|jks\\|kdbx\\|gpg\\)\\'"
     "/id_\\(rsa\\|dsa\\|ecdsa\\|ed25519\\)\\'"
     "\\(\\`\\|/\\)[._]?\\(netrc\\|authinfo\\|npmrc\\|pypirc\\|git-credentials\\|pgpass\\)\\(\\.gpg\\)?\\'"
@@ -372,11 +366,11 @@ Local models are unaffected.  Extend it in user/ with `add-to-list'."
 
 (defun ide-ai--provider-hosted-p (provider)
   "Non-nil when PROVIDER runs on someone else's machine.  Unknown providers count as hosted."
-  (cond ((null provider) t)
-        ((plist-member (cdr provider) :hosted) (plist-get (cdr provider) :hosted))
-        ((ide-ai--pget provider :env) t)
-        ((eq (car provider) 'ollama) (not (ide-ai--local-host-p)))
-        (t t)))
+  (if (plist-member (cdr provider) :hosted)
+      (plist-get (cdr provider) :hosted)
+    (or (null provider)
+        (and (ide-ai--pget provider :env) t)
+        (if (eq (car provider) 'ollama) (not (ide-ai--local-host-p)) t))))
 
 (defun ide-ai-chat-hosted-p ()
   "Non-nil when chat and agent requests currently go to a hosted service."
@@ -454,7 +448,6 @@ Plugins live in ~/.claude/plugins/cache/MARKETPLACE/PLUGIN/VERSION/skills."
 (use-package gptel-agent
   :commands (gptel-agent gptel-agent-update)
   :config
-  (ide-ai--refresh-skill-dirs)
   (advice-add 'gptel-agent :before #'ide-ai--refresh-skill-dirs))
 
 (defun ide-ai-agent ()

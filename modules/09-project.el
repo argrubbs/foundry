@@ -5,7 +5,8 @@
 
 ;;; Code:
 
-(ide-builtin project
+(use-package project
+  :ensure nil
   :init
   (setq project-switch-commands '((project-find-file "Find file" ?f)
                                   (consult-ripgrep "Ripgrep" ?g)
@@ -14,15 +15,9 @@
                                   (project-eshell "Eshell" ?e))
         project-vc-extra-root-markers '(".project" "go.mod" "pyproject.toml" "package.json")))
 
-(use-package rg
-  :commands (rg rg-project rg-menu)
-  :init (setq rg-group-result t))
-
 ;; Terminal: ghostel (libghostty).  Its prebuilt native module is fetched on
 ;; first interactive use (`ghostel-module-auto-install' asks; loading never prompts).
 (use-package ghostel :commands ghostel)
-
-(use-package eat :commands eat)
 
 (setq grep-command "rg --no-heading -n "
       xref-search-program 'ripgrep)

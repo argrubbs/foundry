@@ -5,10 +5,10 @@
 
 ;;; Code:
 
-(eval-when-compile (require 'eglot))
-
 (require 'transient)
-(require 'compile)
+
+(defvar eglot-server-programs)
+(declare-function ide-lang-run "00-lang-lib")
 
 (use-package hcl-mode
   :mode ("\\.hcl\\'" "\\.pkr\\.hcl\\'" "\\.pkrvars\\.hcl\\'"))
@@ -22,11 +22,8 @@
                '(terraform-mode . ("terraform-ls" "serve"))))
 
 (defun ide--iac-run (name &rest command)
-  "Run COMMAND in the bottom drawer in buffer *iac-NAME*."
-  (let ((compilation-buffer-name-function (lambda (_) (format "*iac-%s*" name)))
-        (default-directory (or (when-let* ((p (project-current))) (project-root p))
-                               default-directory)))
-    (compile (mapconcat #'identity command " "))))
+  "Run COMMAND in the bottom drawer in buffer *run: NAME*."
+  (ide-lang-run name command))
 
 ;;;###autoload (autoload 'iac-dispatch "lang-iac" nil t)
 (transient-define-prefix iac-dispatch ()

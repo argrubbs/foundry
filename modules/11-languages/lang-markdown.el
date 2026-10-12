@@ -51,8 +51,6 @@
 (defvar ide-var-dir)
 (defvar ide-eglot-format-on-save)
 (defvar ide-run-command-functions)
-(defvar apheleia-formatters)
-(defvar apheleia-mode-alist)
 (defvar markdown-mode-map)
 (defvar markdown-mode-command-map)
 (defvar markdown-code-lang-modes)
@@ -86,17 +84,8 @@
 (declare-function org-mode "org")
 (declare-function org-export-to-file "ox")
 (declare-function org-export-backend-p "ox")
-(declare-function ide-lang-run "00-lang-lib")
-(declare-function ide-lang-run-then "00-lang-lib")
-(declare-function ide-lang-root "00-lang-lib")
-(declare-function ide-lang-exe-or-error "00-lang-lib")
-(declare-function ide-lang-browse "00-lang-lib")
-(declare-function ide-lang-diag "00-lang-lib")
-(declare-function ide-lang-parse-regexp "00-lang-lib")
-(declare-function ide-lang-define-linter "00-lang-lib")
-(declare-function ide-lang-register-menu "00-lang-lib")
-(declare-function ide-lang-trust-project "00-lang-lib")
-(declare-function treesit-language-available-p "treesit.c")
+(require '00-lang-lib)
+(require 'treesit)
 
 (defgroup ide-markdown nil "Markdown support." :group 'ide-lang)
 
@@ -232,11 +221,9 @@ t (always) or nil (only on M-x eglot)."
   "File name prettier should assume for the buffer (its .prettierrc lookup and parser)."
   (or buffer-file-name "buffer.md"))
 
-(with-eval-after-load 'apheleia
-  (setf (alist-get 'ide-markdown-prettier apheleia-formatters)
-        '("apheleia-npx" "prettier" "--stdin-filepath" (ide-markdown--stdin-name) "--prose-wrap" "preserve"))
-  (dolist (mode '(markdown-mode gfm-mode))
-    (setf (alist-get mode apheleia-mode-alist) 'ide-markdown-prettier)))
+(ide-lang-define-formatter 'ide-markdown-prettier
+  '("apheleia-npx" "prettier" "--stdin-filepath" (ide-markdown--stdin-name) "--prose-wrap" "preserve")
+  '(markdown-mode gfm-mode))
 
 (defun ide-markdown-toggle-format-on-save ()
   "Toggle prettier-on-save in this buffer."
@@ -291,15 +278,7 @@ explicitly (stdin has no directory of its own); with none the relaxed defaults a
           "markdownlint" "^stdin:\\([0-9]+\\)\\(?::\\([0-9]+\\)\\)? \\(?:error\\|warning\\) \\(.*\\)$"
           :line 1 :col 2 :message 3))
 
-;; Not marked safe: markdownlint-cli2 loads JavaScript configuration and custom rules from the
-;; project (.markdownlint-cli2.cjs ...), so it runs once the project is trusted
-;; (M-x ide-lang-trust-project).  Eglot also replaces the backend list of a managed buffer.
-(defun ide-markdown--restore-linter ()
-  "Put the markdownlint backend back into a buffer Eglot has taken over."
-  (when (derived-mode-p 'markdown-mode)
-    (add-hook 'flymake-diagnostic-functions #'ide-lang-flymake-markdownlint nil t)
-    (when (bound-and-true-p flymake-mode) (flymake-start))))
-(add-hook 'eglot-managed-mode-hook #'ide-markdown--restore-linter)
+
 
 (defun ide-markdown-lint-fix ()
   "Apply markdownlint's autofixes to the buffer (unsaved text included)."
@@ -587,7 +566,7 @@ The markers are <!-- toc --> and <!-- tocstop -->; the list is rebuilt from the 
 (defun ide-markdown-paste-image (alt)
   "Save the clipboard image under `ide-markdown-image-dir' and insert a link to it with ALT text."
   (interactive "sAlt text: ")
-  (unless buffer-file-name (user-error "Save the buffer first: the image goes next to the file"))
+  (ide-lang-require-file)
   (let* ((type (or (cl-find-if (lambda (ty) (string-prefix-p "image/" ty)) (ide-markdown--clipboard-types))
                    (user-error "No image on the clipboard (needs wl-paste)")))
          (ext (pcase type ("image/jpeg" "jpg") ("image/svg+xml" "svg") (_ (substring type 6))))
@@ -1019,11 +998,7 @@ by Emacs do not see the page's own globals.")
 (defun ide-markdown-open-rendered ()
   "Render this buffer and open the HTML in the system browser."
   (interactive)
-  (ide-markdown--render
-   (lambda (file)
-     (if (executable-find "xdg-open")
-         (call-process "xdg-open" nil 0 nil file)
-       (browse-url-of-file file)))))
+  (ide-markdown--render #'browse-url-of-file))
 
 ;;;; Export -------------------------------------------------------------------------------------------------------
 
@@ -1039,8 +1014,7 @@ by Emacs do not see the page's own globals.")
 (defun ide-markdown-export (format)
   "Export the file with pandoc to FORMAT next to it; progress and errors show in the drawer."
   (interactive (list (completing-read "Export to: " ide-markdown-export-formats nil nil)))
-  (unless buffer-file-name (user-error "Save the buffer first"))
-  (save-buffer)
+  (ide-lang-require-file t)
   (let* ((ext (pcase format ("latex" "tex") ("asciidoc" "adoc") (f f)))
          (out (concat (file-name-sans-extension buffer-file-name) "." ext))
          (engine (when (equal format "pdf")
@@ -1181,7 +1155,7 @@ by Emacs do not see the page's own globals.")
 ox-gfm (Org's own exporter, so babel results, includes and macros are honoured) is used
 when installed, else pandoc.  Exporting evaluates source blocks, like any Org export."
   (interactive)
-  (unless buffer-file-name (user-error "Save the buffer first"))
+  (ide-lang-require-file)
   (let ((out (concat (file-name-sans-extension buffer-file-name) ".md")))
     (if (require 'ox-gfm nil t)
         (org-export-to-file 'gfm out)
@@ -1255,8 +1229,7 @@ sql runs against an empty in-memory SQLite database.")
                                  (car (car spec))))
       (user-error "Cancelled"))
     (with-temp-file file (insert body))
-    (cons (string-join (append (mapcar #'shell-quote-argument (car spec))
-                               (list (shell-quote-argument file))) " ")
+    (cons (ide-lang-command-string (append (car spec) (list file)))
           file)))
 
 (defun ide-markdown--insert-output (block text)
@@ -1303,20 +1276,16 @@ The output goes to the drawer; with prefix INSERT it is put in an `output' fence
           (when (ide-markdown--run-spec lang)
             (car (ide-markdown--block-command block))))
       (when (and buffer-file-name (executable-find "markdownlint-cli2"))
-        (mapconcat #'shell-quote-argument
-                   (append '("markdownlint-cli2")
-                           (ide-markdown--lint-args (file-relative-name buffer-file-name (ide-lang-root))))
-                   " ")))))
-(add-hook 'ide-run-command-functions #'ide-markdown--run-command)
+        (ide-lang-command-string
+         (cons "markdownlint-cli2" (ide-markdown--lint-args (ide-lang-relative-file))))))))
+
 
 ;;;; Server -----------------------------------------------------------------------------------------------------------
 
 (defun ide-markdown-lsp-toc ()
   "Ask marksman for its table-of-contents code action at point."
   (interactive)
-  (unless (and (fboundp 'eglot-current-server) (eglot-current-server))
-    (user-error "marksman is not running; M-x eglot"))
-  (eglot-code-actions (point) (point) "source" t))
+  (ide-lang-code-action "source"))
 
 (defun ide-markdown-start-server ()
   "Start marksman for this buffer whatever `ide-markdown-lsp' says."
@@ -1393,9 +1362,9 @@ first with M-x ide-lang-trust-project."
     ("X" "restart server" eglot-reconnect)
     ("U" "trust project (enables lint)" ide-lang-trust-project)]])
 
-(declare-function ide-reformat-buffer "10-keybindings")
-
-(ide-lang-register-menu '(markdown-mode gfm-mode markdown-ts-mode) #'ide-markdown-menu)
+(ide-lang-register '(markdown-mode gfm-mode markdown-ts-mode)
+  :run #'ide-markdown--run-command
+  :menu #'ide-markdown-menu)
 
 (with-eval-after-load 'markdown-mode
   ;; Org-flavoured keys: C-c C-c is the markdown-mode command prefix.

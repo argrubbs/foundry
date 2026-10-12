@@ -29,32 +29,17 @@
 (require 'transient)
 (require 'comint)
 
-(defvar ide-run-command-functions)
-(defvar ide-eglot-format-on-save)
-(defvar apheleia-formatters)
-(defvar apheleia-mode-alist)
+(require '00-lang-lib)
+(require 'treesit)
+
 (defvar lua-ts-inferior-buffer)
 (defvar lua-ts-luacheck-program)
-(declare-function apheleia-mode "apheleia")
 (declare-function lua-ts-inferior-lua "lua-ts-mode")
 (declare-function lua-ts-flymake-luacheck "lua-ts-mode")
 (declare-function lua-ts-send-region "lua-ts-mode")
 (declare-function lua-ts-send-buffer "lua-ts-mode")
-(declare-function ide-lang-run "00-lang-lib")
-(declare-function ide-lang-root "00-lang-lib")
-(declare-function ide-lang-exe-or-error "00-lang-lib")
-(declare-function ide-lang-ancestor "00-lang-lib")
-(declare-function ide-lang-browse "00-lang-lib")
-(declare-function ide-lang-register-menu "00-lang-lib")
-(declare-function ide-lang-workspace-config "00-lang-lib")
-(declare-function treesit-node-text "treesit")
-(declare-function treesit-node-type "treesit")
-(declare-function treesit-node-parent "treesit")
-(declare-function treesit-node-child "treesit")
-(declare-function treesit-node-child-by-field-name "treesit")
-(declare-function treesit-node-start "treesit")
-(declare-function treesit-node-end "treesit")
-(declare-function treesit-node-at "treesit")
+(declare-function apheleia-format-buffer "apheleia")
+(declare-function eglot-reconnect "eglot")
 
 (defgroup ide-lua nil "Lua support." :group 'ide-lang)
 
@@ -72,23 +57,15 @@
 
 ;;;; Mode and server --------------------------------------------------------------------
 
-(add-to-list 'auto-mode-alist '("\\.lua\\'" . lua-ts-mode))
-
-(with-eval-after-load 'eglot
-  (add-to-list 'eglot-server-programs '(lua-ts-mode . ("lua-language-server"))))
-
-(add-hook 'lua-ts-mode-hook #'eglot-ensure)
-(add-hook 'lua-ts-mode-hook
-          (lambda ()
-            (setq-local lua-ts-indent-offset ide-lua-indent-width
-                        tab-width ide-lua-indent-width
-                        indent-tabs-mode nil
-                        ;; stylua (Apheleia) owns formatting; LuaLS's own formatter would fight it.
-                        ide-eglot-format-on-save nil)
-            ;; luacheck is not installed; LuaLS diagnostics replace it.
+(ide-lang-setup 'lua-ts-mode
+  :auto-mode "\\.lua\\'"
+  :server '("lua-language-server")
+  :tab-width ide-lua-indent-width
+  :indent-tabs nil
+  :format-on-save t
+  :config (lambda ()
             (unless (executable-find lua-ts-luacheck-program)
-              (remove-hook 'flymake-diagnostic-functions #'lua-ts-flymake-luacheck t))
-            (apheleia-mode 1)))
+              (remove-hook 'flymake-diagnostic-functions #'lua-ts-flymake-luacheck t))))
 
 (defun ide-lua--workspace-config ()
   "LuaLS settings: the configured runtime, no third-party prompts, no telemetry."
@@ -117,10 +94,9 @@
      (list "--indent-type" "Spaces" "--indent-width" (number-to-string ide-lua-indent-width)))
    (when buffer-file-name (list "--stdin-filepath" buffer-file-name))))
 
-(with-eval-after-load 'apheleia
-  (setf (alist-get 'ide-lua-stylua apheleia-formatters)
-        '("stylua" (ide-lua--stylua-args) "-"))
-  (setf (alist-get 'lua-ts-mode apheleia-mode-alist) 'ide-lua-stylua))
+(ide-lang-define-formatter 'ide-lua-stylua
+  '("stylua" (ide-lua--stylua-args) "-")
+  'lua-ts-mode)
 
 (defun ide-lua-write-stylua-config ()
   "Write a stylua.toml (2 spaces) at the project root unless one exists."
@@ -187,13 +163,11 @@ extra global names.  LuaLS picks the file up without a restart."
 
 (defun ide-lua--run-command ()
   "Command line that runs the current Lua file."
-  (when (and (derived-mode-p 'lua-ts-mode) buffer-file-name)
-    (let ((rel (file-relative-name buffer-file-name (ide-lang-root))))
-      (if (and (ide-lua--spec-file-p) (executable-find "busted"))
-          (concat "busted " (shell-quote-argument rel))
-        (concat "lua " (shell-quote-argument rel))))))
-
-(add-hook 'ide-run-command-functions #'ide-lua--run-command)
+  (when-let* (((derived-mode-p 'lua-ts-mode))
+              (rel (ide-lang-relative-file)))
+    (if (and (ide-lua--spec-file-p) (executable-find "busted"))
+        (concat "busted " (shell-quote-argument rel))
+      (concat "lua " (shell-quote-argument rel)))))
 
 (defun ide-lua-run-file ()
   "Run the current file with lua (busted for specs) in the drawer."
@@ -218,10 +192,7 @@ extra global names.  LuaLS picks the file up without a restart."
 
 (defun ide-lua-send-region (beg end)
   "Send the region (or, without one, the function around point) to the REPL."
-  (interactive (if (use-region-p) (list (region-beginning) (region-end))
-                 (if-let* ((fn (ide-lang-ancestor '("function_declaration" "function_definition"))))
-                     (list (treesit-node-start fn) (treesit-node-end fn))
-                   (list (line-beginning-position) (line-end-position)))))
+  (interactive (ide-lang-region-or-node '("function_declaration" "function_definition")))
   (ide-lua--send beg end))
 
 (defun ide-lua-send-buffer ()
@@ -279,13 +250,12 @@ busted matches against the titles joined by spaces: an `it' is matched exactly, 
   (interactive)
   (let ((pattern (ide-lua--filter-pattern (ide-lua--test-path))))
     (unless pattern (user-error "No describe/it at point"))
-    (ide-lua--busted (concat "--filter=" pattern)
-                     (file-relative-name buffer-file-name (ide-lang-root)))))
+    (ide-lua--busted (concat "--filter=" pattern) (ide-lang-relative-file))))
 
 (defun ide-lua-test-file ()
   "Run the busted tests of the current file."
   (interactive)
-  (ide-lua--busted (file-relative-name buffer-file-name (ide-lang-root))))
+  (ide-lua--busted (ide-lang-relative-file)))
 
 (defun ide-lua-test-all ()
   "Run every busted test of the project."
@@ -355,10 +325,9 @@ busted matches against the titles joined by spaces: an `it' is matched exactly, 
     ("D" "manual for symbol" ide-lua-manual)
     ("R" "restart server" eglot-reconnect)]])
 
-(declare-function apheleia-format-buffer "apheleia")
-(declare-function eglot-reconnect "eglot")
-
-(ide-lang-register-menu '(lua-ts-mode) #'ide-lua-dispatch)
+(ide-lang-register '(lua-ts-mode)
+  :run #'ide-lua--run-command
+  :menu #'ide-lua-dispatch)
 
 (provide 'lang-lua)
 ;;; lang-lua.el ends here

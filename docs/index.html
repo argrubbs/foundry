@@ -449,8 +449,8 @@ make doctor</pre></div>
     <div class="card"><h3>Inline AI completion</h3>
       <p style="color:var(--muted);margin:.2rem 0 0">Default backend is a local Ollama at <code>localhost:11434</code> with <code>qwen2.5-coder:7b</code>. Switch with <code>M-x ide-ai-switch-backend</code> to <code>gemini</code> (<code>GEMINI_API_KEY</code>) or an OpenAI-compatible FIM endpoint. Files matching <code>ide-ai-private-file-regexps</code> (<code>.env</code>, <code>*.tfvars</code>, keys, kubeconfig, secrets) are never sent to hosted models; <code>M-x ide-ai-mark-private</code> protects any other buffer. Chat and <code>gptel-agent</code> also use <code>ANTHROPIC_API_KEY</code> if set. Pick the chat and agent model with <kbd>C-c a M</kbd>, or fix a default with <code>ide-ai-default-model</code> such as <code>(claude . claude-sonnet-5-5)</code>; point <code>gptel-agent-skill-dirs</code> at extra skill folders (~/.claude/skills and installed Claude Code plugins are found automatically).</p></div>
     <div class="card"><h3>Keeping this page current</h3>
-      <p style="color:var(--muted);margin:.2rem 0 .6rem"><kbd>C-c h u</kbd> (<code>M-x ide-docs-update</code>) compares this page with the running configuration. Keys, menus, tools, modules, make targets and counts are rewritten from facts, so they cannot drift. Only new or changed items go to your configured AI agent (gptel by default) for wording, as validated JSON &mdash; the agent never writes HTML.</p>
-      <p style="color:var(--muted);margin:0">The result is checked in a fresh Emacs and replaces the page only if it passes; the previous page is backed up. <code>make docs-update</code> does the factual part without an agent, and <code>M-x ide-docs-update-with-agent</code> starts a gptel-agent session with the task, which you review and send.</p></div>
+      <p style="color:var(--muted);margin:.2rem 0 .6rem"><kbd>C-c h u</kbd> (<code>M-x ide-docs-update</code>) or <code>make docs</code> synchronizes this page with the running configuration. Keys, menus, tools, modules, make targets and counts are rewritten from live facts, so they cannot drift. Descriptions for new or changed items are pulled deterministically from symbol docstrings, making Emacs docstrings the sole source of truth.</p>
+      <p style="color:var(--muted);margin:0">The result is checked in a fresh Emacs (<code>make docs-check</code>) and replaces the page only if it passes; the previous page is backed up to <code>.cache/docs-backups/</code>.</p></div>
     <div class="card"><h3>Make targets</h3>
       <table><tbody id="maketable"></tbody></table></div>
   </div>
@@ -476,7 +476,7 @@ make doctor</pre></div>
    "l": "to first frame"
   },
   {
-   "v": "81",
+   "v": "107",
    "l": "documented keybindings"
   },
   {
@@ -484,11 +484,11 @@ make doctor</pre></div>
    "l": "CLIs and servers via mise"
   },
   {
-   "v": "40",
+   "v": "39",
    "l": "Emacs Lisp modules"
   },
   {
-   "v": "392",
+   "v": "351",
    "l": "automated tests"
   }
  ],
@@ -1045,18 +1045,258 @@ make doctor</pre></div>
    "ctx": "azdo-compose-mode-map"
   },
   {
+   "keys": "<mouse-2>",
+   "cmd": "mouse-select-window",
+   "title": "Mouse Select Window",
+   "desc": "Select the window clicked on; don't move point",
+   "cat": "Contextual",
+   "ctx": "azdo-threads-mode-map"
+  },
+  {
+   "keys": "{",
+   "cmd": "tabulated-list-narrow-current-column",
+   "title": "Tabulated List Narrow Current Column",
+   "desc": "Narrow the current tabulated list column by N chars",
+   "cat": "Contextual",
+   "ctx": "azdo-threads-mode-map"
+  },
+  {
+   "keys": "}",
+   "cmd": "tabulated-list-widen-current-column",
+   "title": "Tabulated List Widen Current Column",
+   "desc": "Widen the current tabulated-list column by N chars",
+   "cat": "Contextual",
+   "ctx": "azdo-threads-mode-map"
+  },
+  {
+   "keys": "S",
+   "cmd": "tabulated-list-sort",
+   "title": "Tabulated List Sort",
+   "desc": "Sort Tabulated List entries by the column at point",
+   "cat": "Contextual",
+   "ctx": "azdo-threads-mode-map"
+  },
+  {
+   "keys": "<M-right>",
+   "cmd": "tabulated-list-next-column",
+   "title": "Tabulated List Next Column",
+   "desc": "Go to the start of the next column after point on the current line",
+   "cat": "Contextual",
+   "ctx": "azdo-threads-mode-map"
+  },
+  {
+   "keys": "<M-left>",
+   "cmd": "tabulated-list-previous-column",
+   "title": "Tabulated List Previous Column",
+   "desc": "Go to the start of the column point is in on the current line",
+   "cat": "Contextual",
+   "ctx": "azdo-threads-mode-map"
+  },
+  {
+   "keys": "p",
+   "cmd": "previous-line",
+   "title": "Previous Line",
+   "desc": "Move cursor vertically up ARG lines",
+   "cat": "Contextual",
+   "ctx": "azdo-threads-mode-map"
+  },
+  {
+   "keys": "n",
+   "cmd": "next-line",
+   "title": "Next Line",
+   "desc": "Move cursor vertically down ARG lines",
+   "cat": "Contextual",
+   "ctx": "azdo-threads-mode-map"
+  },
+  {
+   "keys": "<backtab>",
+   "cmd": "backward-button",
+   "title": "Backward Button",
+   "desc": "Move to the Nth previous button, or Nth next button if N is negative",
+   "cat": "Contextual",
+   "ctx": "azdo-threads-mode-map"
+  },
+  {
+   "keys": "ESC TAB",
+   "cmd": "backward-button",
+   "title": "Backward Button",
+   "desc": "Move to the Nth previous button, or Nth next button if N is negative",
+   "cat": "Contextual",
+   "ctx": "azdo-threads-mode-map"
+  },
+  {
+   "keys": "TAB",
+   "cmd": "forward-button",
+   "title": "Forward Button",
+   "desc": "Move to the Nth next button, or Nth previous button if N is negative",
+   "cat": "Contextual",
+   "ctx": "azdo-threads-mode-map"
+  },
+  {
+   "keys": "<",
+   "cmd": "beginning-of-buffer",
+   "title": "Beginning Of Buffer",
+   "desc": "Move point to the beginning of the buffer",
+   "cat": "Contextual",
+   "ctx": "azdo-threads-mode-map"
+  },
+  {
+   "keys": ">",
+   "cmd": "end-of-buffer",
+   "title": "End Of Buffer",
+   "desc": "Move point to the end of the buffer",
+   "cat": "Contextual",
+   "ctx": "azdo-threads-mode-map"
+  },
+  {
+   "keys": "h",
+   "cmd": "describe-mode",
+   "title": "Describe Mode",
+   "desc": "Display documentation of current major mode and minor modes",
+   "cat": "Contextual",
+   "ctx": "azdo-threads-mode-map"
+  },
+  {
+   "keys": "?",
+   "cmd": "describe-mode",
+   "title": "Describe Mode",
+   "desc": "Display documentation of current major mode and minor modes",
+   "cat": "Contextual",
+   "ctx": "azdo-threads-mode-map"
+  },
+  {
+   "keys": "DEL",
+   "cmd": "scroll-down-command",
+   "title": "Scroll Down Command",
+   "desc": "Scroll text of selected window down ARG lines; or near full screen if no ARG",
+   "cat": "Contextual",
+   "ctx": "azdo-threads-mode-map"
+  },
+  {
+   "keys": "S-SPC",
+   "cmd": "scroll-down-command",
+   "title": "Scroll Down Command",
+   "desc": "Scroll text of selected window down ARG lines; or near full screen if no ARG",
+   "cat": "Contextual",
+   "ctx": "azdo-threads-mode-map"
+  },
+  {
+   "keys": "SPC",
+   "cmd": "scroll-up-command",
+   "title": "Scroll Up Command",
+   "desc": "Scroll text of selected window upward ARG lines; or near full screen if no ARG",
+   "cat": "Contextual",
+   "ctx": "azdo-threads-mode-map"
+  },
+  {
+   "keys": "q",
+   "cmd": "quit-window",
+   "title": "Quit Window",
+   "desc": "Quit WINDOW and bury its buffer",
+   "cat": "Contextual",
+   "ctx": "azdo-threads-mode-map"
+  },
+  {
+   "keys": "9",
+   "cmd": "digit-argument",
+   "title": "Digit Argument",
+   "desc": "Part of the numeric argument for the next command",
+   "cat": "Contextual",
+   "ctx": "azdo-threads-mode-map"
+  },
+  {
+   "keys": "8",
+   "cmd": "digit-argument",
+   "title": "Digit Argument",
+   "desc": "Part of the numeric argument for the next command",
+   "cat": "Contextual",
+   "ctx": "azdo-threads-mode-map"
+  },
+  {
+   "keys": "7",
+   "cmd": "digit-argument",
+   "title": "Digit Argument",
+   "desc": "Part of the numeric argument for the next command",
+   "cat": "Contextual",
+   "ctx": "azdo-threads-mode-map"
+  },
+  {
+   "keys": "6",
+   "cmd": "digit-argument",
+   "title": "Digit Argument",
+   "desc": "Part of the numeric argument for the next command",
+   "cat": "Contextual",
+   "ctx": "azdo-threads-mode-map"
+  },
+  {
+   "keys": "5",
+   "cmd": "digit-argument",
+   "title": "Digit Argument",
+   "desc": "Part of the numeric argument for the next command",
+   "cat": "Contextual",
+   "ctx": "azdo-threads-mode-map"
+  },
+  {
+   "keys": "4",
+   "cmd": "digit-argument",
+   "title": "Digit Argument",
+   "desc": "Part of the numeric argument for the next command",
+   "cat": "Contextual",
+   "ctx": "azdo-threads-mode-map"
+  },
+  {
+   "keys": "3",
+   "cmd": "digit-argument",
+   "title": "Digit Argument",
+   "desc": "Part of the numeric argument for the next command",
+   "cat": "Contextual",
+   "ctx": "azdo-threads-mode-map"
+  },
+  {
+   "keys": "2",
+   "cmd": "digit-argument",
+   "title": "Digit Argument",
+   "desc": "Part of the numeric argument for the next command",
+   "cat": "Contextual",
+   "ctx": "azdo-threads-mode-map"
+  },
+  {
+   "keys": "1",
+   "cmd": "digit-argument",
+   "title": "Digit Argument",
+   "desc": "Part of the numeric argument for the next command",
+   "cat": "Contextual",
+   "ctx": "azdo-threads-mode-map"
+  },
+  {
+   "keys": "0",
+   "cmd": "digit-argument",
+   "title": "Digit Argument",
+   "desc": "Part of the numeric argument for the next command",
+   "cat": "Contextual",
+   "ctx": "azdo-threads-mode-map"
+  },
+  {
+   "keys": "-",
+   "cmd": "negative-argument",
+   "title": "Negative Argument",
+   "desc": "Begin a negative numeric argument for the next command",
+   "cat": "Contextual",
+   "ctx": "azdo-threads-mode-map"
+  },
+  {
+   "keys": "<remap> <self-insert-command>",
+   "cmd": "undefined",
+   "title": "Undefined",
+   "desc": "Beep to tell the user this binding is undefined",
+   "cat": "Contextual",
+   "ctx": "azdo-threads-mode-map"
+  },
+  {
    "keys": "C-c h u",
    "cmd": "ide-docs-update",
    "title": "Update documentation",
    "desc": "Sync this page with the live config; an AI agent words only the new items. C-u previews.",
-   "cat": "Help & docs",
-   "ctx": "global"
-  },
-  {
-   "keys": "C-c h c",
-   "cmd": "ide-docs-for-command",
-   "title": "Docs for a command",
-   "desc": "Look up any command in the documentation.",
    "cat": "Help & docs",
    "ctx": "global"
   },
@@ -1117,30 +1357,6 @@ make doctor</pre></div>
    "ctx": "global"
   },
   {
-   "keys": "C-c j r",
-   "cmd": "ide-juice-reset",
-   "title": "Juice Reset",
-   "desc": "Forget every remembered choice (effects and theme) and apply the defaults",
-   "cat": "Other",
-   "ctx": "global"
-  },
-  {
-   "keys": "C-c j s",
-   "cmd": "ide-juice-splash",
-   "title": "Juice Splash",
-   "desc": "Show the start screen",
-   "cat": "Other",
-   "ctx": "global"
-  },
-  {
-   "keys": "C-c j n",
-   "cmd": "ide-juice-next-theme",
-   "title": "Juice Next Theme",
-   "desc": "Cycle to the next theme in `ide-juice-themes' and remember it",
-   "cat": "Other",
-   "ctx": "global"
-  },
-  {
    "keys": "C-c j t",
    "cmd": "ide-juice-pick-theme",
    "title": "Juice Pick Theme",
@@ -1149,18 +1365,10 @@ make doctor</pre></div>
    "ctx": "global"
   },
   {
-   "keys": "C-c j m",
-   "cmd": "ide-juice-mode",
-   "title": "Juice Mode",
-   "desc": "Master switch for the juice effects; turning it off undoes them all",
-   "cat": "Other",
-   "ctx": "global"
-  },
-  {
-   "keys": "C-c j j",
-   "cmd": "ide-juice-toggle",
-   "title": "Juice Toggle",
-   "desc": "Toggle the juice effect NAME and remember the choice",
+   "keys": "ESC s s",
+   "cmd": "ide-complete-snippet",
+   "title": "Complete Snippet",
+   "desc": "Complete snippets at point via Corfu, or prompt to insert a snippet",
    "cat": "Other",
    "ctx": "global"
   }
@@ -2035,7 +2243,7 @@ make doctor</pre></div>
    "ico": "🐍",
    "title": "Python",
    "body": "pyright, ruff formatting through apheleia, pytest runner, direnv (envrc), automatic virtualenv discovery with pet and pyvenv.",
-   "cmds": ["python-pytest-dispatch", "pyvenv-activate", "apheleia-format-buffer"]
+   "cmds": ["python-pytest-dispatch", "apheleia-format-buffer"]
   },
   {
    "cat": "Languages",
@@ -2128,11 +2336,9 @@ make doctor</pre></div>
    "cat": "Tooling",
    "ico": "…",
    "title": "Other commands",
-   "body": "Further commands: update the docs without an agent, or hand the task to gptel-agent.",
+   "body": "Further commands available through M-x.",
    "cmds": [
     "ide-docs-update-facts-only",
-    "ide-docs-update-with-agent",
-    "ide-juice-apply",
     "ide-bash-disable-check",
     "ide-bash-dispatch",
     "ide-bash-help-at-point",
@@ -2250,7 +2456,6 @@ make doctor</pre></div>
     "ide-powershell-install-pester",
     "ide-powershell-install-pses",
     "ide-powershell-repl",
-    "ide-powershell-restart-server",
     "ide-powershell-run",
     "ide-powershell-send-buffer",
     "ide-powershell-send-defun",
@@ -2314,8 +2519,6 @@ make doctor</pre></div>
     "ide-sql-run-file",
     "ide-sql-run-migrations",
     "ide-sql-run-paragraph",
-    "ide-sql-run-region",
-    "ide-sql-run-statement",
     "ide-sql-tables",
     "ide-terraform-console",
     "ide-terraform-dispatch",
@@ -2451,8 +2654,12 @@ make doctor</pre></div>
    "desc": "Editable data grids for SQL"
   },
   {
-   "file": "modules/11-languages/lang-python.el",
-   "desc": "Pyright, ruff, pytest, envrc."
+   "file": "modules/11-languages/lang-ansible.el",
+   "desc": "Ansible mode, docs, language server; enables lisp/ansible-intelligence."
+  },
+  {
+   "file": "modules/11-languages/lang-devops.el",
+   "desc": "TOML, shell, Dockerfile/Compose, Terraform linting"
   },
   {
    "file": "modules/11-languages/lang-go.el",
@@ -2461,14 +2668,6 @@ make doctor</pre></div>
   {
    "file": "modules/11-languages/lang-iac.el",
    "desc": "Terraform, HCL, Packer, iac-dispatch."
-  },
-  {
-   "file": "modules/11-languages/lang-ansible.el",
-   "desc": "Ansible mode, docs, language server; enables lisp/ansible-intelligence."
-  },
-  {
-   "file": "modules/11-languages/lang-devops.el",
-   "desc": "TOML, shell, Dockerfile/Compose, Terraform linting"
   },
   {
    "file": "modules/11-languages/lang-k8s.el",
@@ -2487,6 +2686,10 @@ make doctor</pre></div>
    "desc": "PowerShell: PSES, Pester, REPL, help, debugger"
   },
   {
+   "file": "modules/11-languages/lang-python.el",
+   "desc": "Pyright, ruff, pytest, envrc."
+  },
+  {
    "file": "modules/11-languages/lang-rust.el",
    "desc": "Rust: rust-analyzer, cargo, tests, debugger, docs"
   },
@@ -2499,20 +2702,20 @@ make doctor</pre></div>
    "desc": "TypeScript, JavaScript, JSX/TSX, HTML, CSS"
   },
   {
-   "file": "modules/12-devops/devops-docker.el",
-   "desc": "docker.el, shells and logs."
-  },
-  {
-   "file": "modules/12-devops/devops-k8s.el",
-   "desc": "kubel, k8s-mode, pod logs."
+   "file": "modules/12-devops/devops-azdo.el",
+   "desc": "Azure DevOps REST client, PRs, Boards, threads, commit completion."
   },
   {
    "file": "modules/12-devops/devops-azure.el",
    "desc": "az command center."
   },
   {
-   "file": "modules/12-devops/devops-azdo.el",
-   "desc": "Azure DevOps REST client, PRs, Boards, threads, commit completion."
+   "file": "modules/12-devops/devops-docker.el",
+   "desc": "docker.el, shells and logs."
+  },
+  {
+   "file": "modules/12-devops/devops-k8s.el",
+   "desc": "kubel, k8s-mode, pod logs."
   },
   {
    "file": "modules/12-devops/lib/devops-azdo-magit.el",
@@ -2523,12 +2726,8 @@ make doctor</pre></div>
    "desc": "minuet, gptel, gptel-agent and Agent Skills discovery."
   },
   {
-   "file": "modules/14-org/org-core.el",
-   "desc": "Org, agenda, capture."
-  },
-  {
-   "file": "modules/14-org/org-roam.el",
-   "desc": "Org-roam with sandboxed database."
+   "file": "modules/14-org/ide-org-roam.el",
+   "desc": "Zettelkasten with sandboxed database"
   },
   {
    "file": "modules/14-org/org-babel.el",
@@ -2537,6 +2736,10 @@ make doctor</pre></div>
   {
    "file": "modules/14-org/org-confluence.el",
    "desc": "Confluence search, ingest, publish."
+  },
+  {
+   "file": "modules/14-org/org-core.el",
+   "desc": "Org, agenda, capture."
   },
   {
    "file": "modules/15-docs.el",
@@ -2549,10 +2752,6 @@ make doctor</pre></div>
   {
    "file": "modules/17-juice.el",
    "desc": "Juice: theme, motion and a forge-lit start screen"
-  },
-  {
-   "file": "modules/18-telega.el",
-   "desc": "Telegram client integration"
   }
  ],
  "tools": [
@@ -2917,6 +3116,10 @@ make doctor</pre></div>
   {
    "cmd": "make docs-update",
    "desc": "Refresh docs/index.html from the live config without an AI agent (facts + docstrings)."
+  },
+  {
+   "cmd": "make docs",
+   "desc": "Refresh docs/index.html deterministically from live facts and docstrings."
   }
  ],
  "votes": [
@@ -3104,6 +3307,17 @@ make doctor</pre></div>
      "code": "# Extra command-line tools through mise\n# Adds shellcheck and shfmt to your mise installs; they are put on PATH for Emacs.\n[tools]\nshellcheck = \"latest\"\nshfmt = \"latest\"\n"
     }
    ]
+  },
+  {
+   "id": "telega",
+   "title": "Telegram client integration",
+   "blurb": "Telegram client configuration for Foundry. Documentation: https://zevlg.github.io/telega.el",
+   "files": [
+    {
+     "path": "user/telega.el",
+     "code": ";;; telega.el --- Telegram client integration -*- lexical-binding: t; -*-\n\n;;; Commentary:\n;; Telegram client configuration for Foundry.\n;; Documentation: https://zevlg.github.io/telega.el\n;;\n;; Telega runs on top of Telegram's TDLib. By default, this configuration uses\n;; the official pre-built Docker container (`zevlg/telega-server:latest`),\n;; avoiding the lengthy compilation of TDLib and its C++ dependencies.\n;;\n;; Keybindings:\n;;   C-c t     `telega' (Open root chats overview)\n;;   C-c T     `telega-prefix-map' (Navigation, chat folders, calls, etc.)\n;;\n;; Install into user/ with: M-x ide-user-install-example RET telega RET\n\n;;; Code:\n\n(defvar ide-var-dir)\n(declare-function ide-add-drawer-buffer \"02-layout\")\n\n(when (fboundp 'ide-add-drawer-buffer)\n  (ide-add-drawer-buffer \"\\\\*telega-server\\\\*\")\n  (ide-add-drawer-buffer \"\\\\*Telegram Notification Messages\\\\*\"))\n\n(use-package telega\n  :commands (telega telega-server-version)\n  :bind ((\"C-c t\" . telega)\n         (\"C-c T\" . telega-prefix-map)\n         (\"C-c x t\" . telega)\n         (\"C-c x T\" . telega-prefix-map))\n  :init\n  (setq telega-directory (expand-file-name \"telega/\" ide-var-dir)\n        telega-database-dir telega-directory\n        telega-server-logfile (expand-file-name \"telega-server.log\" telega-directory)\n        telega-cache-dir (expand-file-name \"cache\" telega-directory)\n        telega-temp-dir (expand-file-name \"temp\" telega-directory)\n        telega-use-docker t)\n  :config\n  (add-hook 'telega-chat-mode-hook #'telega-completions-setup-capf)\n  (when (require 'telega-transient nil t)\n    (when (fboundp 'telega-transient-keymaps-mode)\n      (telega-transient-keymaps-mode 1)))\n  (when (require 'telega-mnz nil t)\n    (when (fboundp 'global-telega-mnz-mode)\n      (global-telega-mnz-mode 1)))\n  (require 'ol-telega nil t)\n  (require 'telega-dired-dwim nil t)\n  (when (fboundp 'telega-notifications-mode)\n    (telega-notifications-mode 1))\n  (setq telega-chat-fill-column 80\n        telega-emoji-use-images t\n        telega-completing-read-function #'completing-read\n        telega-symbol-folder \"📁\"))\n\n(provide 'user-telega)\n;;; telega.el ends here\n"
+    }
+   ]
   }
  ],
  "languages": [
@@ -3112,7 +3326,7 @@ make doctor</pre></div>
    "name": "Rust",
    "summary": "Cargo build, run and test, rust-analyzer, clippy, nextest, debugging and crate management.",
    "modes": ["rust-ts-mode", "rust-mode"],
-   "files": [".rs"],
+   "files": [],
    "menu": "ide-rust-dispatch",
    "open": "C-c m",
    "tools": [
@@ -3332,7 +3546,7 @@ make doctor</pre></div>
    "name": "TypeScript, JavaScript, HTML and CSS",
    "summary": "npm scripts, tests, Node debugging, live preview and package management for web projects.",
    "modes": ["typescript-ts-mode", "tsx-ts-mode", "js-ts-mode", "css-ts-mode", "html-ts-mode"],
-   "files": [".css", ".jsx", ".tsx"],
+   "files": [],
    "menu": "ide-web-dispatch",
    "open": "C-c m",
    "tools": [
@@ -3621,7 +3835,7 @@ make doctor</pre></div>
    "name": "SQL",
    "summary": "Connect to databases, run and explain queries, browse the schema, format and lint.",
    "modes": ["sql-mode"],
-   "files": [".sql"],
+   "files": [],
    "menu": "ide-sql-dispatch",
    "open": "C-c m",
    "tools": [
@@ -3832,7 +4046,7 @@ make doctor</pre></div>
    "name": "Lua",
    "summary": "Run files and snippets, REPL, busted tests and project configuration.",
    "modes": ["lua-ts-mode"],
-   "files": [".lua"],
+   "files": [],
    "menu": "ide-lua-dispatch",
    "open": "C-c m",
    "tools": [
@@ -4097,8 +4311,8 @@ make doctor</pre></div>
       {
        "key": "R",
        "label": "restart server",
-       "cmd": "ide-powershell-restart-server",
-       "does": "Restart PSES for this buffer"
+       "cmd": "eglot-reconnect",
+       "does": "Reconnect to SERVER"
       },
       {
        "key": "L",
@@ -4720,7 +4934,7 @@ make doctor</pre></div>
    "name": "Bash",
    "summary": "Run, check, format and explain shell scripts.",
    "modes": ["bash-ts-mode", "sh-mode"],
-   "files": [".bash", ".envrc"],
+   "files": [],
    "menu": "ide-bash-dispatch",
    "open": "C-c m",
    "tools": [
@@ -4838,7 +5052,7 @@ make doctor</pre></div>
    "name": "Dockerfile and Compose",
    "summary": "Build, run, scan and lint images; Compose actions.",
    "modes": ["dockerfile-ts-mode", "dockerfile-mode"],
-   "files": [".dockerfile"],
+   "files": [],
    "menu": "ide-dockerfile-dispatch",
    "open": "C-c m",
    "tools": [
@@ -4974,7 +5188,7 @@ make doctor</pre></div>
    "name": "Terraform",
    "summary": "Lint, validate, scan and explore; plan and apply live in the IaC menu.",
    "modes": ["terraform-mode"],
-   "files": [".tf", ".tfvars"],
+   "files": [],
    "menu": "ide-terraform-dispatch",
    "open": "C-c m",
    "tools": [

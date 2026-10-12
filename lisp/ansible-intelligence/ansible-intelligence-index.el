@@ -5,36 +5,17 @@
 (require 'ansible-intelligence-parser)
 (require 'project)
 
-(defcustom ansible-intelligence-project-file-limit 2000
-  "Maximum YAML files retained in one project index."
-  :type 'integer
-  :group 'ansible-intelligence)
+(defconst ansible-intelligence-project-file-limit 2000
+  "Maximum YAML files retained in one project index.")
 
-(defcustom ansible-intelligence-index-refresh-seconds 30
-  "Age after which attaching a buffer refreshes a completed project index."
-  :type 'number
-  :group 'ansible-intelligence)
+(defconst ansible-intelligence-index-refresh-seconds 30
+  "Age after which attaching a buffer refreshes a completed project index.")
 
-(defcustom ansible-intelligence-index-batch-size 4
-  "Number of files parsed during one scheduled indexing slice."
-  :type 'integer
-  :group 'ansible-intelligence)
+(defconst ansible-intelligence-index-batch-size 4
+  "Number of files parsed during one scheduled indexing slice.")
 
 (defvar ansible-intelligence--project-indexes (make-hash-table :test #'equal))
 (defvar-local ansible-intelligence--project-index nil)
-
-(defun ansible-intelligence--canonical-path (path)
-  "Return a stable canonical identity for PATH."
-  (when path
-    (condition-case nil
-        (file-truename path)
-      (file-error (expand-file-name path)))))
-
-(defun ansible-intelligence--same-file-p (left right)
-  "Return non-nil when LEFT and RIGHT identify the same file."
-  (and left right
-       (equal (ansible-intelligence--canonical-path left)
-              (ansible-intelligence--canonical-path right))))
 
 (defun ansible-intelligence-project-root (&optional file)
   "Find a conservative Ansible project root for FILE."

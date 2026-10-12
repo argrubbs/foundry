@@ -25,22 +25,14 @@
 (require 'comint)
 (require 'compile)
 
-(defvar ide-run-command-functions)
-(defvar ide-debug-functions)
+(require '00-lang-lib)
+
 (defvar compilation-error-regexp-alist-alist)
 (defvar powershell-mode-map)
 (declare-function dap-debug "dap-mode")
 (declare-function dap-register-debug-provider "dap-mode")
 (declare-function dap-register-debug-template "dap-mode")
-(declare-function ide-lang-run "00-lang-lib")
-(declare-function ide-lang-exe-or-error "00-lang-lib")
-(declare-function ide-lang-root "00-lang-lib")
-(declare-function ide-lang-browse "00-lang-lib")
-(declare-function ide-lang-register-menu "00-lang-lib")
-(declare-function ide-lang-workspace-config "00-lang-lib")
-(declare-function ide-lang-fetch-extract "00-lang-lib")
-(declare-function ide-lang-github-asset-url "00-lang-lib")
-(declare-function ide-lang-tools-dir "00-lang-lib")
+(declare-function eglot-reconnect "eglot")
 
 (defgroup ide-powershell nil "PowerShell support." :group 'ide-lang)
 
@@ -87,8 +79,8 @@
 (defun ide-powershell--eval (script)
   "Run SCRIPT in contained pwsh; return its output, or signal an error with the output."
   (with-temp-buffer
-    (let ((status (apply #'call-process (car (ide-powershell--script-argv script)) nil t nil
-                         (cdr (ide-powershell--script-argv script)))))
+    (let* ((argv (ide-powershell--script-argv script))
+           (status (apply #'call-process (car argv) nil t nil (cdr argv))))
       (unless (zerop status) (user-error "pwsh failed: %s" (string-trim (buffer-string))))
       (string-trim-right (buffer-string)))))
 
@@ -160,28 +152,24 @@ The session-details and log files live under var/tools/pwsh/log/."
 
 ;;;; Running --------------------------------------------------------------------------------
 
-(defun ide-powershell--shell-string (argv)
-  (mapconcat #'shell-quote-argument argv " "))
+(defalias 'ide-powershell--shell-string #'ide-lang-command-string)
 
 (defun ide-powershell--pester-file-p (&optional file)
   (string-match-p "\\.[Tt]ests\\.ps1\\'" (or file buffer-file-name "")))
 
-(defun ide-powershell-run ()
-  "Run the current script with pwsh -NoProfile -File in the drawer (Pester files run Pester)."
-  (interactive)
-  (unless buffer-file-name (user-error "Buffer is not visiting a file"))
-  (if (ide-powershell--pester-file-p) (ide-powershell-test-file)
-    (save-buffer)
-    (ide-lang-run "pwsh" (ide-powershell--argv "-NoLogo" "-NoProfile" "-File" buffer-file-name))))
-
 (defun ide-powershell--run-command ()
   (when (derived-mode-p 'powershell-mode)
     (if (ide-powershell--pester-file-p)
-        (ide-powershell--shell-string (ide-powershell--pester-argv buffer-file-name nil))
-      (ide-powershell--shell-string
+        (ide-lang-command-string (ide-powershell--pester-argv buffer-file-name nil))
+      (ide-lang-command-string
        (ide-powershell--argv "-NoLogo" "-NoProfile" "-File" buffer-file-name)))))
 
-(add-hook 'ide-run-command-functions #'ide-powershell--run-command)
+(defun ide-powershell-run ()
+  "Run the current script with pwsh -NoProfile -File in the drawer (Pester files run Pester)."
+  (interactive)
+  (ide-lang-require-file t)
+  (if (ide-powershell--pester-file-p) (ide-powershell-test-file)
+    (ide-lang-run "pwsh" (or (ide-powershell--run-command) (user-error "Not a PowerShell file")))))
 
 ;;;; Pester ----------------------------------------------------------------------------------
 
@@ -262,17 +250,15 @@ The session-details and log files live under var/tools/pwsh/log/."
 (defun ide-powershell-test-at-point ()
   "Run the Pester It, Context or Describe block around point."
   (interactive)
-  (unless buffer-file-name (user-error "Buffer is not visiting a file"))
+  (ide-lang-require-file t)
   (let ((names (ide-powershell--names-at-point)))
     (unless names (user-error "No Describe/Context/It at point"))
-    (save-buffer)
     (ide-powershell--pester buffer-file-name (ide-powershell--full-name-filter names))))
 
 (defun ide-powershell-test-file ()
   "Run every Pester test in the current file."
   (interactive)
-  (unless buffer-file-name (user-error "Buffer is not visiting a file"))
-  (save-buffer)
+  (ide-lang-require-file t)
   (ide-powershell--pester buffer-file-name nil))
 
 (defun ide-powershell-test-all ()
@@ -291,8 +277,7 @@ The session-details and log files live under var/tools/pwsh/log/."
 (defun ide-powershell-analyze ()
   "Run Invoke-ScriptAnalyzer on this file; the findings are jumpable in the drawer."
   (interactive)
-  (unless buffer-file-name (user-error "Buffer is not visiting a file"))
-  (save-buffer)
+  (ide-lang-require-file t)
   (ide-lang-run "psscriptanalyzer"
                 (ide-powershell--script-argv
                  (concat (ide-powershell--analyzer-import)
@@ -300,9 +285,6 @@ The session-details and log files live under var/tools/pwsh/log/."
                          "foreach ($f in $r) { '{0}:{1}:{2}: {3}: {4} [{5}]' -f $f.ScriptPath, $f.Line, "
                          "$f.Column, $f.Severity, $f.Message, $f.RuleName }; "
                          "if (-not $r) { 'No findings.' }"))))
-
-(defun ide-powershell--symbol-at-point ()
-  (or (thing-at-point 'symbol t) (user-error "No command at point")))
 
 (defun ide-powershell--read-command (&optional prompt)
   "Command name at point, or one chosen from Get-Command."
@@ -421,16 +403,16 @@ Multi-line input is fine; send it with the `ide-powershell-send-*' commands."
 
 (defun ide-powershell--populate-debug-args (conf)
   "Fill CONF, a dap-mode launch plist, with the PSES server command and defaults."
-  (let ((conf (copy-sequence conf)))
-    (unless (plist-get conf :dap-server-path)
-      (setq conf (plist-put conf :dap-server-path (ide-powershell--debug-command))))
-    (unless (plist-get conf :cwd)
-      (setq conf (plist-put conf :cwd (ide-lang-root))))
-    (unless (plist-get conf :script)
-      (setq conf (plist-put conf :script (or buffer-file-name (read-file-name "Script: " nil nil t)))))
-    (unless (plist-get conf :args) (setq conf (plist-put conf :args [])))
-    (unless (plist-get conf :name) (setq conf (plist-put conf :name "PowerShell: Launch Script")))
-    (plist-put conf :type "PowerShell")))
+  (let ((res (copy-sequence conf)))
+    (dolist (item `((:dap-server-path . ,(ide-powershell--debug-command))
+                    (:cwd . ,(ide-lang-root))
+                    (:script . ,(or buffer-file-name (unless (plist-get conf :script) (read-file-name "Script: " nil nil t))))
+                    (:args . [])
+                    (:name . "PowerShell: Launch Script")
+                    (:type . "PowerShell")))
+      (unless (plist-get res (car item))
+        (setq res (plist-put res (car item) (cdr item)))))
+    (plist-put res :type "PowerShell")))
 
 (with-eval-after-load 'dap-mode
   (dap-register-debug-provider "PowerShell" #'ide-powershell--populate-debug-args)
@@ -443,23 +425,12 @@ Multi-line input is fine; send it with the `ide-powershell-send-*' commands."
   "Debug the current script with PSES's debug adapter (breakpoints, stepping, locals)."
   (interactive)
   (require 'dap-mode)
-  (unless buffer-file-name (user-error "Buffer is not visiting a file"))
-  (save-buffer)
+  (ide-lang-require-file t)
   (dap-debug (list :type "PowerShell" :request "launch" :name (format "PowerShell: %s" (buffer-name))
                    :script buffer-file-name :cwd (ide-lang-root) :args []
                    :createTemporaryIntegratedConsole :json-false)))
 
-(add-hook 'ide-debug-functions
-          (lambda () (when (derived-mode-p 'powershell-mode) (ide-powershell-debug) t)))
-
 ;;;; Server and menu ---------------------------------------------------------------------------------
-
-(defun ide-powershell-restart-server ()
-  "Restart PSES for this buffer."
-  (interactive)
-  (when-let* ((s (and (fboundp 'eglot-current-server) (eglot-current-server))))
-    (eglot-shutdown s))
-  (eglot-ensure))
 
 (defun ide-powershell-show-log ()
   "Open the PSES log file."
@@ -491,10 +462,13 @@ Multi-line input is fine; send it with the `ide-powershell-send-*' commands."
     ("c" "browse commands" ide-powershell-browse-commands)]
    ["Server"
     ("S" "install PSES" ide-powershell-install-pses)
-    ("R" "restart server" ide-powershell-restart-server)
+    ("R" "restart server" eglot-reconnect)
     ("L" "server log" ide-powershell-show-log)]])
 
-(ide-lang-register-menu '(powershell-mode) #'ide-powershell-dispatch)
+(ide-lang-register '(powershell-mode)
+  :run #'ide-powershell--run-command
+  :debug (lambda () (when (derived-mode-p 'powershell-mode) (ide-powershell-debug) t))
+  :menu #'ide-powershell-dispatch)
 
 (provide 'lang-powershell)
 ;;; lang-powershell.el ends here

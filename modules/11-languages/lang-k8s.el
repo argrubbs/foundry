@@ -51,13 +51,7 @@
 (declare-function eglot-ensure "eglot")
 (declare-function eglot-current-server "eglot")
 (declare-function eglot-reconnect "eglot")
-(declare-function eglot-signal-didChangeConfiguration "eglot")
-(declare-function treesit-node-at "treesit")
-(declare-function treesit-node-parent "treesit")
-(declare-function treesit-node-type "treesit")
-(declare-function treesit-node-text "treesit")
-(declare-function treesit-node-child-by-field-name "treesit")
-(declare-function treesit-parser-list "treesit")
+(eval-when-compile (require 'treesit nil t))
 (declare-function kubel "kubel")
 (declare-function yaml-mode "yaml-mode")
 
@@ -744,8 +738,7 @@ with the same kind and name."
   (let ((buf (get-buffer-create name)))
     (with-current-buffer buf
       (let ((inhibit-read-only t))
-        (when mode (funcall mode))
-        (unless mode (special-mode))
+        (funcall (or mode #'special-mode))
         (erase-buffer)
         (insert text)
         (goto-char (point-min)))
@@ -1029,6 +1022,21 @@ FILE is `-' when the manifests arrive on stdin."
   (interactive "sNamespace (empty for default): ")
   (setq ide-k8s-namespace (unless (string-empty-p namespace) namespace))
   (message "kubectl namespace: %s" (or ide-k8s-namespace "default")))
+
+;;;###autoload
+(defun ide-kubectl-logs (pod &optional namespace)
+  "Stream logs for POD (in optional NAMESPACE) into the bottom drawer."
+  (interactive
+   (list (completing-read "Pod: "
+                          (ide-k8s--with-env
+                            (apply #'process-lines "kubectl" "get" "pods" "-o" "name"
+                                   (ide-k8s--kubectl-flags)))
+                          nil t)))
+  (ide-k8s--with-env
+    (ide-lang-run (format "kubectl-logs:%s" pod)
+                  (append (list "kubectl" "logs" "-f" "--tail=200" pod)
+                          (when namespace (list "-n" namespace))
+                          (ide-k8s--kubectl-flags)))))
 
 ;;;; kubectl explain ---------------------------------------------------------------------------------------------
 

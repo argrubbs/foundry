@@ -37,7 +37,9 @@
   "Verify Vertico, Orderless, and Consult are available."
   (should (fboundp 'vertico-mode))
   (should (fboundp 'consult-ripgrep))
-  (should (boundp 'orderless-matching-styles)))
+  (should (boundp 'orderless-matching-styles))
+  (should (fboundp 'ide-complete-snippet))
+  (should (eq (lookup-key ide-keys-mode-map (kbd "M-s s")) #'ide-complete-snippet)))
 
 (ert-deftest test-lsp-and-treesitter ()
   "Verify Eglot and Tree-sitter configurations."

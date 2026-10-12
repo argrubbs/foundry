@@ -17,8 +17,6 @@
   :config
   (setq magit-no-confirm '(stage-all-changes unstage-all-changes)))
 
-(use-package forge :disabled t) ; GitHub/GitLab only; Azure DevOps has its own porcelain.
-
 (use-package git-timemachine :commands git-timemachine)
 
 (defun ide--azure-url-p (url)
@@ -27,27 +25,15 @@
             "\\(dev\\.azure\\.com\\|ssh\\.dev\\.azure\\.com\\|\\.visualstudio\\.com\\)" url)))
 
 ;;;; Credentials: prefer Git Credential Manager, never prompt interactively.
-(defvar ide--credential-env-cache (make-hash-table :test #'equal)
-  "Maps directory to (TIME . ENV); `git config' is not run per git process.")
-
 (defun ide--git-credential-env ()
-  "Return env entries that make git use GCM non-interactively (cached 5 min)."
-  (let* ((key (expand-file-name default-directory))
-         (hit (gethash key ide--credential-env-cache)))
-    (if (and hit (< (float-time (time-since (car hit))) 300))
-        (cdr hit)
-      (when (> (hash-table-count ide--credential-env-cache) 50)
-        (clrhash ide--credential-env-cache))
-      (let ((env (append
-                  (list "GIT_TERMINAL_PROMPT=0" "GCM_INTERACTIVE=never")
-                  ;; `git config --get' exits 1 when no helper is configured.
-                  (when (and (executable-find "git-credential-manager")
-                             (null (ignore-errors
-                                     (process-lines "git" "config" "--get" "credential.helper"))))
-                    (list "GIT_CONFIG_COUNT=1" "GIT_CONFIG_KEY_0=credential.helper"
-                          "GIT_CONFIG_VALUE_0=manager")))))
-        (puthash key (cons (current-time) env) ide--credential-env-cache)
-        env))))
+  "Return env entries that make git use GCM non-interactively."
+  (append
+   (list "GIT_TERMINAL_PROMPT=0" "GCM_INTERACTIVE=never")
+   (when (and (executable-find "git-credential-manager")
+              (null (ignore-errors
+                      (process-lines "git" "config" "--get" "credential.helper"))))
+     (list "GIT_CONFIG_COUNT=1" "GIT_CONFIG_KEY_0=credential.helper"
+           "GIT_CONFIG_VALUE_0=manager"))))
 
 (with-eval-after-load 'magit-process
   (advice-add 'magit-start-process :around

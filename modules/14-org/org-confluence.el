@@ -10,16 +10,10 @@
 (require 'cl-lib)
 (require 'subr-x)
 (require 'url)
-(require 'json)
-(require 'dom)
-(require 'url-http)
-(defvar url-http-response-status)
-(defvar url-http-end-of-headers)
 
 (declare-function org-export-as "ox")
 (declare-function org-mode "org")
-(declare-function consult--read "consult")
-(declare-function consult--dynamic-collection "consult")
+(declare-function org-collect-keywords "org")
 
 (defgroup confluence nil "Confluence Cloud integration." :group 'tools)
 (defcustom confluence-site nil "Atlassian site name, e.g. \"acme\" for acme.atlassian.net."
@@ -29,27 +23,28 @@
 
 (defvar-local confluence-page-id nil "Confluence page id of this Org buffer.")
 (defvar-local confluence-page-space nil "Confluence space key of this Org buffer.")
+(defvar confluence--cached-auth nil "Cached Basic auth token.")
 
 (defun confluence--base ()
   (unless confluence-site (user-error "Set `confluence-site' (e.g. \"acme\")"))
   (format "https://%s.atlassian.net/wiki/rest/api" confluence-site))
 
 (defun confluence--auth ()
-  (let* ((host (format "%s.atlassian.net" confluence-site))
-         (found (car (auth-source-search :host host :max 1)))
-         (email (or (getenv "CONFLUENCE_EMAIL") (plist-get found :user)))
-         (token (or (getenv "CONFLUENCE_API_TOKEN")
-                    (let ((s (plist-get found :secret))) (if (functionp s) (funcall s) s)))))
-    (unless (and email token)
-      (user-error "Set CONFLUENCE_EMAIL and CONFLUENCE_API_TOKEN, or add an auth-source entry for %s" host))
-    (concat "Basic " (base64-encode-string (concat email ":" token) t))))
+  (or confluence--cached-auth
+      (let* ((host (format "%s.atlassian.net" confluence-site))
+             (found (car (auth-source-search :host host :max 1)))
+             (email (or (getenv "CONFLUENCE_EMAIL") (plist-get found :user)))
+             (token (or (getenv "CONFLUENCE_API_TOKEN")
+                        (let ((s (plist-get found :secret))) (if (functionp s) (funcall s) s)))))
+        (unless (and email token)
+          (user-error "Set CONFLUENCE_EMAIL and CONFLUENCE_API_TOKEN, or add an auth-source entry for %s" host))
+        (setq confluence--cached-auth
+              (concat "Basic " (base64-encode-string (concat email ":" token) t))))))
 
 (defun confluence--request (method path &optional body query)
   "Perform METHOD on PATH (relative to REST base) and return parsed JSON."
   (let* ((url (concat (confluence--base) path
-                      (when query
-                        (concat "?" (mapconcat (lambda (kv) (format "%s=%s" (car kv) (url-hexify-string (format "%s" (cdr kv)))))
-                                               query "&")))))
+                      (when query (concat "?" (url-build-query-string query)))))
          (url-request-method method)
          (url-request-extra-headers `(("Authorization" . ,(confluence--auth))
                                       ("Accept" . "application/json")
@@ -59,15 +54,14 @@
     (unless buf (error "confluence: no response"))
     (unwind-protect
         (with-current-buffer buf
-          (let ((status url-http-response-status))
-            (goto-char url-http-end-of-headers)
-            (let ((data (condition-case nil
-                            (json-parse-string (decode-coding-string
-                                                (buffer-substring-no-properties (point) (point-max)) 'utf-8)
-                                               :object-type 'alist :array-type 'list
-                                               :null-object nil :false-object nil)
-                          (error nil))))
-              (when (>= status 400)
+          (let ((status (bound-and-true-p url-http-response-status)))
+            (goto-char (or (bound-and-true-p url-http-end-of-headers) (point-min)))
+            (let ((data (ignore-errors
+                          (json-parse-string (decode-coding-string
+                                              (buffer-substring-no-properties (point) (point-max)) 'utf-8)
+                                             :object-type 'alist :array-type 'list
+                                             :null-object nil :false-object nil))))
+              (when (and status (>= status 400))
                 (error "confluence: HTTP %s: %s" status (or (alist-get 'message data) "request failed")))
               data)))
       (kill-buffer buf))))
@@ -127,37 +121,15 @@
     (buffer-string)))
 
 (defun confluence--html-to-org (html)
-  "Convert HTML to Org text, via pandoc when present."
-  (if (executable-find "pandoc")
-      (with-temp-buffer
-        (insert html)
-        (if (zerop (call-process-region (point-min) (point-max) "pandoc" t t nil
+  "Convert HTML to Org text using pandoc."
+  (unless (executable-find "pandoc")
+    (user-error "Pandoc is required to convert Confluence HTML to Org"))
+  (with-temp-buffer
+    (insert html)
+    (unless (zerop (call-process-region (point-min) (point-max) "pandoc" t t nil
                                         "-f" "html" "-t" "org" "--wrap=none"))
-            (buffer-string)
-          (confluence--html-to-org-fallback html)))
-    (confluence--html-to-org-fallback html)))
-
-(defun confluence--html-to-org-fallback (html)
-  "Minimal HTML to Org conversion without external tools."
-  (let ((s html))
-    (dolist (r '(("<h1[^>]*>\\(.*?\\)</h1>" . "\n* \\1\n")
-                 ("<h2[^>]*>\\(.*?\\)</h2>" . "\n** \\1\n")
-                 ("<h3[^>]*>\\(.*?\\)</h3>" . "\n*** \\1\n")
-                 ("<h[4-6][^>]*>\\(.*?\\)</h[4-6]>" . "\n**** \\1\n")
-                 ("<strong>\\(.*?\\)</strong>" . "*\\1*")
-                 ("<em>\\(.*?\\)</em>" . "/\\1/")
-                 ("<code[^>]*>\\(.*?\\)</code>" . "~\\1~")
-                 ("<li[^>]*>" . "\n- ")
-                 ("<br ?/?>" . "\n")
-                 ("</p>" . "\n\n")))
-      (setq s (replace-regexp-in-string (car r) (cdr r) s)))
-    (setq s (replace-regexp-in-string
-             "<pre><code class=\"language-\\([^\"]*\\)\">\\(\\(?:.\\|\n\\)*?\\)</code></pre>"
-             "\n#+begin_src \\1\n\\2\n#+end_src\n" s))
-    (setq s (replace-regexp-in-string "<[^>]+>" "" s))
-    (dolist (e '(("&lt;" . "<") ("&gt;" . ">") ("&quot;" . "\"") ("&nbsp;" . " ") ("&amp;" . "&")))
-      (setq s (replace-regexp-in-string (car e) (cdr e) s)))
-    s))
+      (error "pandoc conversion failed"))
+    (buffer-string)))
 
 ;;;###autoload
 (defun confluence-open-page (id)
@@ -200,10 +172,7 @@
     s))
 
 (defun confluence--buffer-keyword (name)
-  (save-excursion
-    (goto-char (point-min))
-    (when (re-search-forward (format "^#\\+%s:[ \t]*\\(.*\\)$" name) nil t)
-      (string-trim (match-string 1)))))
+  (car (assoc-default (upcase name) (org-collect-keywords (list (upcase name))))))
 
 ;;;###autoload
 (defun confluence-publish-buffer ()

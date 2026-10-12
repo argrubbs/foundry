@@ -74,18 +74,10 @@
       (should (= (length defs) 1))
       (should (string-match-p "app_port" (xref-item-summary (car defs)))))))
 
-(ert-deftest ansible-int-completion-comes-after-eglot ()
-  (ansible-int--with-playbook
-    (add-hook 'completion-at-point-functions #'eglot-completion-at-point nil t)
-    (let ((fns completion-at-point-functions))
-      (should (< (cl-position 'eglot-completion-at-point fns)
-                 (cl-position 'ansible-intelligence-completion-at-point fns))))))
-
 (ert-deftest ansible-int-disabling-removes-its-hooks ()
   (ansible-int--with-playbook
     (ansible-intelligence-mode -1)
-    (should-not (memq 'ansible-intelligence-native-xref-backend xref-backend-functions))
-    (should-not (memq 'ansible-intelligence-completion-at-point completion-at-point-functions))))
+    (should-not (memq 'ansible-intelligence-native-xref-backend xref-backend-functions))))
 
 (ert-run-tests-batch-and-exit)
 

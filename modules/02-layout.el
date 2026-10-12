@@ -95,14 +95,11 @@ For tools you add under user/: they then behave like the built-in ones."
   :config
   (treemacs-follow-mode 1)
   (treemacs-filewatch-mode 1)
-  (treemacs-project-follow-mode 1)
   (treemacs-fringe-indicator-mode 'only-when-focused))
 
 (use-package treemacs-nerd-icons
   :after treemacs
   :config (treemacs-load-theme "nerd-icons"))
-
-(use-package treemacs-magit :after (treemacs magit))
 
 ;;;; Structure tool window
 (use-package imenu-list

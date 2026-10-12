@@ -11,34 +11,7 @@
 
 (require 'transient)
 
-(declare-function popper-toggle "popper")
-(declare-function popper-cycle "popper")
-(declare-function popper-toggle-type "popper")
-(declare-function consult-line "consult")
-(declare-function consult-ripgrep "consult")
-(declare-function consult-fd "consult")
-(declare-function consult-find "consult")
-(declare-function ghostel "ghostel")
-(declare-function eglot-code-actions "eglot")
-(declare-function eglot-format-buffer "eglot")
-(declare-function eldoc-box-help-at-point "eldoc-box")
-(declare-function er/expand-region "expand-region")
-(declare-function dap-debug "dap-mode")
-(declare-function magit-status "magit")
-(declare-function flymake-show-buffer-diagnostics "flymake")
-(declare-function apheleia-format-buffer "apheleia")
-(declare-function ide-toggle-project-tree "02-layout")
-(declare-function ide-toggle-structure "02-layout")
-(declare-function ide-toggle-debug-window "07-dap")
-(defvar magit-section-mode-map)
-(declare-function ide-project-terminal "09-project")
-(declare-function ide-focus-code-window "02-layout")
-(declare-function ide-docs-open "15-docs")
-(declare-function ide-docs-update "15-docs")
-(declare-function ide-ai-set-model "13-ai")
-(declare-function ide-user-add-package "16-user")
-(declare-function ide-user-open "16-user")
-(declare-function ide-user-reload "16-user")
+(declare-function ide-complete-snippet "04-corfu")
 
 ;;;; Commands ----------------------------------------------------------------
 
@@ -74,7 +47,7 @@
 (defun ide-smart-expand ()
   "Expand the selection structurally."
   (interactive)
-  (if (fboundp 'er/expand-region) (er/expand-region 1) (mark-sexp)))
+  (er/expand-region 1))
 
 (defun ide-reformat-buffer ()
   "Reformat the buffer with the LSP server or apheleia."
@@ -167,6 +140,7 @@ returns non-nil, or returns nil to leave it to the next one.")
     (define-key m (kbd "M-s f") #'ide-search-everywhere)
     (define-key m (kbd "M-s l") #'consult-line)
     (define-key m (kbd "M-s b") #'consult-buffer)
+    (define-key m (kbd "M-s s") #'ide-complete-snippet)
     (define-key m (kbd "C-S-f") #'consult-ripgrep)
     ;; DevOps / AI / Org prefixes
     (define-key m (kbd "C-c d d") #'docker)

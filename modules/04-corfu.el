@@ -7,6 +7,7 @@
 
 (use-package corfu
   :demand t
+  :bind (:map corfu-map ("RET" . corfu-insert))
   :init
   (setq corfu-auto t
         corfu-auto-delay 0.1
@@ -18,9 +19,7 @@
         text-mode-ispell-word-completion nil)
   :config
   (global-corfu-mode 1)
-  (corfu-popupinfo-mode 1)
-  (with-eval-after-load 'corfu
-    (define-key corfu-map (kbd "RET") #'corfu-insert)))
+  (corfu-popupinfo-mode 1))
 
 (use-package nerd-icons-corfu
   :after corfu
@@ -31,34 +30,32 @@
   :init
   (setq yas-snippet-dirs (list (expand-file-name "snippets/" user-emacs-directory)))
   :config
+  (add-hook 'yas-before-expand-snippet-hook (lambda () (setq-local indent-tabs-mode nil)))
+  (add-hook 'yas-after-exit-snippet-hook (lambda () (setq-local indent-tabs-mode nil)))
   (yas-global-mode 1))
-
-(use-package yasnippet-snippets
-  :after yasnippet
-  :demand t
-  :config
-  (yasnippet-snippets-initialize)
-  ;; Prioritize user snippets in snippets/ over the default collection
-  (let ((user-dir (expand-file-name "snippets/" user-emacs-directory)))
-    (setq yas-snippet-dirs (cons user-dir (delete user-dir (copy-sequence yas-snippet-dirs))))))
 
 (use-package cape
   :demand t
-  :init
-  (add-hook 'completion-at-point-functions #'cape-file)
-  (add-hook 'completion-at-point-functions #'cape-dabbrev)
   :config
-  ;; Compose Eglot's capf with snippets, file and buffer symbols.
+  ;; Compose Eglot's capf with file and buffer symbols.
   (defun ide--eglot-capf-setup ()
     (setq-local completion-at-point-functions
                 (list (cape-capf-super
                        #'eglot-completion-at-point
-                       #'yasnippet-capf
                        #'cape-dabbrev)
                       #'cape-file)))
   (add-hook 'eglot-managed-mode-hook #'ide--eglot-capf-setup))
 
 (use-package yasnippet-capf :after (cape yasnippet))
+
+(defun ide-complete-snippet ()
+  "Complete snippets at point via Corfu, or prompt to insert a snippet."
+  (interactive)
+  (unless (bound-and-true-p yas-minor-mode)
+    (yas-minor-mode 1))
+  (if (and (fboundp 'yasnippet-capf) (yasnippet-capf))
+      (cape-interactive #'yasnippet-capf)
+    (call-interactively #'yas-insert-snippet)))
 
 (provide '04-corfu)
 ;;; 04-corfu.el ends here

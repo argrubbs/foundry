@@ -28,8 +28,6 @@
 (defvar ide-sql--result-sql)
 (defvar ide-sql--result-mode)
 (defvar ide-sql-result-buffer)
-(defvar treesit-language-source-alist)
-
 (declare-function ide-sql--product "lang-sql" (&optional conn))
 (declare-function ide-sql--csv-filter "lang-sql" (conn text))
 (declare-function ide-sql--spawn "lang-sql" (conn sql mode callback))
@@ -39,13 +37,6 @@
 (declare-function ide-sql-copy-csv "lang-sql" ())
 (declare-function ide-sql-export-csv "lang-sql" (file))
 (declare-function ide-sql--ensure-connection "lang-sql" ())
-(declare-function treesit-parser-create "treesit" (language &optional buffer-or-string))
-(declare-function treesit-parser-root-node "treesit" (parser))
-(declare-function treesit-node-type "treesit" (node))
-(declare-function treesit-node-text "treesit" (node &optional no-property))
-(declare-function treesit-node-children "treesit" (node &optional named))
-(declare-function treesit-query-capture "treesit" (node query &optional beg end node-only))
-(declare-function treesit-language-available-p "treesit" (language &optional detail))
 
 ;;;; Data Structures & State --------------------------------------------------------------------------
 
@@ -122,57 +113,44 @@
 ;;;; CSV Parsing --------------------------------------------------------------------------------------
 
 (defun ide-sql-grid-parse-csv (text)
-  "Parse RFC 4180 CSV TEXT into (HEADERS . PLISTS).
-HEADERS is a list of column name strings.
-PLISTS is a list of plists, one per data row, with keyword keys matching HEADERS."
-  (let ((i 0)
-        (len (length text))
-        (rows nil)
-        (current-row nil)
-        (current-field nil)
-        (in-quotes nil))
-    (while (< i len)
-      (let ((c (aref text i)))
-        (cond
-         ((= c ?\")
-          (if in-quotes
-              (if (and (< (1+ i) len) (= (aref text (1+ i)) ?\"))
-                  (progn
-                    (push ?\" current-field)
-                    (setq i (1+ i)))
-                (setq in-quotes nil))
-            (setq in-quotes t)))
-         ((and (= c ?,) (not in-quotes))
-          (push (concat (nreverse current-field)) current-row)
-          (setq current-field nil))
-         ((and (= c ?\n) (not in-quotes))
-          (push (concat (nreverse current-field)) current-row)
-          (setq current-field nil)
-          (push (nreverse current-row) rows)
-          (setq current-row nil))
-         ((and (= c ?\r) (not in-quotes))
-          ;; Ignore carriage returns outside quotes
-          nil)
-         (t
-          (push c current-field))))
-      (setq i (1+ i)))
-    (when (or current-field current-row)
-      (push (concat (nreverse current-field)) current-row)
-      (push (nreverse current-row) rows))
-    (let* ((all (nreverse rows))
-           (headers (car all))
-           (data (cdr all)))
-      (if (null headers)
-          (cons nil nil)
-        (let ((plists
-               (mapcar (lambda (row)
-                         (let (pl)
-                           (cl-mapc (lambda (h val)
-                                      (setq pl (plist-put pl (intern (concat ":" h)) (or val ""))))
-                                    headers row)
-                           pl))
-                       data)))
-          (cons headers plists))))))
+  "Parse RFC 4180 CSV TEXT into (HEADERS . PLISTS)."
+  (with-temp-buffer
+    (insert text)
+    (goto-char (point-min))
+    (let (rows row)
+      (while (not (eobp))
+        (if (and (null row) (looking-at "[\r\n]+"))
+            (goto-char (match-end 0))
+          (let ((val (cond
+                      ((looking-at "\"\\(\\(?:[^\"]\\|\"\"\\)*\\)\"")
+                       (goto-char (match-end 0))
+                       (replace-regexp-in-string "\"\"" "\"" (match-string 1)))
+                      ((looking-at "[^,\r\n]*")
+                       (goto-char (match-end 0))
+                       (match-string 0)))))
+            (push val row)
+            (cond
+             ((looking-at-p ",") (forward-char 1))
+             ((looking-at "[\r\n]+")
+              (goto-char (match-end 0))
+              (push (nreverse row) rows)
+              (setq row nil))
+             ((eobp)
+              (push (nreverse row) rows)
+              (setq row nil))))))
+      (let* ((all (nreverse rows))
+             (headers (car all))
+             (data (cdr all)))
+        (if (null headers)
+            (cons nil nil)
+          (cons headers
+                (mapcar (lambda (row)
+                          (let (pl)
+                            (cl-mapc (lambda (h val)
+                                       (setq pl (plist-put pl (intern (concat ":" h)) (or val ""))))
+                                     headers row)
+                            pl))
+                        data)))))))
 
 ;;;; Primary Key Inference & AST Extraction -----------------------------------------------------------
 
@@ -202,86 +180,17 @@ Checks for exact `id', exact `uuid'/`guid', `TABLE_id', or any column ending in 
 (defun ide-sql-grid--clean-identifier (ident)
   "Remove SQL quoting characters (double quotes, backticks, brackets) from IDENT."
   (if (stringp ident)
-      (let ((s (string-trim ident)))
-        (while (and (> (length s) 0)
-                    (memq (aref s 0) (list ?\" ?\` ?\[ ?\')))
-          (setq s (substring s 1)))
-        (while (and (> (length s) 0)
-                    (memq (aref s (1- (length s))) (list ?\" ?\` ?\] ?\')))
-          (setq s (substring s 0 -1)))
-        s)
+      (concat (seq-filter (lambda (c) (not (memq c (list ?\" ?\` ?\[ ?\] ?\'))))
+                          (string-trim ident)))
     ident))
-
-(defun ide-sql-grid--treesit-find-table (node)
-  "Recursively search tree-sitter NODE for a table identifier within a FROM clause."
-  (when node
-    (let ((type (treesit-node-type node)))
-      (cond
-       ((string-match-p "\\`\\(?:from_clause\\|from\\)\\'" type)
-        (or (ide-sql-grid--find-identifier-in-node node)
-            (ide-sql-grid--clean-identifier (treesit-node-text node))))
-       (t
-        (cl-some #'ide-sql-grid--treesit-find-table
-                 (treesit-node-children node)))))))
-
-(defun ide-sql-grid--find-identifier-in-node (node)
-  "Find the first identifier child in NODE."
-  (when node
-    (let ((type (treesit-node-type node)))
-      (cond
-       ((member type '("object_reference" "identifier"))
-        (ide-sql-grid--clean-identifier (treesit-node-text node)))
-       ((equal type "relation")
-        (or (cl-some (lambda (c)
-                       (when (member (treesit-node-type c) '("object_reference" "identifier"))
-                         (ide-sql-grid--clean-identifier (treesit-node-text c))))
-                     (treesit-node-children node))
-            (ide-sql-grid--clean-identifier (treesit-node-text node))))
-       (t
-        (cl-some #'ide-sql-grid--find-identifier-in-node
-                 (treesit-node-children node)))))))
-
-(defun ide-sql-grid--extract-table-treesit (sql)
-  "Use `treesit' from `modules/05-treesitter.el' to extract target table name from SQL."
-  (when (and (fboundp 'treesit-language-available-p)
-             (treesit-language-available-p 'sql))
-    (ignore-errors
-      (with-temp-buffer
-        (insert sql)
-        (let* ((parser (treesit-parser-create 'sql))
-               (root (treesit-parser-root-node parser))
-               (query "([
-                 (from (relation (object_reference) @table))
-                 (from (relation (identifier) @table))
-                 (from (relation) @rel)
-                 (from_clause (relation (identifier) @table))
-                 (from_clause (table_reference (identifier) @table))
-                 (from_clause (identifier) @table)
-               ])")
-               (captures (ignore-errors (treesit-query-capture root query))))
-          (if captures
-              (let ((node (cdr (car captures))))
-                (ide-sql-grid--clean-identifier
-                 (if (equal (treesit-node-type node) "relation")
-                     (or (cl-some (lambda (c)
-                                    (when (member (treesit-node-type c) '("object_reference" "identifier"))
-                                      (treesit-node-text c)))
-                                  (treesit-node-children node))
-                         (treesit-node-text node))
-                   (treesit-node-text node))))
-            (ide-sql-grid--treesit-find-table root)))))))
-
-(defun ide-sql-grid--extract-table-heuristic (sql)
-  "Extract target table name from SQL statement using regex heuristics."
-  (when (string-match "\\<from[ \t\n\r]+\\([]\"`[]?[a-zA-Z0-9_]+[]\"`[]?\\(?:\\.[*]?[]\"`[]?[a-zA-Z0-9_]+[]\"`[]?\\)?\\)"
-                      (downcase sql))
-    (let ((raw (substring sql (match-beginning 1) (match-end 1))))
-      (ide-sql-grid--clean-identifier raw))))
 
 (defun ide-sql-grid--extract-table-name (sql)
   "Extract the target table name from SQL query."
-  (or (ide-sql-grid--extract-table-treesit sql)
-      (ide-sql-grid--extract-table-heuristic sql)))
+  (let ((case-fold-search t))
+    (when (string-match "\\_<from[ \t\n\r]+\\([^ \t\n\r;()]+\\)" sql)
+      (ide-sql-grid--clean-identifier (match-string 1 sql)))))
+
+(defalias 'ide-sql-grid--extract-table-heuristic #'ide-sql-grid--extract-table-name)
 
 ;;;; Value Quoting & Escaping -------------------------------------------------------------------------
 
@@ -493,15 +402,8 @@ Optional CALLBACK is called with EXIT-STATUS when the process completes."
     (when (vtable-current-object)
       (vtable-goto-column col))))
 
-(defun ide-sql-grid-next-column ()
-  "Move to the next column in the grid."
-  (interactive)
-  (vtable-next-column))
-
-(defun ide-sql-grid-previous-column ()
-  "Move to the previous column in the grid."
-  (interactive)
-  (vtable-previous-column))
+(defalias 'ide-sql-grid-next-column #'vtable-next-column)
+(defalias 'ide-sql-grid-previous-column #'vtable-previous-column)
 
 ;;;; Major Mode & Keymap ------------------------------------------------------------------------------
 
@@ -536,6 +438,13 @@ Optional CALLBACK is called with EXIT-STATUS when the process completes."
 
 ;;;; Integration: Intercept `ide-sql--show' -----------------------------------------------------------
 
+(defun ide-sql-grid--header (conn secs &optional status-or-table actions)
+  "Format header line for SQL grid buffer."
+  (format " %s [%s]  %.2fs%s%s"
+          (car conn) (ide-sql--product conn) secs
+          (if status-or-table (format "  %s" status-or-table) "")
+          (if actions (format "   %s" actions) "   g rerun  t table/csv")))
+
 (defun ide-sql-grid--handle-spawn-result (conn sql text status secs)
   "Handle result of `ide-sql--spawn' in current buffer and render the grid or error."
   (let ((inhibit-read-only t))
@@ -545,8 +454,7 @@ Optional CALLBACK is called with EXIT-STATUS when the process completes."
           (insert text)
           (goto-char (point-min))
           (setq header-line-format
-                (format " %s [%s]  %.2fs  FAILED (exit %d)   g rerun  t table/csv"
-                        (car conn) (ide-sql--product conn) secs status)))
+                (ide-sql-grid--header conn secs (format "FAILED (exit %d)" status))))
       ;; Successful execution
       (let* ((csv (ide-sql--csv-filter conn text))
              (parsed (ide-sql-grid-parse-csv csv))
@@ -558,9 +466,7 @@ Optional CALLBACK is called with EXIT-STATUS when the process completes."
                           "-- Statement executed successfully (no rows returned)\n"
                         text))
               (goto-char (point-min))
-              (setq header-line-format
-                    (format " %s [%s]  %.2fs   g rerun  t table/csv"
-                            (car conn) (ide-sql--product conn) secs)))
+              (setq header-line-format (ide-sql-grid--header conn secs)))
           ;; Render interactive vtable grid
           (let* ((table-name (ide-sql-grid--extract-table-name sql))
                  (pk-col (ide-sql-grid--infer-primary-key headers table-name)))
@@ -572,9 +478,9 @@ Optional CALLBACK is called with EXIT-STATUS when the process completes."
             (ide-sql-grid--render-vtable headers plists)
             (goto-char (point-min))
             (setq header-line-format
-                  (format " %s [%s]  %.2fs%s   RET edit  C-c C-c commit  C-c C-k rollback  g rerun  t table/csv"
-                          (car conn) (ide-sql--product conn) secs
-                          (if table-name (format "  [%s]" table-name) "")))))))))
+                  (ide-sql-grid--header conn secs
+                                        (and table-name (format "[%s]" table-name))
+                                        "RET edit  C-c C-c commit  C-c C-k rollback  g rerun  t table/csv"))))))))
 
 (defun ide-sql-grid-show (conn sql)
   "Run SQL on CONN in CSV mode and display the interactive editable grid."

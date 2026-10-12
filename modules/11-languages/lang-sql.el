@@ -53,7 +53,9 @@
 (declare-function ide-lang-register-menu "00-lang-lib")
 (declare-function ide-add-drawer-buffer "02-layout")
 (declare-function yas-expand-snippet "yasnippet")
+(declare-function eglot-current-server "eglot")
 (declare-function eglot-shutdown "eglot")
+(declare-function eglot-ensure "eglot")
 (declare-function auth-source-pick-first-password "auth-source")
 
 (defgroup ide-sql nil "SQL support." :group 'ide-lang)
@@ -81,13 +83,12 @@ Only literal values are read from it (strings, numbers, quoted symbols)."
 
 (add-to-list 'auto-mode-alist '("\\.sql\\'" . sql-mode))
 
-(unless (featurep 'lang-sql)
-  (use-package sql-indent
-    :init (setq sqlind-basic-offset 2)
-    :hook (sql-mode . sqlind-minor-mode))
+(use-package sql-indent
+  :init (setq sqlind-basic-offset 2)
+  :hook (sql-mode . sqlind-minor-mode))
 
-  (use-package sqlup-mode
-    :hook ((sql-mode sql-interactive-mode) . sqlup-mode)))
+(use-package sqlup-mode
+  :hook ((sql-mode sql-interactive-mode) . sqlup-mode))
 
 (with-eval-after-load 'eglot
   (add-to-list 'eglot-server-programs '(sql-mode . ("sqls"))))
@@ -95,13 +96,13 @@ Only literal values are read from it (strings, numbers, quoted symbols)."
 (defun ide-sql--setup ()
   "Per-buffer setup: indentation, the connection, the language server, format on save."
   (setq-local tab-width 2 indent-tabs-mode nil
-              ide-eglot-format-on-save nil)
+              ide-eglot-format-on-save nil
+              eglot-workspace-configuration #'ide-sql--workspace-config)
   (ide-sql--sync-connections)
   (unless ide-sql-connection
     (let ((all (ide-sql--connections)))
       (when (and all (null (cdr all))) (ide-sql--select (caar all) t))))
   (when ide-sql-connection (ide-sql--select ide-sql-connection t))
-  (ide-sql--register-dir-class)
   (unless ide-sql-format-on-save (setq-local apheleia-inhibit t))
   ;; sqls formatting crashes on the tested version; sql-formatter does it.
   (setq-local eglot-ignored-server-capabilities
@@ -120,17 +121,24 @@ Only literal values are read from it (strings, numbers, quoted symbols)."
   (let ((p (or (and conn (alist-get 'product conn)) sql-product 'ansi)))
     (pcase p ('mssql 'ms) ('postgresql 'postgres) ('sqlite3 'sqlite) (_ p))))
 
+(defconst ide-sql--product-dialects
+  '((sqlite   "sqlite"       "sqlite")
+    (postgres "postgresql"   "postgres")
+    (mysql    "mysql"        "mysql")
+    (mariadb  "mariadb"      "mariadb")
+    (ms       "transactsql"  "tsql")
+    (oracle   "plsql"        "oracle")
+    (db2      "db2"          "db2")
+    (vertica  "sql"          "vertica"))
+  "Map of (PRODUCT FORMATTER-LANG SQLFLUFF-DIALECT).")
+
 (defun ide-sql--formatter-language (&optional product)
   "sql-formatter language for PRODUCT (default: the buffer's)."
-  (pcase (or product (ide-sql--product))
-    ('sqlite "sqlite") ('postgres "postgresql") ('mysql "mysql") ('mariadb "mariadb")
-    ('ms "transactsql") ('oracle "plsql") ('db2 "db2") (_ "sql")))
+  (or (cadr (assq (or product (ide-sql--product)) ide-sql--product-dialects)) "sql"))
 
 (defun ide-sql--sqlfluff-dialect (&optional product)
   "sqlfluff dialect for PRODUCT (default: the buffer's)."
-  (pcase (or product (ide-sql--product))
-    ('sqlite "sqlite") ('postgres "postgres") ('mysql "mysql") ('mariadb "mariadb")
-    ('ms "tsql") ('oracle "oracle") ('db2 "db2") ('vertica "vertica") (_ "ansi")))
+  (or (nth 2 (assq (or product (ide-sql--product)) ide-sql--product-dialects)) "ansi"))
 
 ;;;; Connections -------------------------------------------------------------------------------
 
@@ -375,6 +383,13 @@ MODE is `table' (readable) or `csv'.  Passwords only ever appear in ENV."
                      (not (string-suffix-p ";" s)))))
     (concat s (if plain ";" "") "\n" (if (and ms (not go)) "GO\n" ""))))
 
+(defun ide-sql--csv-field (f)
+  "Format field F for CSV, quoting commas, quotes, and newlines; NULL becomes empty."
+  (cond ((equal f "NULL") "")
+        ((string-match-p "[\",\n]" f)
+         (concat "\"" (replace-regexp-in-string "\"" "\"\"" f) "\""))
+        (t f)))
+
 (defun ide-sql--tsv-to-csv (text)
   "Convert mysql --batch output TEXT (tab separated, backslash escapes) to CSV.\nA field NULL becomes empty (a text value spelled NULL cannot be told apart)."
   (mapconcat
@@ -382,10 +397,8 @@ MODE is `table' (readable) or `csv'.  Passwords only ever appear in ENV."
      (mapconcat (lambda (f)
                   (let ((f (replace-regexp-in-string "\\\\\\([tn\\\\]\\)"
                                                      (lambda (m) (pcase (match-string 1 m) ("t" "\t") ("n" "\n") (_ "\\")))
-                                                     (if (equal f "NULL") "" f) t t)))
-                    (if (string-match-p "[\",\n]" f)
-                        (concat "\"" (replace-regexp-in-string "\"" "\"\"" f) "\"")
-                      f)))
+                                                     f t t)))
+                    (ide-sql--csv-field f)))
                 (split-string line "\t") ","))
    (split-string text "\n" t) "\n"))
 
@@ -410,12 +423,7 @@ contain newlines, and turns NULL into an empty field."
          (t (push line rows)))))
     (mapconcat
      (lambda (row)
-       (mapconcat (lambda (f)
-                    (cond ((equal f "NULL") "")
-                          ((string-match-p "[\",\n]" f)
-                           (concat "\"" (replace-regexp-in-string "\"" "\"\"" f) "\""))
-                          (t f)))
-                  (split-string row sep) ","))
+       (mapconcat #'ide-sql--csv-field (split-string row sep) ","))
      (nreverse rows) "\n")))
 
 (defun ide-sql--csv-filter (conn text)
@@ -593,17 +601,6 @@ use the paragraph or the region there."
   "Run the region, else the statement at point."
   (interactive)
   (ide-sql--run-text (ide-sql--dwim-text)))
-
-(defun ide-sql-run-statement ()
-  "Run the statement at point."
-  (interactive)
-  (pcase-let ((`(,b . ,e) (ide-sql--statement-bounds)))
-    (ide-sql--run-text (buffer-substring-no-properties b e))))
-
-(defun ide-sql-run-region (beg end)
-  "Run the region."
-  (interactive "r")
-  (ide-sql--run-text (buffer-substring-no-properties beg end)))
 
 (defun ide-sql-run-paragraph ()
   "Run the paragraph (text between blank lines) at point."
@@ -824,7 +821,7 @@ Statements that mention passwords are not kept."
 (defun ide-sql-format (&optional beg end)
   "Format the region or buffer with sql-formatter, in the dialect of `sql-product'."
   (interactive (if (use-region-p) (list (region-beginning) (region-end)) (list (point-min) (point-max))))
-  (let* ((exe (or (ide-lang-node-exe "sql-formatter") (user-error "sql-formatter not found; run M-x ide-mise-setup")))
+  (let* ((exe (ide-sql--formatter-exe))
          (beg (or beg (point-min))) (end (or end (point-max)))
          (to-end (= end (point-max)))
          (out (ide-sql--filter-region beg end exe (ide-sql--formatter-args))))
@@ -1017,19 +1014,6 @@ Linting leaves LT02 (indentation) to sql-formatter, whose layout differs from sq
          (base (default-value 'eglot-workspace-configuration))
          (base (if (functionp base) (funcall base server) base)))
     (plist-put (copy-sequence base) :sqls (ide-sql--sqls-settings (ide-lang-root root)))))
-
-(dir-locals-set-class-variables
- 'ide-sql '((sql-mode . ((eglot-workspace-configuration . ide-sql--workspace-config)))))
-
-(with-eval-after-load 'eglot
-  ;; Dir-local values must be safe to apply unprompted; ours is a function of this file.
-  (let ((old (get 'eglot-workspace-configuration 'safe-local-variable)))
-    (put 'eglot-workspace-configuration 'safe-local-variable
-         (lambda (v) (or (eq v 'ide-sql--workspace-config) (and old (funcall old v)))))))
-
-(defun ide-sql--register-dir-class ()
-  "Let Eglot ask `ide-sql--workspace-config' for sqls settings in this project."
-  (dir-locals-set-directory-class (ide-lang-root) 'ide-sql))
 
 (defun ide-sql-restart-server ()
   "Restart sqls (after editing the connection file)."

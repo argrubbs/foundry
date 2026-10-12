@@ -12,8 +12,7 @@
 (ide-builtin org
   :init
   (setq org-directory ide-notes-dir
-        org-agenda-files (list (expand-file-name "tasks.org" ide-notes-dir)
-                               (expand-file-name "projects.org" ide-notes-dir))
+        org-agenda-files '("tasks.org" "projects.org")
         org-id-locations-file (expand-file-name "org-id-locations" ide-var-dir)
         org-persist-directory (expand-file-name "org-persist/" ide-cache-dir)
         org-log-done 'time
@@ -28,7 +27,7 @@
   (require 'org-tempo)
   (dolist (tpl '(("py" . "src python") ("go" . "src go") ("sh" . "src bash")
                  ("tf" . "src terraform") ("sq" . "src sql") ("http" . "src restclient")
-                 ("yml" . "src yaml") ("js" . "src json")))
+                 ("yml" . "src yaml") ("json" . "src json")))
     (add-to-list 'org-structure-template-alist tpl)))
 
 (use-package org-modern
@@ -43,15 +42,15 @@
             (todo "DOING")))
           ("m" "Project milestones" tags-todo "milestone")
           ("i" "Azure DevOps issues" tags-todo "azdo")
-          ("w" "Waiting" todo "WAIT")))
-  (setq org-capture-templates
-        `(("n" "Quick note" entry (file+headline ,(expand-file-name "inbox.org" ide-notes-dir) "Notes")
+          ("w" "Waiting" todo "WAIT"))
+        org-capture-templates
+        '(("n" "Quick note" entry (file+headline "inbox.org" "Notes")
            "* %?\n  %U\n")
-          ("t" "Task" entry (file+headline ,(expand-file-name "tasks.org" ide-notes-dir) "Tasks")
+          ("t" "Task" entry (file+headline "tasks.org" "Tasks")
            "* TODO %?\n  %U\n")
-          ("s" "Code snippet" entry (file+headline ,(expand-file-name "snippets.org" ide-notes-dir) "Snippets")
+          ("s" "Code snippet" entry (file+headline "snippets.org" "Snippets")
            "* %?\n  %U\n  #+begin_src %^{language|python|go|bash|terraform|sql}\n  %i\n  #+end_src\n")
-          ("p" "Post-mortem" entry (file+headline ,(expand-file-name "postmortems.org" ide-notes-dir) "Post-mortems")
+          ("p" "Post-mortem" entry (file+headline "postmortems.org" "Post-mortems")
            "* %^{Incident} :postmortem:\n  %U\n** Summary\n   %?\n** Impact\n** Timeline\n** Root cause\n** Action items\n"))))
 
 (global-set-key (kbd "C-c o a") #'org-agenda)

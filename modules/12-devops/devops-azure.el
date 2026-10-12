@@ -9,9 +9,11 @@
 (require 'cl-lib)
 (require 'json)
 (require 'transient)
-(require 'compile)
 
 (declare-function ide-run-with-timeout "00-core")
+(declare-function ide-lang-run "00-lang-lib")
+
+(defvar azure-current-subscription nil "Name of the active subscription, for the modeline.")
 
 (defun azure--az ()
   "Return the az executable or signal a user error."
@@ -28,18 +30,16 @@
                        :null-object nil :false-object nil)))
 
 (defun azure--run (name &rest args)
-  "Run `az ARGS' in the bottom drawer, buffer *azure-NAME*."
-  (let ((compilation-buffer-name-function (lambda (_) (format "*azure-%s*" name))))
-    (compilation-start (mapconcat #'shell-quote-argument (cons (azure--az) args) " ")
-                       'compilation-mode)))
+  "Run `az ARGS' in the bottom drawer, buffer *run: azure-NAME*."
+  (ide-lang-run (format "azure-%s" name) (cons (azure--az) args)))
 
 (defun azure--pick (prompt items name-fn &optional annotate-fn)
   "Choose from ITEMS using NAME-FN for labels."
+  (unless items (user-error "Nothing found"))
   (let* ((cands (mapcar (lambda (i) (cons (funcall name-fn i) i)) items))
          (completion-extra-properties
           (when annotate-fn
             `(:annotation-function ,(lambda (c) (funcall annotate-fn (cdr (assoc c cands))))))))
-    (unless cands (user-error "Nothing found"))
     (cdr (assoc (completing-read prompt cands nil t) cands))))
 
 ;;;###autoload
@@ -55,10 +55,8 @@
     (setq azure-current-subscription (alist-get 'name sub))
     (message "Active subscription: %s" (alist-get 'name sub))))
 
-(defvar azure-current-subscription nil "Name of the active subscription, for the modeline.")
-
 (defun azure--table (name &rest args)
-  "Show `az ARGS -o table' in drawer buffer *azure-NAME*."
+  "Show `az ARGS -o table' in drawer buffer *run: azure-NAME*."
   (apply #'azure--run name (append args '("-o" "table"))))
 
 (defun azure-resource-groups () "List resource groups." (interactive) (azure--table "groups" "group" "list"))
@@ -67,13 +65,17 @@
 (defun azure-storage-list () "List storage accounts." (interactive) (azure--table "storage" "storage" "account" "list"))
 (defun azure-keyvaults-list () "List Key Vaults." (interactive) (azure--table "keyvaults" "keyvault" "list"))
 
+(defun azure--pick-resource (prompt kind)
+  "Pick a resource of KIND interactively with resourceGroup annotation."
+  (azure--pick prompt (azure--json kind "list")
+               (lambda (x) (alist-get 'name x))
+               (lambda (x) (format "  %s" (alist-get 'resourceGroup x)))))
+
 ;;;###autoload
 (defun azure-aks-get-credentials ()
   "Import credentials of an AKS cluster into the local kubeconfig for kubel."
   (interactive)
-  (let ((c (azure--pick "AKS cluster: " (azure--json "aks" "list")
-                        (lambda (c) (alist-get 'name c))
-                        (lambda (c) (format "  %s" (alist-get 'resourceGroup c))))))
+  (let ((c (azure--pick-resource "AKS cluster: " "aks")))
     (azure--run "aks-credentials" "aks" "get-credentials"
                 "--resource-group" (alist-get 'resourceGroup c)
                 "--name" (alist-get 'name c) "--overwrite-existing")))
@@ -82,9 +84,7 @@
 (defun azure-containerapp-logs ()
   "Stream logs of a Container App into the bottom drawer."
   (interactive)
-  (let ((a (azure--pick "Container App: " (azure--json "containerapp" "list")
-                        (lambda (a) (alist-get 'name a))
-                        (lambda (a) (format "  %s" (alist-get 'resourceGroup a))))))
+  (let ((a (azure--pick-resource "Container App: " "containerapp")))
     (azure--run (format "logs:%s" (alist-get 'name a)) "containerapp" "logs" "show"
                 "--name" (alist-get 'name a) "--resource-group" (alist-get 'resourceGroup a)
                 "--follow" "--tail" "100")))

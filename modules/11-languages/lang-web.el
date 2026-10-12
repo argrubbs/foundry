@@ -29,12 +29,9 @@
 (require 'json)
 (require 'transient)
 
-(defvar ide-run-command-functions)
-(defvar ide-debug-functions)
-(defvar ide-eglot-format-on-save)
-(defvar ide-var-dir)
-(defvar apheleia-formatters)
-(defvar apheleia-mode-alist)
+(require '00-lang-lib)
+(require 'treesit)
+
 (defvar dap-js-path)
 (defvar dap-js-debug-program)
 (defvar httpd-root)
@@ -51,10 +48,6 @@
 (defvar typescript-ts-indent-offset)
 (defvar compilation-environment)
 (declare-function dap-debug "dap-mode")
-(declare-function eglot-reconnect "eglot")
-(declare-function eglot-ensure "eglot")
-(declare-function apheleia-mode "apheleia")
-(declare-function apheleia-format-buffer "apheleia")
 (declare-function emmet-mode "emmet-mode")
 (declare-function httpd-start "simple-httpd")
 (declare-function httpd-running-p "simple-httpd")
@@ -67,26 +60,6 @@
 (declare-function xwidget-webkit-reload "xwidget")
 (declare-function xwidget-webkit-uri "xwidget")
 (declare-function xwidget-webkit-current-session "xwidget")
-(declare-function ide-lang-run "00-lang-lib")
-(declare-function ide-lang-run-then "00-lang-lib")
-(declare-function ide-lang-root "00-lang-lib")
-(declare-function ide-lang-ancestor "00-lang-lib")
-(declare-function ide-lang-browse "00-lang-lib")
-(declare-function ide-lang-node-exe "00-lang-lib")
-(declare-function ide-lang-tools-dir "00-lang-lib")
-(declare-function ide-lang-diag "00-lang-lib")
-(declare-function ide-lang-define-linter "00-lang-lib")
-(declare-function ide-lang-register-menu "00-lang-lib")
-(declare-function ide-lang-fetch-extract "00-lang-lib")
-(declare-function ide-lang-github-asset-url "00-lang-lib")
-(declare-function treesit-node-at "treesit")
-(declare-function treesit-node-text "treesit")
-(declare-function treesit-node-type "treesit")
-(declare-function treesit-node-child "treesit")
-(declare-function treesit-node-child-by-field-name "treesit")
-(declare-function treesit-node-parent "treesit")
-(declare-function treesit-node-start "treesit")
-(declare-function treesit-node-end "treesit")
 
 (defgroup ide-web nil "Web development support." :group 'ide-lang)
 
@@ -191,14 +164,9 @@ no 7+ compiler is found, for projects that bring TypeScript 5 or 6."
 
 ;;;; Formatting: prettier ------------------------------------------------------------------------
 
-(with-eval-after-load 'apheleia
-  ;; apheleia-npx runs the project's node_modules/.bin/prettier first, else the
-  ;; installed one, and never installs anything.  No indent flags: .prettierrc and
-  ;; .editorconfig decide, prettier's own default is 2 spaces.
-  (setf (alist-get 'ide-prettier apheleia-formatters)
-        '("apheleia-npx" "prettier" "--stdin-filepath" filepath))
-  (dolist (mode ide-web-modes)
-    (setf (alist-get mode apheleia-mode-alist) 'ide-prettier)))
+(ide-lang-define-formatter 'ide-prettier
+  '("apheleia-npx" "prettier" "--stdin-filepath" filepath)
+  ide-web-modes)
 
 ;;;; Project helpers ----------------------------------------------------------------------------------
 
@@ -264,8 +232,8 @@ Decided by the nearest lockfile, then by the `packageManager' field."
               (list (concat "npm_config_store_dir=" (expand-file-name "pnpm" cache)))))))
 
 (defun ide-web--tmpdir-env ()
-  "The TMPDIR=... entry of `ide-web--env' (tsx keeps its cache there)."
-  (cl-find-if (lambda (e) (string-prefix-p "TMPDIR=" e)) (ide-web--env)))
+  "The TMPDIR=... entry (tsx keeps its cache there)."
+  (concat "TMPDIR=" (ide-lang-tools-dir "web" "tmp")))
 
 (defun ide-web--run (name command &optional dir comint)
   "Run COMMAND in the drawer as *run: NAME* with the sandbox environment."
@@ -300,11 +268,13 @@ Decided by the nearest lockfile, then by the `packageManager' field."
   (let ((pm (ide-web--package-manager)))
     (ide-web--run (format "%s run %s" pm script) (list pm "run" script))))
 
+(defun ide-web--pm-cmd (action)
+  (let ((pm (ide-web--package-manager)))
+    (ide-web--run (format "%s %s" pm action) (list pm action))))
+
 (defun ide-web-install ()
   "Install the dependencies (npm/pnpm/yarn/bun install)."
-  (interactive)
-  (let ((pm (ide-web--package-manager)))
-    (ide-web--run (format "%s install" pm) (list pm "install"))))
+  (interactive) (ide-web--pm-cmd "install"))
 
 (defun ide-web--add-command (pm packages dev)
   "Command list adding PACKAGES with PM (DEV: as development dependencies)."
@@ -332,15 +302,11 @@ Decided by the nearest lockfile, then by the `packageManager' field."
 
 (defun ide-web-outdated ()
   "List outdated dependencies."
-  (interactive)
-  (let ((pm (ide-web--package-manager)))
-    (ide-web--run (format "%s outdated" pm) (list pm "outdated"))))
+  (interactive) (ide-web--pm-cmd "outdated"))
 
 (defun ide-web-audit ()
   "Audit the dependencies for known vulnerabilities."
-  (interactive)
-  (let ((pm (ide-web--package-manager)))
-    (ide-web--run (format "%s audit" pm) (list pm "audit"))))
+  (interactive) (ide-web--pm-cmd "audit"))
 
 (defun ide-web-open-package-json ()
   "Open the nearest package.json."
@@ -372,23 +338,21 @@ Decided by the nearest lockfile, then by the `packageManager' field."
                       (match-string 0)))))))
     (ide-lang-browse (or url (read-string "URL: " "http://localhost:5173/")))))
 
+(defun ide-web--typecheck (&optional watch)
+  (let ((dir (or (locate-dominating-file (or buffer-file-name default-directory) "tsconfig.json")
+                 (user-error "No tsconfig.json")))
+        (tsc (or (ide-lang-node-exe "tsc") (user-error "tsc not found"))))
+    (ide-web--run (if watch "tsc watch" "tsc")
+                  (append (list tsc "--noEmit") (and watch '("--watch" "--preserveWatchOutput")) '("--pretty" "false"))
+                  dir)))
+
 (defun ide-web-typecheck ()
   "Type-check the project (tsc --noEmit); errors in the drawer are clickable."
-  (interactive)
-  (let ((dir (or (locate-dominating-file (or buffer-file-name default-directory) "tsconfig.json")
-                 (user-error "No tsconfig.json"))))
-    (ide-web--run "tsc" (append (list (or (ide-lang-node-exe "tsc") (user-error "tsc not found")))
-                                '("--noEmit" "--pretty" "false"))
-                  dir)))
+  (interactive) (ide-web--typecheck))
 
 (defun ide-web-typecheck-watch ()
   "Type-check continuously (tsc --noEmit --watch)."
-  (interactive)
-  (let ((dir (or (locate-dominating-file (or buffer-file-name default-directory) "tsconfig.json")
-                 (user-error "No tsconfig.json"))))
-    (ide-web--run "tsc watch" (list (or (ide-lang-node-exe "tsc") (user-error "tsc not found"))
-                                    "--noEmit" "--watch" "--preserveWatchOutput" "--pretty" "false")
-                  dir)))
+  (interactive) (ide-web--typecheck t))
 
 ;;;; ESLint ------------------------------------------------------------------------------------------------
 
@@ -441,8 +405,7 @@ Decided by the nearest lockfile, then by the `packageManager' field."
   (interactive)
   (let ((exe (or (ide-lang-node-exe "eslint") (user-error "eslint not found")))
         (buf (current-buffer)))
-    (unless buffer-file-name (user-error "Buffer has no file"))
-    (save-buffer)
+    (ide-lang-require-file t)
     (ide-lang-run-then "eslint --fix" (list exe "--fix" buffer-file-name)
                        (lambda () (when (buffer-live-p buf)
                                     (with-current-buffer buf (revert-buffer t t t))))
@@ -478,11 +441,9 @@ Decided by the nearest lockfile, then by the `packageManager' field."
   "Hook for `ide-run-command-functions': run the file, or its tests."
   (when (and buffer-file-name (apply #'derived-mode-p ide-web-script-modes))
     (if (and (ide-web--test-file-p) (ide-web--test-runner))
-        (mapconcat #'shell-quote-argument (ide-web--test-command :file buffer-file-name) " ")
+        (ide-lang-command-string (ide-web--test-command :file buffer-file-name))
       (format "env %s %s" (shell-quote-argument (ide-web--tmpdir-env))
               (ide-web--run-file-command buffer-file-name)))))
-
-(add-hook 'ide-run-command-functions #'ide-web--run-command)
 
 ;;;; Tests: vitest and jest ----------------------------------------------------------------------------------------
 
@@ -600,7 +561,7 @@ FILE is made relative to the package directory."
 (defun ide-web-toggle-test ()
   "Jump between a source file and its test file (create the test file when missing)."
   (interactive)
-  (unless buffer-file-name (user-error "Buffer has no file"))
+  (ide-lang-require-file)
   (if-let* ((other (ide-web--existing-counterpart)))
       (find-file other)
     (if (ide-web--test-file-p)
@@ -614,7 +575,7 @@ FILE is made relative to the package directory."
 (defun ide-web--code-action (kind)
   "Apply the LSP source action KIND (for example \"source.organizeImports\") to the buffer."
   (unless (bound-and-true-p eglot--managed-mode) (user-error "Eglot is not running in this buffer"))
-  (eglot-code-actions nil nil kind t))
+  (ide-lang-code-action kind))
 
 (defun ide-web-organize-imports ()
   "Sort and merge the imports."
@@ -636,8 +597,7 @@ FILE is made relative to the package directory."
 
 (defun ide-web--symbol-at-point ()
   "The symbol at point (CSS properties and HTML tags keep their hyphens), or nil."
-  (let ((s (thing-at-point 'symbol t)))
-    (and s (not (string-empty-p s)) (substring-no-properties s))))
+  (thing-at-point 'symbol t))
 
 (defun ide-web-docs-at-point (&optional query)
   "Search MDN for the symbol at point (QUERY overrides it) in the in-Emacs browser."
@@ -678,12 +638,9 @@ FILE is made relative to the package directory."
 (defun ide-web-repl-send-region (beg end)
   "Send the region, else the statement or function at point, to the Node REPL."
   (interactive
-   (if (use-region-p) (list (region-beginning) (region-end))
-     (if-let* ((n (ide-lang-ancestor '("function_declaration" "lexical_declaration" "class_declaration"
-                                       "export_statement" "expression_statement" "variable_declaration"
-                                       "if_statement" "for_statement" "for_in_statement"))))
-         (list (treesit-node-start n) (treesit-node-end n))
-       (list (line-beginning-position) (line-end-position)))))
+   (ide-lang-region-or-node '("function_declaration" "lexical_declaration" "class_declaration"
+                             "export_statement" "expression_statement" "variable_declaration"
+                             "if_statement" "for_statement" "for_in_statement")))
   (unless (get-process nodejs-repl-process-name) (save-current-buffer (ide-web-repl)))
   (nodejs-repl-send-region beg end))
 
@@ -748,7 +705,7 @@ FILE is made relative to the package directory."
   "Debug the current file (tsx for TypeScript, node for JavaScript)."
   (interactive)
   (ide-web--debugger-ready)
-  (unless buffer-file-name (user-error "Buffer has no file"))
+  (ide-lang-require-file)
   (dap-debug (ide-web--file-launch buffer-file-name)))
 
 (defun ide-web-debug-script (script)
@@ -762,11 +719,11 @@ FILE is made relative to the package directory."
   "Debug the test at point (or the file's tests) with vitest or jest."
   (interactive)
   (ide-web--debugger-ready)
-  (let ((file (if (ide-web--test-file-p) buffer-file-name
-                (or (ide-web--existing-counterpart) (user-error "No test file")))))
+  (let* ((file (if (ide-web--test-file-p) buffer-file-name
+                 (or (ide-web--existing-counterpart) (user-error "No test file"))))
+         (title (and (ide-web--test-file-p) (ide-web--test-title-at-point))))
     (dap-debug (ide-web--test-launch
-                file (and (ide-web--test-file-p) (ide-web--test-title-at-point)
-                          (ide-web--regexp-quote (ide-web--test-title-at-point)))))))
+                file (and title (ide-web--regexp-quote title))))))
 
 (defun ide-web--debug-hook ()
   "Hook for `ide-debug-functions': debug the test file or the script."
@@ -775,8 +732,6 @@ FILE is made relative to the package directory."
         (ide-web-debug-test)
       (ide-web-debug-file))
     t))
-
-(add-hook 'ide-debug-functions #'ide-web--debug-hook)
 
 ;;;; Live preview: simple-httpd + impatient-mode ------------------------------------------------------------------------------
 
@@ -822,7 +777,7 @@ FILE is made relative to the package directory."
   "Open the current HTML file served from the project in the in-Emacs browser.
 Saving reloads it (see `ide-web-reload-on-save')."
   (interactive)
-  (unless buffer-file-name (user-error "Buffer has no file"))
+  (ide-lang-require-file)
   (ide-web--serve (ide-lang-root))
   (ide-lang-browse (ide-web--static-url buffer-file-name)))
 
@@ -917,7 +872,10 @@ The project's open CSS and JS buffers are updated live too."
     ("N" "npm package docs" ide-web-docs-npm)
     ("R" "restart server" eglot-reconnect)]])
 
-(ide-lang-register-menu ide-web-modes #'ide-web-dispatch)
+(ide-lang-register ide-web-modes
+  :run #'ide-web--run-command
+  :debug #'ide-web--debug-hook
+  :menu #'ide-web-dispatch)
 
 (provide 'lang-web)
 ;;; lang-web.el ends here

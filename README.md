@@ -137,23 +137,19 @@ walkthroughs, workflows, feature catalogue and architecture.
 | `C-c h u` | `ide-docs-update` | Sync the page with the live config (`C-u` = dry run) |
 | `C-c w 8 h` / `C-c w 8 H` | | Same open / update from the Services menu |
 
-### Keeping it current (`M-x ide-docs-update`)
+### Keeping it current (`M-x ide-docs-update` / `make docs`)
 
 1. **Facts** are read from the running Emacs: keymaps, transient menus, module
    headers, the Makefile, `mise.toml`, test counts.
 2. They are **merged deterministically** into the page's JSON data: removals,
    renames and counts are exact, existing wording is preserved.
-3. Only **new or changed** items go to your AI agent (gptel by default; whatever
-   backend and model you have configured, after you confirm) for titles and
-   descriptions, as strictly validated JSON. The agent never writes HTML.
-   If it fails or times out, docstrings are used instead.
+3. **Docstrings** are the sole source of truth: descriptions for new or changed
+   items are extracted directly from symbol docstrings (`ide-docs--doc1`).
 4. The candidate page is **validated in a fresh Emacs** (`tests/docs-check.el`).
    Only a passing page replaces `docs/index.html`; the previous one is kept in
    `.cache/docs-backups/`.
 
-Other entry points: `make docs-update` (facts + docstrings, no agent),
-`M-x ide-docs-update-with-agent` (starts a gptel-agent session with the task,
-which you review and send), `ide-docs-agent-function` (plug in any other agent).
+Run `make docs` (or `make docs-update`) from the command line, or `C-c h u` (`M-x ide-docs-update`) inside Emacs.
 `make docs-check` verifies the page and the updater; `make docs-ui` drives the
 page in jsdom.
 
@@ -180,7 +176,7 @@ into the sandbox, so your global mise setup is untouched.
 
 ## Make targets
 
-`make compile` (strict byte-compile), `make test` (ERT smoke tests),
+`make compile` (strict byte-compile), `make test` (ERT smoke tests), `make docs`,
 `make docs-check`, `make docs-ui`, `make packages`, `make tools`, `make doctor`.
 `init.el` is intentionally not byte-compiled (elpaca requirement).
 

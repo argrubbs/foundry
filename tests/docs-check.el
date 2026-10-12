@@ -13,8 +13,9 @@
 (require 'subr-x)
 (require 'seq)
 
-(dolist (f '(transient magit eglot devops-azdo devops-azdo-magit minuet corfu))
+(dolist (f '(transient magit eglot devops-azdo devops-azdo-magit minuet corfu dap-mode markdown-mode))
   (require f nil t))
+(require 'docs-update)
 
 (defvar docs--root (file-name-as-directory (expand-file-name user-emacs-directory)))
 (defun docs--file (name) (expand-file-name name docs--root))

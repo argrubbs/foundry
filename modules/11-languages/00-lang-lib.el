@@ -19,15 +19,30 @@
 (require 'compile)
 (require 'project)
 (require 'flymake)
+(require 'treesit)
+
+(use-package apheleia
+  :commands (apheleia-mode apheleia-format-buffer))
 
 (defvar ide-var-dir)
+(defvar trusted-content)
+(defvar eglot--managed-mode)
+(defvar ide-eglot-format-on-save)
+(defvar ide-run-command-functions)
+(defvar ide-debug-functions)
+(defvar apheleia-formatters)
+(defvar apheleia-mode-alist)
+(defvar eglot-server-programs)
 (declare-function ide-add-drawer-buffer "02-layout")
 (declare-function ide-docs--use-xwidget-p "15-docs")
 (declare-function xwidget-webkit-browse-url "xwidget")
 (declare-function which-key-add-key-based-replacements "which-key")
-(declare-function treesit-node-at "treesit")
-(declare-function treesit-node-parent "treesit")
-(declare-function treesit-node-type "treesit")
+(declare-function eglot-code-actions "eglot")
+(declare-function eglot-server-capable "eglot")
+(declare-function eglot-ensure "eglot")
+(declare-function apheleia-mode "apheleia")
+(declare-function treesit-node-start "treesit")
+(declare-function treesit-node-end "treesit")
 
 ;;;; Running ------------------------------------------------------------------------
 
@@ -46,10 +61,33 @@
 (defun ide-lang-root (&optional dir)
   "Project root for DIR (default `default-directory'), or DIR itself."
   (let ((default-directory (file-name-as-directory (or dir default-directory))))
-    (if-let* ((p (project-current))) (project-root p) default-directory)))
+    (if-let* ((p (project-current nil default-directory))) (project-root p) default-directory)))
 
-(defun ide-lang--command-string (command)
+(defun ide-lang-command-string (command)
+  "Convert COMMAND (a string, or a list of arguments) to a shell command string."
   (if (stringp command) command (mapconcat #'shell-quote-argument (delq nil command) " ")))
+
+(defalias 'ide-lang--command-string #'ide-lang-command-string)
+
+(defun ide-lang-require-file (&optional save)
+  "Signal a `user-error' if current buffer is not visiting a file.
+When SAVE is non-nil, save the buffer first.  Returns `buffer-file-name'."
+  (unless buffer-file-name (user-error "Buffer is not visiting a file"))
+  (when (and save (buffer-modified-p)) (save-buffer))
+  buffer-file-name)
+
+(defun ide-lang-relative-file ()
+  "Current buffer file name relative to `ide-lang-root', or nil."
+  (when buffer-file-name
+    (file-relative-name buffer-file-name (ide-lang-root))))
+
+(defun ide-lang-code-action (kind)
+  "Execute an Eglot code action matching KIND if supported."
+  (when (and (bound-and-true-p eglot--managed-mode)
+             (fboundp 'eglot-server-capable)
+             (eglot-server-capable :codeActionProvider))
+    (ignore-errors
+      (eglot-code-actions nil nil kind t))))
 
 (defun ide-lang-run (name command &optional dir comint)
   "Run COMMAND (a string, or a list of arguments) in the drawer as *run: NAME*.
@@ -203,9 +241,6 @@ back on `eglot-managed-mode-hook'."
                   (when (bound-and-true-p flymake-mode) (flymake-start)))))
     fn))
 
-(defvar trusted-content)
-(defvar eglot--managed-mode)
-
 (defun ide-lang-trust-project ()
   "Trust this project's files, so linters that run project code (ESLint, ...) work.
 Emacs refuses to run such Flymake backends in files it does not trust.  Only do
@@ -266,14 +301,78 @@ workspace configuration, keeping what other languages put there."
 (with-eval-after-load 'which-key
   (which-key-add-key-based-replacements "C-c m" "language menu"))
 
+;;;; Mode registration & setup -------------------------------------------------
+
+(defun ide-lang-define-formatter (name command modes)
+  "Register formatter NAME running COMMAND for MODES with Apheleia."
+  (with-eval-after-load 'apheleia
+    (setf (alist-get name apheleia-formatters) command)
+    (dolist (mode (if (listp modes) modes (list modes)))
+      (setf (alist-get mode apheleia-mode-alist) name))))
+
+(cl-defun ide-lang-register (modes &key run debug menu)
+  "Register RUN and DEBUG hook functions and MENU for MODES."
+  (when menu (ide-lang-register-menu modes menu))
+  (when run (add-hook 'ide-run-command-functions run))
+  (when debug (add-hook 'ide-debug-functions debug)))
+
+(cl-defun ide-lang-setup (modes &key server auto-mode ((:tab-width width)) (indent-tabs nil)
+                                (eglot t) (format-on-save t) config)
+  "Configure MODES (symbol or list of symbols) with common IDE conventions.
+SERVER is added to `eglot-server-programs'.
+AUTO-MODE is a regexp or list of regexps associated in `auto-mode-alist'.
+:tab-width sets `tab-width' (and mode-specific indent offsets).
+INDENT-TABS sets `indent-tabs-mode' (defaults to nil: spaces only).
+FORMAT-ON-SAVE inhibits Eglot format on save and enables Apheleia.
+CONFIG is a function run in each mode's hook."
+  (let ((mode-list (if (listp modes) modes (list modes))))
+    (when server
+      (with-eval-after-load 'eglot
+        (add-to-list 'eglot-server-programs
+                     (cons (if (cdr mode-list) mode-list (car mode-list)) server))))
+    (when auto-mode
+      (let ((primary (car mode-list)))
+        (dolist (pat (if (listp auto-mode) auto-mode (list auto-mode)))
+          (add-to-list 'auto-mode-alist (cons pat primary)))))
+    (dolist (mode mode-list)
+      (let ((hook (intern (format "%s-hook" mode))))
+        (when eglot
+          (add-hook hook #'eglot-ensure))
+        (add-hook hook
+                  (lambda ()
+                    (when width
+                      (setq-local tab-width width)
+                      (dolist (var '(lua-ts-indent-offset
+                                     typescript-ts-indent-offset
+                                     js-indent-level
+                                     css-indent-offset
+                                     html-ts-indent-offset
+                                     go-ts-mode-indent-offset
+                                     powershell-indent-level))
+                        (when (boundp var) (set (make-local-variable var) width))))
+                    (setq-local indent-tabs-mode indent-tabs)
+
+                    (when format-on-save
+                      (setq-local ide-eglot-format-on-save nil)
+                      (when (fboundp 'apheleia-mode) (apheleia-mode 1)))
+                    (when config
+                      (funcall config))))))))
+
 ;;;; Tree-sitter helpers ----------------------------------------------------------------------
 
 (defun ide-lang-ancestor (types &optional node)
   "Nearest ancestor-or-self of NODE (default: the node at point) whose type is in TYPES."
-  (let ((n (or node (treesit-node-at (point)))))
-    (while (and n (not (member (treesit-node-type n) types)))
-      (setq n (treesit-node-parent n)))
-    n))
+  (treesit-parent-until (or node (treesit-node-at (point)))
+                        (lambda (n) (member (treesit-node-type n) types))
+                        t))
+
+(defun ide-lang-region-or-node (&optional types)
+  "Return (BEG END) of active region, nearest ancestor of TYPES, or current line."
+  (if (use-region-p)
+      (list (region-beginning) (region-end))
+    (if-let* ((node (and types (ide-lang-ancestor types))))
+        (list (treesit-node-start node) (treesit-node-end node))
+      (list (line-beginning-position) (line-end-position)))))
 
 ;;;; Downloads and browsing -------------------------------------------------------------------
 
@@ -303,10 +402,11 @@ KIND is `tar' (a .tar.gz, the default) or `zip'."
   (make-directory dir t)
   (ide-lang-run (format "install %s" name)
                 (if (eq kind 'zip)
-                    (format "curl -fsSL -o %s.zip %s && unzip -qo %s.zip -d %s && rm %s.zip && echo done"
-                            (shell-quote-argument (expand-file-name "download" dir)) (shell-quote-argument url)
-                            (shell-quote-argument (expand-file-name "download" dir)) (shell-quote-argument dir)
-                            (shell-quote-argument (expand-file-name "download" dir)))
+                    (let ((zip (shell-quote-argument (expand-file-name "download" dir)))
+                          (u (shell-quote-argument url))
+                          (d (shell-quote-argument dir)))
+                      (format "curl -fsSL -o %s.zip %s && unzip -qo %s.zip -d %s && rm %s.zip && echo done"
+                              zip u zip d zip))
                   (format "curl -fsSL %s | tar -xz -C %s && echo done"
                           (shell-quote-argument url) (shell-quote-argument dir)))
                 dir))
@@ -319,5 +419,6 @@ KIND is `tar' (a .tar.gz, the default) or `zip'."
         (xwidget-webkit-browse-url url))
     (browse-url url)))
 
+(provide '00-lang-lib)
 (provide 'lang-lib)
 ;;; 00-lang-lib.el ends here
