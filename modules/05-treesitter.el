@@ -29,9 +29,6 @@
                     "tree-sitter-markdown/src")
         (markdown-inline "https://github.com/tree-sitter-grammars/tree-sitter-markdown" "split_parser"
                          "tree-sitter-markdown-inline/src")
-        ;; Jinja regions inside Ansible YAML (used by lisp/ansible-intelligence).
-        (jinja      "https://github.com/cathaysia/tree-sitter-jinja"
-                    "v0.13.0" "tree-sitter-jinja/src")
         (sql        "https://github.com/DerekStride/tree-sitter-sql"
                     "gh-pages")))
 
@@ -71,6 +68,17 @@
 (add-to-list 'auto-mode-alist '("/go\\.mod\\'" . go-mod-ts-mode))
 (add-to-list 'auto-mode-alist '("Dockerfile\\(\\..*\\)?\\'" . dockerfile-ts-mode))
 (add-to-list 'auto-mode-alist '("\\.ya?ml\\'" . yaml-ts-mode))
+
+;; Enter, Tab, Shift-Tab and typing indent like VS Code (lisp/vscode-indent), in every
+;; language it has rules for.  The tree-sitter modes' own indentation still serves
+;; `indent-region' and formatters; `yaml-ts-mode' has none, so this also covers YAML.
+(add-to-list 'load-path (expand-file-name "lisp/vscode-indent/" user-emacs-directory))
+(require 'vscode-indent)
+(vscode-indent-global-mode 1)
+
+;; Structural YAML editing; M-RET adds a list item at the right level.
+(use-package yaml-pro
+  :hook (yaml-ts-mode . yaml-pro-ts-mode))
 
 (use-package expand-region :commands er/expand-region)
 

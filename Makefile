@@ -4,7 +4,7 @@ RUN   := $(EMACS) --init-directory $(ROOT)
 # Prefer the mise-installed tools (node) when present.
 export PATH := $(shell tr -d '()"' < var/mise/path.eld 2>/dev/null | tr ' ' ':'):$(PATH)
 
-.PHONY: all packages compile test docs docs-check docs-update docs-ui run clean tools doctor desktop
+.PHONY: all packages compile test docs docs-check docs-update run clean tools doctor desktop
 
 all: packages compile test docs-check
 
@@ -15,28 +15,16 @@ compile:
 	$(RUN) --batch -l init.el -l tests/compile.el
 
 test:
-	$(RUN) --batch -l init.el -l tests/smoke-test.el
-	$(RUN) --batch -l init.el -l tests/ai-test.el
-	$(RUN) --batch -l init.el -l tests/juice-test.el -f ert-run-tests-batch-and-exit
-	for t in tests/lang-*-test.el; do $(RUN) --batch -l init.el -l $$t -f ert-run-tests-batch-and-exit || exit 1; done
-	$(RUN) --batch -L lisp/ansible-intelligence -l init.el -l tests/ansible-intelligence-tests.el -f ert-run-tests-batch-and-exit
-	$(RUN) --batch -l init.el -l tests/ansible-integration-test.el
-	$(RUN) --batch -l init.el -l tests/align-test.el -f ert-run-tests-batch-and-exit
+	$(RUN) --batch -l init.el -l tests/run.el
 
 docs-check:
 	IDE_NO_USER=1 $(RUN) --batch -l init.el -l tests/docs-check.el
-	$(RUN) --batch -l init.el -l tests/docs-update-test.el
 
 # Refresh docs/index.html deterministically from live facts and docstrings.
 docs: docs-update
 
 docs-update:
 	IDE_NO_USER=1 $(RUN) --batch -l init.el -l lisp/docs-update.el -f ide-docs-update-batch
-
-# Drives docs/index.html in jsdom (needs node; jsdom is installed into .cache/ on first use).
-docs-ui:
-	@test -d .cache/jsdom/node_modules/jsdom || npm install --prefix .cache/jsdom --no-audit --no-fund --ignore-scripts jsdom
-	JSDOM_PATH=$(ROOT)/.cache/jsdom/node_modules/jsdom node tests/docs-ui-test.js docs/index.html
 
 tools:
 	$(RUN) --batch -l init.el -f ide-mise-setup-batch

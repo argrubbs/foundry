@@ -26,11 +26,6 @@ end)
     (search-forward needle)
     (ide-lua--test-path)))
 
-(ert-deftest lua-menu-and-hooks-registered ()
-  (should (eq (cdr (assoc '(lua-ts-mode) ide-lang-menus)) #'ide-lua-dispatch))
-  (should (memq #'ide-lua--run-command ide-run-command-functions))
-  (should (eq (alist-get "\\.lua\\'" auto-mode-alist nil nil #'equal) 'lua-ts-mode)))
-
 (ert-deftest lua-test-path-names-the-it-and-the-describe ()
   (skip-unless (treesit-ready-p 'lua t))
   (should (equal (lua-test--title-at "assert") '((describe . "math (x)") (it . "adds"))))

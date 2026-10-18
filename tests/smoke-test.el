@@ -354,6 +354,14 @@ while the core and user manifests still merge."
     (ide-mise--merge-path (list dir "/nonexistent-dir"))
     (should (equal (car exec-path) dir))
     (should-not (member "/nonexistent-dir" exec-path)))
+  (let* ((global "/home/u/.local/share/mise/installs/go/1.27/bin")
+         (ours (expand-file-name "data/installs/go/1/bin" ide-mise-dir))
+         (exec-path (list global ours "/usr/bin"))
+         (process-environment (cons (concat "PATH=" global ":/home/u/.local/share/mise/shims:/usr/bin")
+                                    process-environment)))
+    (ide-mise--merge-path nil)
+    (should (equal exec-path (list ours "/usr/bin")))
+    (should (equal (getenv "PATH") "/usr/bin")))
   (should (file-readable-p ide-mise-manifest))
   (should (member "MISE_YES=1" (ide-mise--env)))
   (should (cl-some (lambda (e) (string-prefix-p (concat "MISE_DATA_DIR=" (expand-file-name user-emacs-directory)) e))
@@ -557,6 +565,5 @@ while the core and user manifests still merge."
   (should (not tool-bar-mode))
   (should (not scroll-bar-mode)))
 
-(ert-run-tests-batch-and-exit)
 
 ;;; smoke-test.el ends here

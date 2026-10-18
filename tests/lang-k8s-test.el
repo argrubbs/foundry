@@ -16,11 +16,6 @@
 (defmacro k8s-test-with-yaml (text &rest body)
   `(with-temp-buffer (insert ,text) (goto-char (point-min)) ,@body))
 
-(ert-deftest k8s-menu-and-hooks-registered ()
-  (should (eq (cdr (cl-find-if (lambda (m) (memq 'ide-helm-mode (car m))) ide-lang-menus)) #'ide-k8s-dispatch))
-  (should (memq #'ide-k8s--run-command ide-run-command-functions))
-  (should (memq #'ide-k8s--debug ide-debug-functions)))
-
 (ert-deftest k8s-key-path-by-indentation ()
   (k8s-test-with-yaml k8s-test-manifest
     (search-forward "containerPort")

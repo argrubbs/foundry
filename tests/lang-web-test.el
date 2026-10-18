@@ -22,13 +22,6 @@
            ,@body)
        (delete-directory dir t))))
 
-(ert-deftest web-menu-and-hooks-registered ()
-  (should (eq (cdr (assoc ide-web-modes ide-lang-menus)) #'ide-web-dispatch))
-  (should (memq #'ide-web--run-command ide-run-command-functions))
-  (should (memq #'ide-web--debug-hook ide-debug-functions))
-  (should (eq (alist-get "\\.tsx\\'" auto-mode-alist nil nil #'equal) 'tsx-ts-mode))
-  (should (eq (alist-get "\\.jsx\\'" auto-mode-alist nil nil #'equal) 'js-ts-mode)))
-
 (ert-deftest web-package-manager-from-lockfile ()
   (dolist (case '(("pnpm-lock.yaml" . "pnpm") ("yarn.lock" . "yarn")
                   ("bun.lockb" . "bun") ("package-lock.json" . "npm")))

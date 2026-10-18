@@ -17,10 +17,6 @@ title: T
 
 # Title
 
-<!-- toc -->
-
-<!-- tocstop -->
-
 ## Install `now`
 
 Text [guide](other.md#sec) and [gone](nope.md) and [[wiki]].
@@ -44,24 +40,6 @@ Setext
 (defmacro md-test--with (text &rest body)
   (declare (indent 1))
   `(with-temp-buffer (insert ,text) (markdown-mode) (goto-char (point-min)) ,@body))
-
-(ert-deftest markdown-mode-is-not-remapped-to-ts ()
-  (should-not (alist-get 'markdown-mode major-mode-remap-alist))
-  (should (eq (cdr (assoc "/x/README.md" auto-mode-alist #'string-match-p)) 'gfm-mode))
-  (should (eq (cdr (assoc "/x/notes.md" auto-mode-alist #'string-match-p)) 'markdown-mode))
-  (should (eq (cdr (assoc "/x/.github/ISSUE_TEMPLATE/bug.md" auto-mode-alist #'string-match-p)) 'gfm-mode)))
-
-(ert-deftest markdown-menu-and-hooks-registered ()
-  (should (eq (cdr (assoc '(markdown-mode gfm-mode markdown-ts-mode) ide-lang-menus)) #'ide-markdown-menu))
-  (should (memq #'ide-markdown--run-command ide-run-command-functions)))
-
-(ert-deftest markdown-buffer-settings ()
-  (md-test--with "# x\n"
-    (run-hooks 'markdown-mode-hook)
-    (should visual-line-mode)
-    (should (= fill-column 100))
-    (should-not ide-eglot-format-on-save)
-    (should (= tab-width 2))))
 
 (ert-deftest markdown-fences-and-headings-ignore-code ()
   (md-test--with md-test--doc
@@ -92,24 +70,6 @@ Setext
   (should (equal (ide-markdown--slug "The `code` and [a link](x)") "the-code-and-a-link"))
   (should (equal (ide-markdown--slug "snake_case Ünï") "snake_case-ünï")))
 
-(ert-deftest markdown-toc-insert-and-update ()
-  (md-test--with md-test--doc
-    (ide-markdown-toc)
-    (let ((reg (ide-markdown--toc-region)))
-      (should (equal (buffer-substring (car reg) (cdr reg))
-                     (concat "\n\n- [Install now](#install-now)\n- [Setext](#setext)\n"
-                             "  - [Deep link](#deep-link)\n- [Install now](#install-now-1)\n\n"))))
-    ;; Idempotent.
-    (let ((before (buffer-string)))
-      (ide-markdown-toc)
-      (should (equal before (buffer-string))))))
-
-(ert-deftest markdown-toc-inserted-with-markers ()
-  (md-test--with "# T\n\n## A\n\n## B\n"
-    (goto-char (point-max))
-    (ide-markdown-toc)
-    (should (string-match-p "<!-- toc -->\n\n- \\[A\\](#a)\n- \\[B\\](#b)\n\n<!-- tocstop -->" (buffer-string)))))
-
 (ert-deftest markdown-link-targets-skip-code-and-footnotes ()
   (md-test--with "[a](x.md) `[b](y.md)`\n\n```\n[c](z.md)\n```\n\n[^1]: note\n[ref]: r.md\n[[w|alias]]\n![img](<my img.png>)\n"
     (should (equal (mapcar #'caddr (ide-markdown--link-targets))
@@ -139,15 +99,6 @@ Setext
           (should-not (string-match-p "guide.md:" (replace-regexp-in-string "docs/guide.md#" "" report))))
       (when (get-buffer "*run: markdown links*") (kill-buffer "*run: markdown links*"))
       (delete-directory root t))))
-
-(ert-deftest markdown-toggle-task-cycles ()
-  (md-test--with "- item\n"
-    (ide-markdown-toggle-task) (should (equal (buffer-string) "- [ ] item\n"))
-    (ide-markdown-toggle-task) (should (equal (buffer-string) "- [x] item\n"))
-    (ide-markdown-toggle-task) (should (equal (buffer-string) "- item\n")))
-  (md-test--with "3. numbered\n"
-    (ide-markdown-toggle-task) (should (equal (buffer-string) "3. [ ] numbered\n")))
-  (md-test--with "plain\n" (should-error (ide-markdown-toggle-task) :type 'user-error)))
 
 (ert-deftest markdown-word-count-ignores-code-and-front-matter ()
   (md-test--with "---\ntitle: a b c\n---\n\none two [three four](http://u.rl)\n\n```\nfive six\n```\n\n<!-- seven -->\n"

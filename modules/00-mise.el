@@ -74,7 +74,6 @@ already set in the environment always wins."
     ("tsc" "TypeScript (7: native LSP)") ("tsx" "TypeScript runner") ("prettier" "Web formatter")
     ("eslint" "JavaScript linter") ("vscode-html-language-server" "HTML LSP")
     ("vscode-css-language-server" "CSS LSP")
-    ("sqls" "SQL LSP") ("sqlfluff" "SQL linter") ("sql-formatter" "SQL formatter") ("sqlcmd" "SQL Server client")
     ("lua-language-server" "Lua LSP") ("stylua" "Lua formatter")
     ("pwsh" "PowerShell")
     ("helm_ls" "Helm LSP") ("kubeconform" "Kubernetes schema check") ("kube-linter" "Kubernetes lint")
@@ -122,8 +121,23 @@ already set in the environment always wins."
 
 ;;;; PATH handling --------------------------------------------------------------
 
+(defun ide-mise--foreign-dir-p (dir)
+  "Non-nil if DIR belongs to a mise outside the sandbox (its installs or shims)."
+  (and (string-match-p "/mise/\\(?:installs\\|shims\\)\\(?:/\\|\\'\\)" dir)
+       (not (file-in-directory-p dir ide-mise-dir))))
+
+(defun ide-mise--drop-foreign-path ()
+  "Remove another mise's directories, such as a shell's `mise activate', from PATH."
+  (setq exec-path (cl-remove-if #'ide-mise--foreign-dir-p exec-path))
+  (setenv "PATH" (mapconcat #'identity
+                            (cl-remove-if #'ide-mise--foreign-dir-p
+                                          (split-string (or (getenv "PATH") "") path-separator t))
+                            path-separator)))
+
 (defun ide-mise--merge-path (dirs)
-  "Prepend DIRS to `exec-path' and PATH in `process-environment'; return DIRS."
+  "Prepend DIRS to `exec-path' and PATH in `process-environment'; return DIRS.
+The global mise's directories are dropped first, so only sandbox tools remain."
+  (ide-mise--drop-foreign-path)
   (let ((dirs (cl-remove-if-not #'file-directory-p dirs)))
     (dolist (d (reverse dirs))
       (setq exec-path (cons d (delete d exec-path))))

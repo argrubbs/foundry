@@ -23,6 +23,7 @@ helm             = "latest"
 terraform        = "latest"
 packer           = "latest"
 "pypi:ansible-core" = "latest"
+"pypi:ansible-lint" = "latest"   # run by ansible-language-server for diagnostics
 
 # Language servers and debuggers
 ruff                                    = "latest"
@@ -48,12 +49,6 @@ taplo  = "latest"
 "npm:prettier"                      = "latest"
 "npm:eslint"                        = "latest"
 "npm:tsx"                           = "latest"
-
-# SQL
-"go:github.com/sqls-server/sqls" = "latest"
-"github:microsoft/go-sqlcmd"      = "latest"   # provides `sqlcmd` for SQL Server
-"pypi:sqlfluff"                  = "latest"
-"npm:sql-formatter"              = "latest"
 
 # Lua
 lua-language-server = "latest"

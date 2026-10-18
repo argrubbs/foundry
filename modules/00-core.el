@@ -33,7 +33,6 @@
       treesit-extra-load-path (list (expand-file-name "tree-sitter/" ide-var-dir)))
 
 (add-to-list 'load-path (expand-file-name "lisp/" user-emacs-directory))
-(add-to-list 'load-path (expand-file-name "lisp/ide-align/" user-emacs-directory))
 
 (setq-default indent-tabs-mode nil
               fill-column 100
@@ -43,9 +42,16 @@
 ;; Indentation policy: ALWAYS use spaces, NEVER tabs.
 ;; 2 spaces default, unless the language's own style guide says otherwise
 ;; (e.g. Python and Rust keep 4). Modes without an offset variable take it from `tab-width'.
-(add-hook 'prog-mode-hook (lambda () (unless (derived-mode-p 'makefile-mode) (setq indent-tabs-mode nil))))
-(add-hook 'text-mode-hook (lambda () (setq indent-tabs-mode nil)))
-(add-hook 'conf-mode-hook (lambda () (setq indent-tabs-mode nil)))
+;; How lines get indented as you type (RET, TAB, S-TAB, closing brackets) is VS Code's
+;; behaviour, from lisp/vscode-indent, in the languages it has rules for; other modes use
+;; their own rules.  `electric-pair-mode' closes brackets as you type them.
+(defun ide--use-spaces ()
+  "Indent with spaces in this buffer, except in Makefiles."
+  (unless (derived-mode-p 'makefile-mode)
+    (setq indent-tabs-mode nil)))
+
+(dolist (hook '(prog-mode-hook text-mode-hook conf-mode-hook))
+  (add-hook hook #'ide--use-spaces))
 
 (setq sh-basic-offset 2
       json-ts-mode-indent-offset 2
@@ -58,10 +64,6 @@
       yaml-indent-offset 2
       terraform-indent-level 2
       hcl-indent-level 2)
-
-(require 'ide-align nil t)
-(when (fboundp 'global-ide-align-mode)
-  (global-ide-align-mode 1))
 
 (setq ring-bell-function #'ignore
       use-short-answers t

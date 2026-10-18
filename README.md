@@ -69,7 +69,6 @@ the language of the buffer**, `S-<f10>` runs it and `S-<f9>` debugs it. The code
 |---|---|---|---|
 | Rust | rust-analyzer | rustfmt, clippy | cargo menu, test at point, related tests, macro expansion, codelldb debugging, docs.rs, evcxr REPL |
 | TypeScript / JavaScript / HTML / CSS | `tsc --lsp` (TS 7), html/css servers | Prettier, ESLint | package scripts (npm/pnpm/yarn/bun), vitest and jest at point, Node debugging (also through tsx and vitest), Node REPL, Emmet, live preview in the in-Emacs browser |
-| SQL | sqls | sql-formatter, sqlfluff | connections (`.sql-connections.eld`, never committed), run statement/region/file, EXPLAIN, schema browsing, CSV export; SQLite, PostgreSQL, MariaDB/MySQL and SQL Server |
 | Lua | lua-language-server | stylua | REPL, busted at point, `.luarc.json` presets |
 | PowerShell | PowerShell Editor Services | PSScriptAnalyzer | Pester at point, debugger, REPL, `Get-Help` in Emacs |
 | Helm / Kubernetes / CI YAML | helm-ls, yaml-language-server | yamllint, actionlint, kubeconform | helm lint/template/install, `kubectl explain` for the field at point, apply/diff dry runs, kube-linter, trivy |
@@ -88,22 +87,23 @@ Notes:
 - Debuggers are downloaded on demand: `M-x ide-rust-install-debugger`, `M-x ide-web-install-debugger`,
   `M-x ide-powershell-install-pses`.
 - Not included yet: Nix, and Lua debugging.
-- Known gaps: sqls cannot load columns on SQL Server (a bug in sqls), and `kubectl` apply and diff need
+- Known gaps: `kubectl` apply and diff need
   a reachable cluster. `kind` is installed for a throwaway local one.
 
 ## Ansible
 
 YAML that looks like Ansible (a playbook, role, `group_vars`/`host_vars`, or a file with
 `hosts:`/`tasks:`/`roles:`) gets `ansible-language-server` through Eglot, `ansible-doc`,
-and **ansible-intelligence** (`lisp/ansible-intelligence/`), which follows variables:
+and **ansible-xref** (`lisp/ansible-xref.el`), a small xref backend that follows variables by text search:
 
-- `M-.` / `M-?` on a Jinja variable jump to its definition (play vars, role defaults, vars files,
-  `register`, `set_fact`, static includes) or list its references. Elsewhere the language server answers.
-- Variable completion (after Eglot's candidates), Eldoc, Imenu and conservative Flymake diagnostics.
-- It needs the `jinja` tree-sitter grammar (installed with the other grammars; `M-x ide-treesit-install-grammars`).
-  Without it, it falls back to a lexical parser and reports no unresolved-variable diagnostics.
-- Tests: `tests/ansible-intelligence-tests.el` (the package) and `tests/ansible-integration-test.el` (the wiring
-  with Eglot), both run by `make test`.
+- `M-.` on a variable jumps to where it is defined (`vars:` and `set_fact:` keys, `register:`,
+  `loop_var:`, role defaults and vars, `group_vars`, `host_vars`); `M-?` lists where it is used
+  (inside `{{ }}`, `{% %}` and `when:`-style conditions).
+- `M-.` on `include_tasks`, `import_tasks`, `include_vars`, `import_playbook` or a role reference
+  (`roles:` items, `import_role`, `include_role`) opens the file it points to.
+- There is no scope analysis: every definition of the name is listed. For anything it cannot resolve
+  (modules, keywords) the language server answers.
+- Tests: `tests/ansible-xref-test.el` (the backend) and `tests/lang-ansible-test.el` (the wiring), both run by `make test`.
 
 ## AI
 
@@ -150,8 +150,7 @@ walkthroughs, workflows, feature catalogue and architecture.
    `.cache/docs-backups/`.
 
 Run `make docs` (or `make docs-update`) from the command line, or `C-c h u` (`M-x ide-docs-update`) inside Emacs.
-`make docs-check` verifies the page and the updater; `make docs-ui` drives the
-page in jsdom.
+`make docs-check` verifies the page.
 
 ## Desktop launcher
 
@@ -176,8 +175,8 @@ into the sandbox, so your global mise setup is untouched.
 
 ## Make targets
 
-`make compile` (strict byte-compile), `make test` (ERT smoke tests), `make docs`,
-`make docs-check`, `make docs-ui`, `make packages`, `make tools`, `make doctor`.
+`make compile` (strict byte-compile), `make test` (all ERT tests, one Emacs process), `make docs`,
+`make docs-check`, `make packages`, `make tools`, `make doctor`.
 `init.el` is intentionally not byte-compiled (elpaca requirement).
 
 ## Credentials

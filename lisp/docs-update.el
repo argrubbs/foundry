@@ -349,10 +349,6 @@ concatenate, search and parse the result."
      :tools (("Language server" "vscode-html-language-server" "vscode-css-language-server") ("Compiler" "tsc")
              ("Formatter" "prettier") ("Linter" "eslint") ("Runtime" "node" "tsx"))
      :run (ide-web--run-command) :debug (ide-web--debug-hook))
-    (ide-sql-dispatch :id "sql" :name "SQL"
-     :summary "Connect to databases, run and explain queries, browse the schema, format and lint."
-     :tools (("Language server" "sqls") ("Formatter" "sql-formatter") ("Linter" "sqlfluff") ("Client" "sqlcmd"))
-     :run (ide-sql--run-command))
     (ide-lua-dispatch :id "lua" :name "Lua"
      :summary "Run files and snippets, REPL, busted tests and project configuration."
      :tools (("Language server" "lua-language-server") ("Formatter" "stylua"))
@@ -472,7 +468,7 @@ Return (VECTOR ADDED REMOVED)."
                     ("cargo" . "rust") ("rust-analyzer" . "rust") ("tsc" . "typescript")
                     ("vscode-html-language-server" . "vscode-langservers-extracted")
                     ("vscode-css-language-server" . "vscode-langservers-extracted")
-                    ("sqlcmd" . "go-sqlcmd") ("pwsh" . "powershell") ("helm_ls" . "helm-ls")))
+                    ("pwsh" . "powershell") ("helm_ls" . "helm-ls")))
          (needle (or (cdr (assoc exe aliases)) exe))
          (toml (and (boundp 'ide-mise-manifest) (file-exists-p ide-mise-manifest) (ide-slurp ide-mise-manifest)))
          spec)

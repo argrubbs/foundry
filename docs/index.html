@@ -256,7 +256,7 @@ footer{border-top:1px solid var(--line);margin-top:4rem;padding-top:1.4rem;color
     <div class="card"><h3>Tool windows, not split chaos</h3><p>Compilation output, terminals, diagnostics, container logs and cloud consoles dock into a single bottom drawer (<code>popper</code> + <code>display-buffer-alist</code>). The project tree sits left, the structure outline right. <kbd>Esc</kbd> always returns focus to your code.</p></div>
     <div class="card"><h3>Zero dotfile pollution</h3><p>Everything — packages, caches, auto-saves, databases, even the installed CLIs and Azure login state — lives inside <code>~/.config/emacs-foundry/</code>. Your <code>~/.emacs.d</code> is never touched.</p></div>
     <div class="card"><h3>No browser required for DevOps</h3><p>Pull requests, review threads, votes, completion, Boards work items and pipeline status are driven through the Azure DevOps REST API and surfaced as Magit sections and transient menus.</p></div>
-    <div class="card"><h3>Portable tooling</h3><p>One <code>mise.toml</code> declares 54 CLIs and language servers. <code>M-x ide-mise-setup</code> (or <code>make tools</code>) bootstraps a checksum-verified <code>mise</code> and installs them into the sandbox on any Linux or macOS machine.</p></div>
+    <div class="card"><h3>Portable tooling</h3><p>One <code>mise.toml</code> declares 50 CLIs and language servers. <code>M-x ide-mise-setup</code> (or <code>make tools</code>) bootstraps a checksum-verified <code>mise</code> and installs them into the sandbox on any Linux or macOS machine.</p></div>
   </div>
 </section>
 
@@ -480,15 +480,15 @@ make doctor</pre></div>
    "l": "documented keybindings"
   },
   {
-   "v": "54",
+   "v": "50",
    "l": "CLIs and servers via mise"
   },
   {
-   "v": "39",
+   "v": "37",
    "l": "Emacs Lisp modules"
   },
   {
-   "v": "351",
+   "v": "259",
    "l": "automated tests"
   }
  ],
@@ -2098,7 +2098,7 @@ make doctor</pre></div>
    "steps": [
     {
      "t": "Jump to the definition.",
-     "d": "Put point on a variable inside a Jinja expression in a playbook or role and press {{M-.}}. ansible-intelligence answers for variables, role defaults, vars files and static includes. For anything else, such as a module name, the language server answers as usual."
+     "d": "Put point on a variable in a playbook or role and press {{M-.}}. ansible-xref answers for variables, role defaults, vars files, includes and roles. For anything else, such as a module name, the language server answers as usual."
     },
     {
      "t": "Find usages.",
@@ -2235,8 +2235,8 @@ make doctor</pre></div>
    "cat": "Cloud & infra",
    "ico": "⛭",
    "title": "Terraform, Packer, Ansible",
-   "body": "terraform-mode and hcl-mode with terraform-ls, packer files, the iac-dispatch runner, ansible minor mode, ansible-doc and ansible-language-server. ansible-intelligence runs beside the language server and follows Ansible variables: definitions, references, Jinja completion and diagnostics.",
-   "cmds": ["iac-dispatch", "ansible-doc", "ide-ansible-doc-at-point", "ansible-intelligence-mode"]
+   "body": "terraform-mode and hcl-mode with terraform-ls, packer files, the iac-dispatch runner, ansible minor mode, ansible-doc and ansible-language-server. ansible-xref runs beside the language server and follows Ansible variables, includes and roles: definitions and references.",
+   "cmds": ["iac-dispatch", "ansible-doc", "ide-ansible-doc-at-point"]
   },
   {
    "cat": "Languages",
@@ -2437,9 +2437,7 @@ make doctor</pre></div>
     "ide-markdown-spell",
     "ide-markdown-start-server",
     "ide-markdown-to-org",
-    "ide-markdown-toc",
     "ide-markdown-toggle-format-on-save",
-    "ide-markdown-toggle-task",
     "ide-markdown-word-count",
     "ide-org-copy-as-markdown",
     "ide-org-export-markdown",
@@ -2494,32 +2492,6 @@ make doctor</pre></div>
     "ide-rust-test-file",
     "ide-rust-tree",
     "ide-rust-update",
-    "ide-sql-add-connection",
-    "ide-sql-connect",
-    "ide-sql-copy-csv",
-    "ide-sql-describe-table",
-    "ide-sql-dispatch",
-    "ide-sql-docs",
-    "ide-sql-edit-connections",
-    "ide-sql-explain",
-    "ide-sql-explain-analyze",
-    "ide-sql-export-csv",
-    "ide-sql-fix",
-    "ide-sql-format",
-    "ide-sql-history",
-    "ide-sql-insert-template",
-    "ide-sql-parse",
-    "ide-sql-repl",
-    "ide-sql-restart-server",
-    "ide-sql-result-rerun",
-    "ide-sql-result-toggle-csv",
-    "ide-sql-rule-docs",
-    "ide-sql-run-buffer",
-    "ide-sql-run-dwim",
-    "ide-sql-run-file",
-    "ide-sql-run-migrations",
-    "ide-sql-run-paragraph",
-    "ide-sql-tables",
     "ide-terraform-console",
     "ide-terraform-dispatch",
     "ide-terraform-docs-at-point",
@@ -2571,20 +2543,7 @@ make doctor</pre></div>
     "ide-web-toggle-test",
     "ide-web-typecheck",
     "ide-web-typecheck-watch",
-    "ide-compose-down-volumes",
-    "ide-sql-grid-commit",
-    "ide-sql-grid-edit-cell",
-    "ide-sql-grid-mouse-edit-cell",
-    "ide-sql-grid-next-column",
-    "ide-sql-grid-next-row",
-    "ide-sql-grid-previous-column",
-    "ide-sql-grid-previous-row",
-    "ide-sql-grid-rollback",
-    "ide-align-smart-return",
-    "ide-align-yaml-electric-backspace",
-    "ide-align-yaml-electric-dash",
-    "ide-align-yaml-indent-line",
-    "ide-align-yas-ret"
+    "ide-compose-down-volumes"
    ]
   }
  ],
@@ -2650,12 +2609,8 @@ make doctor</pre></div>
    "desc": "Shared helpers for the language modules"
   },
   {
-   "file": "modules/11-languages/ide-sql-grid.el",
-   "desc": "Editable data grids for SQL"
-  },
-  {
    "file": "modules/11-languages/lang-ansible.el",
-   "desc": "Ansible mode, docs, language server; enables lisp/ansible-intelligence."
+   "desc": "Ansible mode, docs, language server; enables lisp/ansible-xref."
   },
   {
    "file": "modules/11-languages/lang-devops.el",
@@ -2692,10 +2647,6 @@ make doctor</pre></div>
   {
    "file": "modules/11-languages/lang-rust.el",
    "desc": "Rust: rust-analyzer, cargo, tests, debugger, docs"
-  },
-  {
-   "file": "modules/11-languages/lang-sql.el",
-   "desc": "SQL: connections, run and explain, schema, sqls, sqlfluff, formatter"
   },
   {
    "file": "modules/11-languages/lang-web.el",
@@ -2960,30 +2911,6 @@ make doctor</pre></div>
    "spec": "npm:vscode-langservers-extracted"
   },
   {
-   "exe": "sqls",
-   "desc": "sqls",
-   "cat": "Other",
-   "spec": "go:github.com/sqls-server/sqls"
-  },
-  {
-   "exe": "sqlfluff",
-   "desc": "sqlfluff",
-   "cat": "Other",
-   "spec": "pypi:sqlfluff"
-  },
-  {
-   "exe": "sql-formatter",
-   "desc": "sql-formatter",
-   "cat": "Other",
-   "spec": "npm:sql-formatter"
-  },
-  {
-   "exe": "sqlcmd",
-   "desc": "sqlcmd",
-   "cat": "Other",
-   "spec": "github:microsoft/go-sqlcmd"
-  },
-  {
    "exe": "lua-language-server",
    "desc": "lua-language-server",
    "cat": "Other",
@@ -3102,10 +3029,6 @@ make doctor</pre></div>
    "desc": "Report which tools are present."
   },
   {
-   "cmd": "make docs-ui",
-   "desc": "Drive this page in jsdom to test the interactive explorer (installs jsdom into .cache/)."
-  },
-  {
    "cmd": "make desktop",
    "desc": "Install the application-menu launcher."
   },
@@ -3158,7 +3081,7 @@ make doctor</pre></div>
   ["│   ├─ 11-languages/  python go iac ansible", "n"],
   ["│   ├─ 12-devops/  docker k8s azure azdo (+lib/)", "n"],
   ["│   └─ 14-org/  core roam babel confluence", "n"],
-  ["├─ lisp/  ansible-intelligence/ (variable navigation, vendored)", "n"],
+  ["├─ lisp/  ansible-xref.el (variable navigation)", "n"],
   ["├─ tests/  smoke-test.el  compile.el  docs-check.el  ansible-*.el", "n"],
   ["├─ docs/  index.html  (this page)", "n"],
   ["├─ elpaca/  packages, sources, builds", "d"],
@@ -3825,217 +3748,6 @@ make doctor</pre></div>
        "label": "restart server",
        "cmd": "eglot-reconnect",
        "does": "restart server"
-      }
-     ]
-    }
-   ]
-  },
-  {
-   "id": "sql",
-   "name": "SQL",
-   "summary": "Connect to databases, run and explain queries, browse the schema, format and lint.",
-   "modes": ["sql-mode"],
-   "files": [],
-   "menu": "ide-sql-dispatch",
-   "open": "C-c m",
-   "tools": [
-    {
-     "role": "Language server",
-     "exe": "sqls"
-    },
-    {
-     "role": "Formatter",
-     "exe": "sql-formatter"
-    },
-    {
-     "role": "Linter",
-     "exe": "sqlfluff"
-    },
-    {
-     "role": "Client",
-     "exe": "sqlcmd"
-    }
-   ],
-   "run": "S-<f10>",
-   "groups": [
-    {
-     "title": "Connection",
-     "items": [
-      {
-       "key": "c",
-       "label": "choose",
-       "cmd": "ide-sql-connect",
-       "does": "Choose the connection NAME for this buffer from the known connections"
-      },
-      {
-       "key": "a",
-       "label": "add (project file)",
-       "cmd": "ide-sql-add-connection",
-       "does": "Add a connection to the project's gitignored connection file"
-      },
-      {
-       "key": "E",
-       "label": "edit file",
-       "cmd": "ide-sql-edit-connections",
-       "does": "Open the project connection file (created empty when missing)"
-      },
-      {
-       "key": "i",
-       "label": "interactive client",
-       "cmd": "ide-sql-repl",
-       "does": "Open the interactive client (*SQL*) for this buffer's connection"
-      }
-     ]
-    },
-    {
-     "title": "Run",
-     "items": [
-      {
-       "key": "r",
-       "label": "statement / region",
-       "cmd": "ide-sql-run-dwim",
-       "does": "Run the region, else the statement at point"
-      },
-      {
-       "key": "p",
-       "label": "paragraph",
-       "cmd": "ide-sql-run-paragraph",
-       "does": "Run the paragraph (text between blank lines) at point"
-      },
-      {
-       "key": "b",
-       "label": "buffer",
-       "cmd": "ide-sql-run-buffer",
-       "does": "Run the whole buffer"
-      },
-      {
-       "key": "f",
-       "label": "file...",
-       "cmd": "ide-sql-run-file",
-       "does": "Run FILE (default: this buffer's file) on the connection, after confirmation"
-      },
-      {
-       "key": "m",
-       "label": "migrations folder",
-       "cmd": "ide-sql-run-migrations",
-       "does": "Run every .sql file of DIR in name order on the connection, after confirmation"
-      },
-      {
-       "key": "h",
-       "label": "history",
-       "cmd": "ide-sql-history",
-       "does": "Insert a statement from the history at point"
-      }
-     ]
-    },
-    {
-     "title": "Explain / schema",
-     "items": [
-      {
-       "key": "e",
-       "label": "explain",
-       "cmd": "ide-sql-explain",
-       "does": "EXPLAIN the statement at point (the query plan, without running it)"
-      },
-      {
-       "key": "A",
-       "label": "explain analyze",
-       "cmd": "ide-sql-explain-analyze",
-       "does": "EXPLAIN ANALYZE the statement at point (executes it; sqlite shows the opcodes)"
-      },
-      {
-       "key": "t",
-       "label": "tables",
-       "cmd": "ide-sql-tables",
-       "does": "List the tables and views of the connection"
-      },
-      {
-       "key": "d",
-       "label": "describe table",
-       "cmd": "ide-sql-describe-table",
-       "does": "Describe TABLE (default: the name at point): columns, types, DDL"
-      },
-      {
-       "key": "L",
-       "label": "sql-list-all (client)",
-       "cmd": "sql-list-all",
-       "does": "List all database objects"
-      },
-      {
-       "key": "T",
-       "label": "sql-list-table (client)",
-       "cmd": "sql-list-table",
-       "does": "List the details of a database table named NAME"
-      },
-      {
-       "key": "w",
-       "label": "copy result as CSV",
-       "cmd": "ide-sql-copy-csv",
-       "does": "Copy the result of the statement (at point, or of this result buffer) as CSV"
-      },
-      {
-       "key": "x",
-       "label": "export CSV",
-       "cmd": "ide-sql-export-csv",
-       "does": "Write the result of the statement (at point, or of this result buffer) to FILE as CSV"
-      }
-     ]
-    },
-    {
-     "title": "Quality",
-     "items": [
-      {
-       "key": "F",
-       "label": "format",
-       "cmd": "ide-sql-format",
-       "does": "Format the region or buffer with sql-formatter, in the dialect of `sql-product'"
-      },
-      {
-       "key": "X",
-       "label": "sqlfluff fix",
-       "cmd": "ide-sql-fix",
-       "does": "Fix the buffer with `sqlfluff fix' (layout, capitalisation, ...), keeping point"
-      },
-      {
-       "key": "P",
-       "label": "sqlfluff parse",
-       "cmd": "ide-sql-parse",
-       "does": "Show sqlfluff's parse tree of the region or buffer"
-      },
-      {
-       "key": "l",
-       "label": "flymake diagnostics",
-       "cmd": "flymake-show-buffer-diagnostics",
-       "does": "Show listing of Flymake diagnostics for current buffer"
-      },
-      {
-       "key": "R",
-       "label": "rule docs",
-       "cmd": "ide-sql-rule-docs",
-       "does": "Open the sqlfluff documentation of rule CODE (default: the one at point's diagnostic)"
-      }
-     ]
-    },
-    {
-     "title": "Write / docs / server",
-     "items": [
-      {
-       "key": "s",
-       "label": "insert template",
-       "cmd": "ide-sql-insert-template",
-       "does": "Insert the query template NAME at point (a yasnippet with fields when available)"
-      },
-      {
-       "key": "D",
-       "label": "product docs",
-       "cmd": "ide-sql-docs",
-       "does": "Open the SQL reference of this buffer's product in the in-Emacs browser"
-      },
-      {
-       "key": "S",
-       "label": "restart sqls",
-       "cmd": "ide-sql-restart-server",
-       "does": "Restart sqls (after editing the connection file)"
       }
      ]
     }
@@ -4740,8 +4452,8 @@ make doctor</pre></div>
       {
        "key": "t",
        "label": "TOC insert/update",
-       "cmd": "ide-markdown-toc",
-       "does": "Insert a table of contents at point, or update the one between the markers"
+       "cmd": "markdown-toc-generate-or-refresh-toc",
+       "does": "Generate a TOC for markdown file at current point or refreshes it"
       },
       {
        "key": "h",
@@ -4770,8 +4482,14 @@ make doctor</pre></div>
       {
        "key": "x",
        "label": "toggle task [ ]/[x]",
-       "cmd": "ide-markdown-toggle-task",
-       "does": "Cycle the list item at point: plain, [ ], [x], plain (Org-style task toggling)"
+       "cmd": "markdown-toggle-gfm-checkbox",
+       "does": "Toggle GFM checkbox at point"
+      },
+      {
+       "key": "X",
+       "label": "insert task checkbox",
+       "cmd": "markdown-insert-gfm-checkbox",
+       "does": "Add GFM checkbox at point"
       },
       {
        "key": "n",

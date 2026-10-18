@@ -230,7 +230,7 @@
 
 (ert-deftest docs-language-cards-valid ()
   (let ((ids (mapcar (lambda (c) (alist-get 'id c)) (docs--lang-cards))) bad)
-    (should (>= (length ids) 14))
+    (should (>= (length ids) 13))
     (should (equal ids (delete-dups (copy-sequence ids))))
     (dolist (c (docs--lang-cards))
       (dolist (k '(id name summary modes tools groups))

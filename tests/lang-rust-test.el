@@ -8,11 +8,6 @@
 
 (require 'ert)
 
-(ert-deftest rust-menu-and-hooks-registered ()
-  (should (eq (cdr (assoc '(rust-ts-mode rust-mode) ide-lang-menus)) #'ide-rust-dispatch))
-  (should (memq #'ide-rust--run-command ide-run-command-functions))
-  (should (eq (alist-get "\\.rs\\'" auto-mode-alist nil nil #'equal) 'rust-ts-mode)))
-
 (ert-deftest rust-runnable-becomes-a-cargo-command ()
   (let ((r '(:label "test a::b" :kind "cargo"
              :args (:cwd "/p" :cargoArgs ["test" "--package" "x" "--lib"]

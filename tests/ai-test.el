@@ -380,6 +380,5 @@
                    (should (equal calls '(-1))))
           (with-current-buffer priv (setq buffer-file-name nil)) (kill-buffer priv))))))
 
-(ert-run-tests-batch-and-exit)
 
 ;;; ai-test.el ends here

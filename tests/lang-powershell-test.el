@@ -9,11 +9,6 @@
 (require 'ert)
 (require 'lang-powershell nil t)
 
-(ert-deftest powershell-menu-and-hooks-registered ()
-  (should (eq (cdr (assoc '(powershell-mode) ide-lang-menus)) #'ide-powershell-dispatch))
-  (should (memq #'ide-powershell--run-command ide-run-command-functions))
-  (should (assoc "\\.ps[dm]?1\\'" auto-mode-alist)))
-
 (ert-deftest powershell-environment-is-contained ()
   (let ((env (ide-powershell--env))
         (home (expand-file-name "tools/pwsh/" ide-var-dir)))

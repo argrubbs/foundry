@@ -42,19 +42,6 @@
 
 ;;;; Registration -----------------------------------------------------------------------
 
-(ert-deftest devops-menus-and-hooks-registered ()
-  (dolist (pair '((toml-ts-mode . ide-toml-dispatch)
-                  (bash-ts-mode . ide-bash-dispatch) (dockerfile-ts-mode . ide-dockerfile-dispatch)
-                  (terraform-mode . ide-terraform-dispatch)))
-    (should (eq (cl-loop for (modes . cmd) in ide-lang-menus
-                         when (memq (car pair) modes) return cmd)
-                (cdr pair))))
-  (should (memq #'ide-dockerfile--run-command ide-run-command-functions))
-  (should (memq #'ide-compose--run-command ide-run-command-functions))
-  (dolist (fn '(ide-lang-flymake-hadolint ide-lang-flymake-shellcheck
-                ide-lang-flymake-tflint ide-lang-flymake-terraform-validate))
-    (should (fboundp fn))))
-
 (ert-deftest devops-restore-linters-after-eglot ()
   (with-temp-buffer
     (dockerfile-ts-mode)

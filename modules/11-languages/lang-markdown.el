@@ -101,12 +101,6 @@
   "When non-nil the preview scrolls to the heading or block around point."
   :type 'boolean)
 
-(defcustom ide-markdown-toc-depth 3 "Deepest heading level in the generated TOC." :type 'integer)
-
-(defcustom ide-markdown-toc-update-on-save t
-  "Refresh the table of contents (between <!-- toc --> markers) before saving."
-  :type 'boolean)
-
 (defcustom ide-markdown-image-dir "assets"
   "Folder, relative to the Markdown file, that pasted clipboard images go into."
   :type 'string)
@@ -131,6 +125,8 @@ t (always) or nil (only on M-x eglot)."
 ;; Emacs 31 does not autoload markdown-ts-mode: make M-x markdown-ts-mode work.
 (autoload 'markdown-ts-mode "markdown-ts-mode" nil t)
 (setq major-mode-remap-alist (assq-delete-all 'markdown-mode major-mode-remap-alist))
+
+(use-package markdown-toc :commands markdown-toc-generate-or-refresh-toc)
 
 (use-package markdown-mode
   :mode (("\\.\\(?:md\\|markdown\\|mkd\\|mdown\\)\\'" . markdown-mode)
@@ -209,7 +205,6 @@ t (always) or nil (only on M-x eglot)."
   (add-hook 'project-find-functions #'ide-markdown--marksman-root 90 t)
   (when (ide-markdown--lsp-wanted-p) (eglot-ensure))
   (when (and ide-markdown-format-on-save (fboundp 'apheleia-mode)) (apheleia-mode 1))
-  (add-hook 'before-save-hook #'ide-markdown--toc-on-save nil t)
   (when ide-markdown-spell-on-open (ignore-errors (flyspell-mode 1))))
 
 (add-hook 'markdown-mode-hook #'ide-markdown--setup)
@@ -425,51 +420,6 @@ explicitly (stdin has no directory of its own); with none the relaxed defaults a
 
 ;;;; Table of contents ---------------------------------------------------------------------------
 
-(defconst ide-markdown--toc-start "<!-- toc -->")
-(defconst ide-markdown--toc-end "<!-- tocstop -->")
-
-(defun ide-markdown--toc-text ()
-  "The TOC as Markdown list text for the buffer's headings."
-  (let* ((heads (cl-remove-if (lambda (h) (> (car h) ide-markdown-toc-depth)) (ide-markdown--headings)))
-         (h1s (cl-count 1 heads :key #'car))
-         ;; With a single h1 (the document title) the TOC starts at h2.
-         (floor (if (= h1s 1) 2 1))
-         (heads (cl-remove-if (lambda (h) (< (car h) floor)) heads))
-         (base (if heads (apply #'min (mapcar #'car heads)) 1)))
-    (mapconcat (lambda (h)
-                 (format "%s- [%s](#%s)" (make-string (* 2 (- (car h) base)) ?\s)
-                         (ide-markdown--strip-inline (nth 1 h)) (nth 3 h)))
-               heads "\n")))
-
-(defun ide-markdown--toc-region ()
-  "Bounds (START . END) of the text between the TOC markers, or nil."
-  (save-excursion
-    (goto-char (point-min))
-    (when (search-forward ide-markdown--toc-start nil t)
-      (let ((start (point)))
-        (when (search-forward ide-markdown--toc-end nil t)
-          (cons start (match-beginning 0)))))))
-
-(defun ide-markdown-toc ()
-  "Insert a table of contents at point, or update the one between the markers.
-The markers are <!-- toc --> and <!-- tocstop -->; the list is rebuilt from the headings."
-  (interactive)
-  (let ((toc (ide-markdown--toc-text)))
-    (if-let* ((reg (ide-markdown--toc-region)))
-        (save-excursion
-          (goto-char (car reg))
-          (delete-region (car reg) (cdr reg))
-          (insert "\n\n" toc "\n\n"))
-      (insert ide-markdown--toc-start "\n\n" toc "\n\n" ide-markdown--toc-end "\n"))))
-
-(defun ide-markdown--toc-on-save ()
-  "Keep an existing TOC current when saving."
-  (when (and ide-markdown-toc-update-on-save (ide-markdown--toc-region))
-    (let ((old (buffer-substring-no-properties (car (ide-markdown--toc-region))
-                                               (cdr (ide-markdown--toc-region)))))
-      (unless (equal (string-trim old) (string-trim (ide-markdown--toc-text)))
-        (ide-markdown-toc)))))
-
 ;;;; Editing helpers -------------------------------------------------------------------------------
 
 (defun ide-markdown--code-languages ()
@@ -509,22 +459,6 @@ The markers are <!-- toc --> and <!-- tocstop -->; the list is rebuilt from the 
             (cl-incf n)
             (while (and (not (eobp)) (looking-at "[ \t]*|")) (forward-line 1))))))
     (message "Aligned %d table%s" n (if (= n 1) "" "s"))))
-
-(defun ide-markdown-toggle-task ()
-  "Cycle the list item at point: plain, [ ], [x], plain (Org-style task toggling)."
-  (interactive)
-  (save-excursion
-    (beginning-of-line)
-    (cond
-     ((looking-at "\\([ \t]*\\(?:[-*+]\\|[0-9]+[.)]\\)[ \t]+\\)\\[\\([ xX]\\)\\][ \t]")
-      (if (equal (match-string 2) " ")
-          (replace-match "\\1[x] " t)
-        (delete-region (+ (match-beginning 1) (length (match-string 1)))
-                       (+ (match-end 0)))))
-     ((looking-at "\\([ \t]*\\(?:[-*+]\\|[0-9]+[.)]\\)[ \t]+\\)")
-      (goto-char (match-end 1))
-      (insert "[ ] "))
-     (t (user-error "Not on a list item")))))
 
 (defun ide-markdown-word-count (&optional beg end)
   "Report words and reading time of the region or buffer, ignoring code and front matter."
@@ -1329,12 +1263,13 @@ first with M-x ide-lang-trust-project."
     ("o" "Org interop..." ide-markdown-org-menu)
     ("O" "orgtbl for tables" ide-markdown-orgtbl-mode)]
    ["Structure"
-    ("t" "TOC insert/update" ide-markdown-toc)
+    ("t" "TOC insert/update" markdown-toc-generate-or-refresh-toc)
     ("h" "promote subtree" markdown-promote-subtree)
     ("H" "demote subtree" markdown-demote-subtree)
     ("g" "go to heading" consult-imenu)
     ("w" "word count" ide-markdown-word-count)
-    ("x" "toggle task [ ]/[x]" ide-markdown-toggle-task)
+    ("x" "toggle task [ ]/[x]" markdown-toggle-gfm-checkbox)
+    ("X" "insert task checkbox" markdown-insert-gfm-checkbox)
     ("n" "renumber list" markdown-cleanup-list-numbers)]]
   [["Links / images"
     ("l" "insert link" markdown-insert-link)
@@ -1376,8 +1311,7 @@ first with M-x ide-lang-trust-project."
   (define-key markdown-mode-command-map "k" #'ide-markdown-check-links)
   (define-key markdown-mode-command-map "L" #'ide-markdown-lint-fix)
   (define-key markdown-mode-command-map "a" #'ide-markdown-align-tables)
-  (define-key markdown-mode-map (kbd "C-c C-x t") #'ide-markdown-toggle-task)
-  (define-key markdown-mode-map (kbd "C-c C-x T") #'ide-markdown-toc)
+  (define-key markdown-mode-map (kbd "C-c C-x T") #'markdown-toc-generate-or-refresh-toc)
   (define-key markdown-mode-map (kbd "C-c C-x w") #'ide-markdown-word-count)
   (define-key markdown-mode-map (kbd "C-c C-x o") #'ide-markdown-orgtbl-mode)
   (define-key markdown-mode-map (kbd "C-c C-a p") #'ide-markdown-paste-image)
