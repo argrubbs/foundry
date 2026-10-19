@@ -11,8 +11,8 @@
   "Organize imports through gopls."
   (ide-lang-code-action "source.organizeImports"))
 
+;; Eglot ships the gopls entry for the Go modes.
 (ide-lang-setup '(go-mode go-ts-mode go-mod-ts-mode)
-  :server '("gopls")
   :tab-width 4
   :indent-tabs nil
   :format-on-save nil

@@ -42,10 +42,6 @@
 (defvar emmet-move-cursor-between-quotes)
 (defvar nodejs-repl-command)
 (defvar nodejs-repl-process-name)
-(defvar js-indent-level)
-(defvar css-indent-offset)
-(defvar html-ts-indent-offset)
-(defvar typescript-ts-indent-offset)
 (defvar compilation-environment)
 (declare-function dap-debug "dap-mode")
 (declare-function emmet-mode "emmet-mode")
@@ -125,22 +121,15 @@ no 7+ compiler is found, for projects that bring TypeScript 5 or 6."
   (add-to-list 'eglot-server-programs
                '(html-ts-mode . ("vscode-html-language-server" "--stdio"))))
 
-(defun ide-web--setup ()
-  "Buffer settings shared by every web mode: 2 spaces, prettier owns formatting."
-  (setq-local tab-width 2 indent-tabs-mode nil
-              js-indent-level 2 typescript-ts-indent-offset 2
-              css-indent-offset 2 html-ts-indent-offset 2
-              ide-eglot-format-on-save nil
-              ;; so `ide-reformat-buffer' falls through to Apheleia (prettier)
-              eglot-ignored-server-capabilities
-              '(:documentFormattingProvider :documentRangeFormattingProvider
-                :documentOnTypeFormattingProvider))
-  (add-hook 'after-save-hook #'ide-web--reload-preview nil t)
-  (when (fboundp 'apheleia-mode) (apheleia-mode 1))
-  (eglot-ensure))
-
-(dolist (mode ide-web-modes)
-  (add-hook (intern (format "%s-hook" mode)) #'ide-web--setup))
+;; 2 spaces; prettier (Apheleia) owns formatting.
+(ide-lang-setup ide-web-modes
+  :tab-width 2
+  :config (lambda ()
+            ;; so `ide-reformat-buffer' falls through to Apheleia (prettier)
+            (setq-local eglot-ignored-server-capabilities
+                        '(:documentFormattingProvider :documentRangeFormattingProvider
+                          :documentOnTypeFormattingProvider))
+            (add-hook 'after-save-hook #'ide-web--reload-preview nil t)))
 
 ;; TypeScript 7 returns inlay hints and diagnostics on its own; nothing to configure
 ;; beyond the defaults, but keep parameter-name hints quiet unless they add information.

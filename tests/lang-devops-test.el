@@ -42,11 +42,17 @@
 
 ;;;; Registration -----------------------------------------------------------------------
 
-(ert-deftest devops-restore-linters-after-eglot ()
+(ert-deftest devops-linters-return-after-eglot ()
+  "Eglot replaces the Flymake backends when it connects; the linters are put back."
+  (require 'eglot)
   (with-temp-buffer
     (dockerfile-ts-mode)
     (setq-local flymake-diagnostic-functions '(eglot-flymake-backend))
-    (ide-devops--restore-linters)
+    (setq-local eglot--managed-mode t)
+    ;; only the lambdas `ide-lang-define-linter' added; the named functions need a server
+    (cl-letf (((symbol-function 'flymake-start) #'ignore))
+      (let ((eglot-managed-mode-hook (cl-remove-if #'symbolp eglot-managed-mode-hook)))
+        (run-hooks 'eglot-managed-mode-hook)))
     (should (memq 'ide-lang-flymake-hadolint flymake-diagnostic-functions))
     (should (memq 'eglot-flymake-backend flymake-diagnostic-functions))))
 

@@ -41,8 +41,8 @@
 
 ;;;; Mode and server ------------------------------------------------------------------
 
+;; Eglot ships the rust-analyzer entry for the Rust modes.
 (ide-lang-setup 'rust-ts-mode
-  :server '("rust-analyzer")
   :tab-width 4
   :indent-tabs nil
   :format-on-save nil)

@@ -80,6 +80,9 @@
 
 ;;;; Mode and server ------------------------------------------------------------------------
 
+;; PSES and Invoke-Formatter indent with 4 spaces; PSES formats on save.
+(ide-lang-setup 'powershell-mode :tab-width 4 :format-on-save nil)
+
 (defun ide-powershell-pses-dir ()
   "Directory PSES is installed in (contains PowerShellEditorServices/)."
   (ide-lang-tools-dir "pses"))

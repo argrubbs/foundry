@@ -90,32 +90,13 @@ Uses ghostel when installed, otherwise a comint compilation in the drawer."
 ;; (they run in untrusted files).  terraform validate starts the module's provider
 ;; binaries, so it is not: it pauses until `ide-lang-trust-project'.
 
-(defconst ide-devops--linters
-  '((dockerfile-ts-mode ide-lang-flymake-hadolint)
-    (bash-ts-mode ide-lang-flymake-shellcheck)
-    (terraform-mode ide-lang-flymake-tflint ide-lang-flymake-terraform-validate))
-  "Alist (MODE . BACKENDS) of the Flymake backends this file defines.")
-
-(defun ide-devops--restore-linters ()
-  "Re-add this file's Flymake backends to a buffer Eglot has taken over."
-  (dolist (entry ide-devops--linters)
-    (when (derived-mode-p (car entry))
-      (dolist (fn (cdr entry)) (add-hook 'flymake-diagnostic-functions fn nil t))
-      (when (bound-and-true-p flymake-mode) (flymake-start)))))
-
-(add-hook 'eglot-managed-mode-hook #'ide-devops--restore-linters)
-
 ;;;; TOML ----------------------------------------------------------------------------------
 
-(with-eval-after-load 'eglot
-  (add-to-list 'eglot-server-programs '(toml-ts-mode . ("taplo" "lsp" "stdio"))))
-
-(add-hook 'toml-ts-mode-hook #'eglot-ensure)
-(add-hook 'toml-ts-mode-hook
-          (lambda ()
-            (setq-local tab-width 2 indent-tabs-mode nil)
-            ;; taplo (Apheleia) owns formatting, honouring .taplo.toml.
-            (setq-local ide-eglot-format-on-save nil)))
+;; taplo formats from the menu (Apheleia), honouring .taplo.toml; nothing formats on save.
+(ide-lang-setup 'toml-ts-mode
+  :server '("taplo" "lsp" "stdio")
+  :tab-width 2
+  :format-on-save 'off)
 
 (with-eval-after-load 'apheleia
   (setf (alist-get 'toml-ts-mode apheleia-mode-alist) 'taplo))
@@ -268,11 +249,9 @@ Useful offline-first: taplo then validates and completes against that schema."
 
 ;;;; Shell ---------------------------------------------------------------------------------
 
-(add-hook 'bash-ts-mode-hook
-          (lambda ()
-            (setq-local tab-width 2 indent-tabs-mode nil)
-            ;; shfmt (Apheleia) owns formatting; bash-language-server would also call shfmt.
-            (setq-local ide-eglot-format-on-save nil)))
+;; Eglot ships the bash-language-server entry.  shfmt formats from the menu (Apheleia);
+;; nothing formats on save (the server would also call shfmt).
+(ide-lang-setup 'bash-ts-mode :tab-width 2 :format-on-save 'off)
 
 (defun ide-bash--shfmt-flags ()
   "Style flags for shfmt: `-i 2 -ci', unless an .editorconfig is in charge."
@@ -415,9 +394,8 @@ Man pages are handled by the caller."
 
 ;;;; Dockerfile ----------------------------------------------------------------------------
 
-(defun ide-dockerfile--config ()
-  "The nearest .hadolint.yaml (or .yml) above the file, for hadolint's --config."
-  (ide-devops--local-config '(".hadolint.yaml" ".hadolint.yml")))
+;; Eglot ships the docker-langserver entry.
+(ide-lang-setup 'dockerfile-ts-mode :format-on-save nil)
 
 (defun ide-dockerfile--parse-hadolint (output buffer)
   "Flymake diagnostics from `hadolint --format json' OUTPUT."
@@ -726,7 +704,15 @@ With RUN, then run the image interactively in a terminal."
 
 (add-hook 'ide-run-command-functions #'ide-compose--run-command)
 
-;;;; Terraform linting ---------------------------------------------------------------------
+;;;; Terraform -----------------------------------------------------------------------------
+
+;; Eglot ships the terraform-ls entry.  terraform-format-on-save-mode (01-lang-modes)
+;; formats on save, not terraform-ls.
+(ide-lang-setup 'terraform-mode
+  :format-on-save 'off
+  :config (lambda () (setq-local imenu-create-index-function #'ide-terraform-imenu-index)))
+
+;;;;; Linting
 
 (defun ide-terraform--tflint-plugin-dir ()
   "tflint's plugin directory inside the sandbox (its default is under the home directory)."

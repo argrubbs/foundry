@@ -156,20 +156,19 @@ turns it on for a buffer; `C-c l f' formats on demand."
 (defun ide-markdown--setup ()
   "Buffer-local settings for Markdown buffers."
   (setq-local fill-column ide-markdown-fill-column
-              tab-width 2
-              indent-tabs-mode nil
-              ;; prettier (Apheleia) owns formatting; marksman has no formatter anyway.
-              ide-eglot-format-on-save nil
               ispell-personal-dictionary (expand-file-name "ispell-personal" ide-var-dir)
               require-final-newline t)
   (visual-line-mode 1)
   (add-hook 'project-find-functions #'ide-markdown--marksman-root 90 t)
-  (when (ide-markdown--lsp-wanted-p) (eglot-ensure))
-  (when (and ide-markdown-format-on-save (fboundp 'apheleia-mode)) (apheleia-mode 1))
   (when ide-markdown-spell-on-open (ignore-errors (flyspell-mode 1))))
 
-(add-hook 'markdown-mode-hook #'ide-markdown--setup)
-(add-hook 'gfm-mode-hook #'ide-markdown--setup)
+;; prettier (Apheleia) formats on save when `ide-markdown-format-on-save' says so;
+;; marksman has no formatter anyway.
+(ide-lang-setup 'markdown-mode
+  :tab-width 2
+  :eglot #'ide-markdown--lsp-wanted-p
+  :format-on-save (lambda () (if ide-markdown-format-on-save t 'off))
+  :config #'ide-markdown--setup)
 
 ;; prettier --prose-wrap preserve: never rewrap the author's lines.  .prettierrc is found
 ;; from the file path, so a project's own settings still apply.

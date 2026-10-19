@@ -10,8 +10,7 @@
 (use-package eglot
   :ensure nil
   :commands (eglot eglot-ensure eglot-code-actions eglot-format-buffer)
-  ;; Languages with a module start Eglot from `ide-lang-setup'; these have none.
-  :hook ((yaml-ts-mode bash-ts-mode dockerfile-ts-mode) . eglot-ensure)
+  ;; Each language starts Eglot from `ide-lang-setup' in its module.
   :init
   (setq eglot-events-buffer-config '(:size 0 :format short)
         eglot-autoshutdown t

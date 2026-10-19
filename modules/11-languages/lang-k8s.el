@@ -389,13 +389,14 @@ whether every segment was found."
   "Major mode for Helm chart templates: YAML with Go-template highlighting.
 The server is helm-ls, which embeds yaml-language-server; formatting on save is off
 because YAML formatters do not understand {{ }}."
-  (setq-local yaml-indent-offset 2)
-  (ide-helm--setup))
+  (setq-local yaml-indent-offset 2))
 
 (define-derived-mode ide-helm-text-mode text-mode "Helm-Text"
-  "Major mode for Helm helpers (_helpers.tpl) and NOTES.txt: text with Go templates."
-  (ide-helm--setup))
+  "Major mode for Helm helpers (_helpers.tpl) and NOTES.txt: text with Go templates.")
 (set-keymap-parent ide-helm-text-mode-map ide-helm-mode-map)
+
+(ide-lang-setup '(ide-helm-mode ide-helm-text-mode)
+  :tab-width 2 :format-on-save 'off :config #'ide-helm--setup)
 
 ;; 01-lang-modes.el puts chart templates on this function and remaps yaml-mode
 ;; and k8s-mode through the two below.
@@ -408,9 +409,6 @@ any other templates/ file keeps the plain YAML mode."
           ((ide-helm--template-file-p file) (ide-helm-text-mode))
           ((string-match-p "\\.ya?ml\\'" file) (yaml-ts-mode))
           (t (text-mode)))))
-
-(add-hook 'ide-helm-mode-hook #'eglot-ensure)
-(add-hook 'ide-helm-text-mode-hook #'eglot-ensure)
 
 ;; devops-k8s.el sends /k8s/, /manifests/ and /kubernetes/ YAML to `k8s-mode' (a
 ;; yaml-mode with completion and snippets).  Chart templates there must still be
@@ -429,8 +427,11 @@ any other templates/ file keeps the plain YAML mode."
   "Start `ide-helm-mode' for chart templates, `yaml-ts-mode' for any other YAML."
   (if (ide-helm--template-file-p) (ide-helm-auto-mode) (yaml-ts-mode)))
 (declare-function yaml-ts-mode "yaml-ts-mode")
-(add-hook 'k8s-mode-hook #'eglot-ensure)
-(add-hook 'k8s-mode-hook (lambda () (setq-local tab-width 2)))
+
+;; yaml-language-server (Eglot ships its entry for yaml-ts-mode); its formatter is
+;; disabled in the settings below, so nothing formats on save.
+(ide-lang-setup 'yaml-ts-mode :format-on-save nil)
+(ide-lang-setup 'k8s-mode :tab-width 2 :format-on-save nil)
 
 ;;;; Servers -----------------------------------------------------------------------------------
 

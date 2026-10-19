@@ -97,11 +97,7 @@
 
 (use-package powershell
   :mode ("\\.ps[dm]?1\\'" . powershell-mode)
-  :init
-  (setq powershell-indent-level 4)
-  (add-hook 'powershell-mode-hook #'eglot-ensure)
-  ;; PSES and Invoke-Formatter indent with 4 spaces.
-  (add-hook 'powershell-mode-hook (lambda () (setq-local tab-width 4 indent-tabs-mode nil))))
+  :init (setq powershell-indent-level 4))
 
 ;;;; Markdown -----------------------------------------------------------------------------
 

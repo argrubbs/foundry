@@ -4,6 +4,8 @@
 ;; Loads first among the language modules (the name sorts before lang-*).  What
 ;; every language needs, written once:
 ;;
+;; - `ide-lang-setup'            a language's modes: server, indentation, who formats on save
+;; - `ide-lang-register'         its run / debug commands and its C-c m menu
 ;; - `ide-lang-run'              run a command in the bottom drawer
 ;; - `ide-lang-define-linter'    an external linter as a Flymake backend (Eglot manages
 ;;                               one server per buffer; Flymake merges any number of linters)
@@ -394,11 +396,15 @@ buffer too.  In batch runs the module loads right away."
 (cl-defun ide-lang-setup (modes &key server auto-mode ((:tab-width width)) (indent-tabs nil)
                                 (eglot t) (format-on-save t) config)
   "Configure MODES (symbol or list of symbols) with common IDE conventions.
-SERVER is added to `eglot-server-programs'.
+SERVER is added to `eglot-server-programs' (not needed when Eglot ships the entry).
 AUTO-MODE is a regexp or list of regexps associated in `auto-mode-alist'.
 :tab-width sets `tab-width' (and mode-specific indent offsets).
 INDENT-TABS sets `indent-tabs-mode' (defaults to nil: spaces only).
-FORMAT-ON-SAVE inhibits Eglot format on save and enables Apheleia.
+EGLOT non-nil starts the language server in every buffer; a function starts it
+only in the buffers where it returns non-nil.
+FORMAT-ON-SAVE says who formats on save: t Apheleia (the server's formatting is
+turned off), nil the language server, `off' neither (another mode does it), or a
+function returning one of those per buffer.
 CONFIG is a function run in each mode's hook."
   (let ((mode-list (if (listp modes) modes (list modes))))
     (when server
@@ -411,7 +417,7 @@ CONFIG is a function run in each mode's hook."
           (add-to-list 'auto-mode-alist (cons pat primary)))))
     (dolist (mode mode-list)
       (let ((hook (intern (format "%s-hook" mode))))
-        (when eglot
+        (when (eq eglot t)
           (add-hook hook #'eglot-ensure))
         (add-hook hook
                   (lambda ()
@@ -426,12 +432,13 @@ CONFIG is a function run in each mode's hook."
                                      powershell-indent-level))
                         (when (boundp var) (set (make-local-variable var) width))))
                     (setq-local indent-tabs-mode indent-tabs)
-
-                    (when format-on-save
-                      (setq-local ide-eglot-format-on-save nil)
-                      (when (fboundp 'apheleia-mode) (apheleia-mode 1)))
+                    (let ((who (if (functionp format-on-save) (funcall format-on-save) format-on-save)))
+                      (when who (setq-local ide-eglot-format-on-save nil))
+                      (when (and (eq who t) (fboundp 'apheleia-mode)) (apheleia-mode 1)))
                     (when config
-                      (funcall config))))))))
+                      (funcall config))
+                    (when (and (functionp eglot) (funcall eglot))
+                      (eglot-ensure))))))))
 
 ;;;; Tree-sitter helpers ----------------------------------------------------------------------
 
