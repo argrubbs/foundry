@@ -119,10 +119,30 @@ nil leaves KUBECONFIG as Emacs inherited it (and kubectl's own default after tha
                     (re-search-forward "^kind:[ \t]*[^ \t\n]" limit t))
              t)))))
 
+(defvar-local ide-k8s--file-kind 'unknown
+  "The cached `ide-k8s-file-kind' of the buffer's file, or `unknown'.")
+
+(defun ide-k8s--forget-file-kind ()
+  "Drop the cached kind: the file was saved or reverted."
+  (kill-local-variable 'ide-k8s--file-kind))
+
+(add-hook 'after-save-hook #'ide-k8s--forget-file-kind)
+(add-hook 'after-revert-hook #'ide-k8s--forget-file-kind)
+
 (defun ide-k8s-file-kind (&optional file)
   "What the YAML FILE (default: this buffer's) is, as a symbol.
 One of `helm-template', `helm-chart', `gh-workflow', `azure-pipeline', `compose',
-`kustomization', `k8s-manifest', or nil.  Ansible files are never manifests."
+`kustomization', `k8s-manifest', or nil.  Ansible files are never manifests.
+The answer for the buffer's own file is kept until the buffer is saved or reverted."
+  (cond
+   ((and file (not (equal file buffer-file-name))) (ide-k8s--detect-file-kind file))
+   ((null buffer-file-name) (ide-k8s--detect-file-kind nil))
+   ((eq ide-k8s--file-kind 'unknown)
+    (setq ide-k8s--file-kind (ide-k8s--detect-file-kind buffer-file-name)))
+   (t ide-k8s--file-kind)))
+
+(defun ide-k8s--detect-file-kind (file)
+  "Compute `ide-k8s-file-kind' for FILE (nil: this buffer's text)."
   (let ((file (or file buffer-file-name)))
     (cond
      ((and file (ide-helm--template-file-p file)) 'helm-template)
