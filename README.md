@@ -182,7 +182,9 @@ into the sandbox, so your global mise setup is untouched.
 
 ## Make targets
 
-`make compile` (strict byte-compile), `make test` (all ERT tests, one Emacs process), `make docs`,
+`make compile` (strict byte-compile), `make test` (all ERT tests, one Emacs process), `make e2e`
+(starts a real frame on a sample project and drives it like a user: keys, menus, tool windows, saving;
+needs a display), `make docs`,
 `make docs-check`, `make packages`, `make tools`, `make doctor`.
 `init.el` is intentionally not byte-compiled (elpaca requirement).
 

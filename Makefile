@@ -4,7 +4,7 @@ RUN   := $(EMACS) --init-directory $(ROOT)
 # Prefer the mise-installed tools (node) when present.
 export PATH := $(shell tr -d '()"' < var/mise/path.eld 2>/dev/null | tr ' ' ':'):$(PATH)
 
-.PHONY: all packages compile test docs docs-check docs-update run clean tools doctor desktop
+.PHONY: all packages compile test e2e docs docs-check docs-update run clean tools doctor desktop
 
 all: packages compile test docs-check
 
@@ -16,6 +16,10 @@ compile:
 
 test:
 	$(RUN) --batch -l init.el -l tests/run.el
+
+# Drives a real Foundry frame like a user (needs a display; a window appears).
+e2e:
+	tests/e2e/run.sh
 
 docs-check:
 	IDE_NO_USER=1 $(RUN) --batch -l init.el -l tests/docs-check.el
