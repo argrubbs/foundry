@@ -19,6 +19,13 @@
   :config (lambda ()
             (add-hook 'before-save-hook #'ide--go-organize-imports -10 t)))
 
+(defun ide-go--run-command ()
+  "S-<f10>: run the package, or the tests for a _test.go file."
+  (when (derived-mode-p 'go-ts-mode)
+    (if (string-suffix-p "_test.go" (or buffer-file-name "")) "go test ./..." "go run .")))
+
+(ide-lang-register '(go-mode go-ts-mode) :run #'ide-go--run-command)
+
 (defvar dap-go-debug-program)
 (with-eval-after-load 'dap-mode
   (let ((inhibit-message t)) (require 'dap-go))

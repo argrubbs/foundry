@@ -10,8 +10,9 @@
 ;;   Dockerfile  dockerfile-ts-mode + docker-langserver + hadolint (Flymake); build with ARGs
 ;;               read from the file, build and run, buildx bake, trivy scans
 ;;   Compose     `ide-compose-mode' in compose files: config check, up, down, logs, exec
-;;   Terraform   tflint and `terraform validate' as Flymake backends, trivy config scan,
-;;               Imenu outline; plan/apply stay in `iac-dispatch' (lang-iac.el)
+;;   Terraform   terraform-mode + terraform-ls, tflint and `terraform validate' as Flymake
+;;               backends, trivy config scan, Imenu outline, init / plan / apply and the
+;;               Packer commands in `iac-dispatch' (C-c m in a .tf file, C-c d i anywhere)
 ;;
 ;; Every language has a menu on C-c m (compose files: C-c C-d).  Docker commands are built
 ;; without needing the daemon, so they can be inspected and tested anywhere.
@@ -245,7 +246,7 @@ Useful offline-first: taplo then validates and completes against that schema."
     ("r" "restart taplo" eglot-reconnect)
     ("i" "outline (imenu)" imenu)]])
 
-(ide-lang-register-menu '(toml-ts-mode) #'ide-toml-dispatch)
+(ide-lang-register '(toml-ts-mode) :menu #'ide-toml-dispatch)
 
 ;;;; Shell ---------------------------------------------------------------------------------
 
@@ -390,7 +391,7 @@ Man pages are handled by the caller."
     ("c" "code actions" eglot-code-actions)
     ("o" "outline (imenu)" imenu)]])
 
-(ide-lang-register-menu '(bash-ts-mode sh-mode) #'ide-bash-dispatch)
+(ide-lang-register '(bash-ts-mode sh-mode) :run #'ide-bash--run-command :menu #'ide-bash-dispatch)
 
 ;;;; Dockerfile ----------------------------------------------------------------------------
 
@@ -596,8 +597,8 @@ With RUN, then run the image interactively in a terminal."
     ("o" "outline (imenu)" imenu)
     ("R" "restart language server" eglot-reconnect)]])
 
-(ide-lang-register-menu '(dockerfile-ts-mode dockerfile-mode) #'ide-dockerfile-dispatch)
-(add-hook 'ide-run-command-functions #'ide-dockerfile--run-command)
+(ide-lang-register '(dockerfile-ts-mode dockerfile-mode)
+  :run #'ide-dockerfile--run-command :menu #'ide-dockerfile-dispatch)
 
 ;;;; Compose -------------------------------------------------------------------------------
 
@@ -870,33 +871,55 @@ default and `ide-terraform-validate' (the menu) covers the on-demand case."
             (push (list title cell) groups)))))
     (nreverse groups)))
 
-(add-hook 'terraform-mode-hook
-          (lambda ()
-            (setq-local imenu-create-index-function #'ide-terraform-imenu-index)
-            ;; terraform-format-on-save-mode (lang-iac) owns formatting, not terraform-ls.
-            (setq-local ide-eglot-format-on-save nil)))
+;;;;; Run: init, plan, apply, Packer
 
-;;;###autoload (autoload 'ide-terraform-dispatch "lang-devops" nil t)
-(transient-define-prefix ide-terraform-dispatch ()
-  "Terraform: lint, validate, scan, explore.  Plan and apply live in `iac-dispatch'."
-  [["Lint / validate"
-    ("l" "tflint (module)" ide-terraform-tflint)
-    ("I" "tflint --init (plugins)" ide-terraform-tflint-init)
+;; These run at the project root, so that the menu works from any buffer (C-c d i).
+(dolist (spec '((ide-terraform-init "terraform" "init")
+                (ide-terraform-plan "terraform" "plan")
+                (ide-terraform-fmt "terraform" "fmt" "-recursive")
+                (ide-packer-init "packer" "init" ".")
+                (ide-packer-validate "packer" "validate" ".")
+                (ide-packer-build "packer" "build" ".")))
+  (defalias (car spec)
+    (lambda () (interactive) (ide-lang-run (cadr spec) (cdr spec)))
+    (format "Run `%s' at the project root, in the drawer." (string-join (cdr spec) " "))))
+
+(defun ide-terraform-apply ()
+  "terraform apply at the project root (asks first)."
+  (interactive)
+  (when (yes-or-no-p "terraform apply? ") (ide-lang-run "terraform" '("terraform" "apply"))))
+
+(defun ide-terraform--run-command ()
+  "S-<f10> validates the module."
+  (when (derived-mode-p 'terraform-mode) "terraform validate"))
+
+;;;###autoload (autoload 'iac-dispatch "lang-devops" nil t)
+(transient-define-prefix iac-dispatch ()
+  "Terraform and Packer: run, lint, validate, scan, explore."
+  [["Terraform"
+    ("i" "init" ide-terraform-init)
+    ("p" "plan" ide-terraform-plan)
+    ("a" "apply" ide-terraform-apply)
+    ("F" "fmt -recursive" ide-terraform-fmt)
+    ("c" "console" ide-terraform-console)
+    ("r" "providers" ide-terraform-providers)]
+   ["Lint / validate"
     ("v" "validate" ide-terraform-validate)
     ("f" "fmt diff" ide-terraform-fmt-check)
+    ("l" "tflint (module)" ide-terraform-tflint)
+    ("I" "tflint --init (plugins)" ide-terraform-tflint-init)
+    ("t" "trivy config scan" ide-terraform-trivy-config)
     ("!" "diagnostics list" flymake-show-buffer-diagnostics)]
-   ["Scan"
-    ("t" "trivy config scan" ide-terraform-trivy-config)]
+   ["Packer"
+    ("P i" "init" ide-packer-init)
+    ("P v" "validate" ide-packer-validate)
+    ("P b" "build" ide-packer-build)]
    ["Explore"
     ("d" "registry docs at point" ide-terraform-docs-at-point)
-    ("p" "providers" ide-terraform-providers)
-    ("c" "console" ide-terraform-console)
-    ("o" "outline (imenu)" imenu)]
-   ["Run"
-    ("x" "init / plan / apply ..." iac-dispatch)
+    ("o" "outline (imenu)" imenu)
     ("R" "restart terraform-ls" eglot-reconnect)]])
 
-(ide-lang-register-menu '(terraform-mode) #'ide-terraform-dispatch)
+(ide-lang-register '(terraform-mode) :run #'ide-terraform--run-command :menu #'iac-dispatch)
 
 (provide 'lang-devops)
 ;;; lang-devops.el ends here

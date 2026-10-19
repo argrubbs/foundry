@@ -157,8 +157,8 @@
 
 ;;;; Terraform / Packer -------------------------------------------------------------------
 
-(ide-lang-lazy 'lang-iac '(terraform-mode hcl-mode))
-(autoload 'iac-dispatch "lang-iac" nil t)
+;; The Terraform menu (also Packer) is reachable from anywhere on C-c d i.
+(autoload 'iac-dispatch "lang-devops" nil t)
 
 (use-package hcl-mode
   :mode ("\\.hcl\\'" "\\.pkr\\.hcl\\'" "\\.pkrvars\\.hcl\\'"))

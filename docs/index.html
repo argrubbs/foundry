@@ -484,7 +484,7 @@ make doctor</pre></div>
    "l": "CLIs and servers via mise"
   },
   {
-   "v": "38",
+   "v": "37",
    "l": "Emacs Lisp modules"
   },
   {
@@ -1816,27 +1816,79 @@ make doctor</pre></div>
       {
        "key": "i",
        "label": "init",
-       "does": "terraform init"
-      },
-      {
-       "key": "v",
-       "label": "validate",
-       "does": "terraform validate"
-      },
-      {
-       "key": "f",
-       "label": "fmt",
-       "does": "terraform fmt -recursive"
+       "does": "terraform init",
+       "cmd": "ide-terraform-init"
       },
       {
        "key": "p",
        "label": "plan",
-       "does": "terraform plan"
+       "does": "terraform plan",
+       "cmd": "ide-terraform-plan"
       },
       {
        "key": "a",
        "label": "apply",
-       "does": "terraform apply — asks yes-or-no first."
+       "does": "terraform apply — asks yes-or-no first.",
+       "cmd": "ide-terraform-apply"
+      },
+      {
+       "key": "F",
+       "label": "fmt -recursive",
+       "does": "Run `terraform fmt -recursive' at the project root, in the drawer",
+       "cmd": "ide-terraform-fmt"
+      },
+      {
+       "key": "c",
+       "label": "console",
+       "does": "Open `terraform console' for this module in the drawer",
+       "cmd": "ide-terraform-console"
+      },
+      {
+       "key": "r",
+       "label": "providers",
+       "does": "Show the provider requirements tree of this module",
+       "cmd": "ide-terraform-providers"
+      }
+     ]
+    },
+    {
+     "title": "Lint / validate",
+     "items": [
+      {
+       "key": "v",
+       "label": "validate",
+       "does": "terraform validate",
+       "cmd": "ide-terraform-validate"
+      },
+      {
+       "key": "f",
+       "label": "fmt diff",
+       "does": "terraform fmt -recursive",
+       "cmd": "ide-terraform-fmt-check"
+      },
+      {
+       "key": "l",
+       "label": "tflint (module)",
+       "does": "Run tflint over the module of this file and show everything it finds in the drawer",
+       "cmd": "ide-terraform-tflint"
+      },
+      {
+       "key": "I",
+       "label": "tflint --init (plugins)",
+       "does": "Install the plugins named in .tflint.hcl (tflint --init; needs network) into the sandbox",
+       "cmd": "ide-terraform-tflint-init"
+      },
+      {
+       "key": "t",
+       "label": "trivy config scan",
+       "does": "Scan this module for security misconfigurations (trivy config)",
+       "cmd": "ide-terraform-trivy-config"
+      },
+      {
+       "key": "!",
+       "label": "diagnostics list",
+       "does": "Show listing of Flymake diagnostics for current buffer",
+       "cmd": "flymake-show-buffer-diagnostics"
       }
      ]
     },
@@ -1846,17 +1898,43 @@ make doctor</pre></div>
       {
        "key": "P i",
        "label": "init",
-       "does": "packer init ."
+       "does": "packer init .",
+       "cmd": "ide-packer-init"
       },
       {
        "key": "P v",
        "label": "validate",
-       "does": "packer validate ."
+       "does": "packer validate .",
+       "cmd": "ide-packer-validate"
       },
       {
        "key": "P b",
        "label": "build",
-       "does": "packer build ."
+       "does": "packer build .",
+       "cmd": "ide-packer-build"
+      }
+     ]
+    },
+    {
+     "title": "Explore",
+     "items": [
+      {
+       "key": "d",
+       "label": "registry docs at point",
+       "does": "Open the registry documentation of the resource or data source at point in the browser",
+       "cmd": "ide-terraform-docs-at-point"
+      },
+      {
+       "key": "o",
+       "label": "outline (imenu)",
+       "does": "Jump to a place in the buffer chosen using a buffer menu or mouse menu",
+       "cmd": "imenu"
+      },
+      {
+       "key": "R",
+       "label": "restart terraform-ls",
+       "does": "restart terraform-ls",
+       "cmd": "eglot-reconnect"
       }
      ]
     }
@@ -2501,7 +2579,6 @@ make doctor</pre></div>
     "ide-rust-tree",
     "ide-rust-update",
     "ide-terraform-console",
-    "ide-terraform-dispatch",
     "ide-terraform-docs-at-point",
     "ide-terraform-fmt-check",
     "ide-terraform-providers",
@@ -2632,10 +2709,6 @@ make doctor</pre></div>
   {
    "file": "modules/11-languages/lang-go.el",
    "desc": "gopls, delve, gotest."
-  },
-  {
-   "file": "modules/11-languages/lang-iac.el",
-   "desc": "Terraform, HCL, Packer, iac-dispatch."
   },
   {
    "file": "modules/11-languages/lang-k8s.el",
@@ -4682,6 +4755,7 @@ make doctor</pre></div>
      "exe": "shfmt"
     }
    ],
+   "run": "S-<f10>",
    "groups": [
     {
      "title": "Run",
@@ -4920,7 +4994,7 @@ make doctor</pre></div>
    "summary": "Lint, validate, scan and explore; plan and apply live in the IaC menu.",
    "modes": ["terraform-mode"],
    "files": [],
-   "menu": "ide-terraform-dispatch",
+   "menu": "iac-dispatch",
    "open": "C-c m",
    "tools": [
     {
@@ -4932,6 +5006,10 @@ make doctor</pre></div>
      "exe": "terraform"
     },
     {
+     "role": "CLI",
+     "exe": "packer"
+    },
+    {
      "role": "Linter",
      "exe": "tflint"
     },
@@ -4940,22 +5018,52 @@ make doctor</pre></div>
      "exe": "trivy"
     }
    ],
+   "run": "S-<f10>",
    "groups": [
+    {
+     "title": "Terraform",
+     "items": [
+      {
+       "key": "i",
+       "label": "init",
+       "cmd": "ide-terraform-init",
+       "does": "Run `terraform init' at the project root, in the drawer"
+      },
+      {
+       "key": "p",
+       "label": "plan",
+       "cmd": "ide-terraform-plan",
+       "does": "Run `terraform plan' at the project root, in the drawer"
+      },
+      {
+       "key": "a",
+       "label": "apply",
+       "cmd": "ide-terraform-apply",
+       "does": "terraform apply at the project root (asks first)"
+      },
+      {
+       "key": "F",
+       "label": "fmt -recursive",
+       "cmd": "ide-terraform-fmt",
+       "does": "Run `terraform fmt -recursive' at the project root, in the drawer"
+      },
+      {
+       "key": "c",
+       "label": "console",
+       "cmd": "ide-terraform-console",
+       "does": "Open `terraform console' for this module in the drawer"
+      },
+      {
+       "key": "r",
+       "label": "providers",
+       "cmd": "ide-terraform-providers",
+       "does": "Show the provider requirements tree of this module"
+      }
+     ]
+    },
     {
      "title": "Lint / validate",
      "items": [
-      {
-       "key": "l",
-       "label": "tflint (module)",
-       "cmd": "ide-terraform-tflint",
-       "does": "Run tflint over the module of this file and show everything it finds in the drawer"
-      },
-      {
-       "key": "I",
-       "label": "tflint --init (plugins)",
-       "cmd": "ide-terraform-tflint-init",
-       "does": "Install the plugins named in .tflint.hcl (tflint --init; needs network) into the sandbox"
-      },
       {
        "key": "v",
        "label": "validate",
@@ -4969,6 +5077,24 @@ make doctor</pre></div>
        "does": "Show what `terraform fmt' would change in this module (diff), without changing anything"
       },
       {
+       "key": "l",
+       "label": "tflint (module)",
+       "cmd": "ide-terraform-tflint",
+       "does": "Run tflint over the module of this file and show everything it finds in the drawer"
+      },
+      {
+       "key": "I",
+       "label": "tflint --init (plugins)",
+       "cmd": "ide-terraform-tflint-init",
+       "does": "Install the plugins named in .tflint.hcl (tflint --init; needs network) into the sandbox"
+      },
+      {
+       "key": "t",
+       "label": "trivy config scan",
+       "cmd": "ide-terraform-trivy-config",
+       "does": "Scan this module for security misconfigurations (trivy config)"
+      },
+      {
        "key": "!",
        "label": "diagnostics list",
        "cmd": "flymake-show-buffer-diagnostics",
@@ -4977,13 +5103,25 @@ make doctor</pre></div>
      ]
     },
     {
-     "title": "Scan",
+     "title": "Packer",
      "items": [
       {
-       "key": "t",
-       "label": "trivy config scan",
-       "cmd": "ide-terraform-trivy-config",
-       "does": "Scan this module for security misconfigurations (trivy config)"
+       "key": "P i",
+       "label": "init",
+       "cmd": "ide-packer-init",
+       "does": "Run `packer init .' at the project root, in the drawer"
+      },
+      {
+       "key": "P v",
+       "label": "validate",
+       "cmd": "ide-packer-validate",
+       "does": "Run `packer validate .' at the project root, in the drawer"
+      },
+      {
+       "key": "P b",
+       "label": "build",
+       "cmd": "ide-packer-build",
+       "does": "Run `packer build .' at the project root, in the drawer"
       }
      ]
     },
@@ -4997,33 +5135,10 @@ make doctor</pre></div>
        "does": "Open the registry documentation of the resource or data source at point in the browser"
       },
       {
-       "key": "p",
-       "label": "providers",
-       "cmd": "ide-terraform-providers",
-       "does": "Show the provider requirements tree of this module"
-      },
-      {
-       "key": "c",
-       "label": "console",
-       "cmd": "ide-terraform-console",
-       "does": "Open `terraform console' for this module in the drawer"
-      },
-      {
        "key": "o",
        "label": "outline (imenu)",
        "cmd": "imenu",
        "does": "Jump to a place in the buffer chosen using a buffer menu or mouse menu"
-      }
-     ]
-    },
-    {
-     "title": "Run",
-     "items": [
-      {
-       "key": "x",
-       "label": "init / plan / apply ...",
-       "cmd": "iac-dispatch",
-       "does": "Run Terraform / Packer commands in the bottom drawer"
       },
       {
        "key": "R",
@@ -5051,6 +5166,7 @@ make doctor</pre></div>
      "exe": "dlv"
     }
    ],
+   "run": "S-<f10>",
    "groups": []
   },
   {
@@ -5081,6 +5197,7 @@ make doctor</pre></div>
      "exe": "uv"
     }
    ],
+   "run": "S-<f10>",
    "groups": []
   },
   {

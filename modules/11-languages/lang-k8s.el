@@ -1245,8 +1245,6 @@ lines otherwise."
     (ide-helm-install-dry-run)
     t))
 
-(add-hook 'ide-run-command-functions #'ide-k8s--run-command)
-(add-hook 'ide-debug-functions #'ide-k8s--debug)
 
 (defun ide-k8s--in-chart-p () (and (ide-k8s--yaml-buffer-p) (ide-helm-chart-root) t))
 (defun ide-k8s--is-gh-p () (eq (ide-k8s-file-kind) 'gh-workflow))
@@ -1292,7 +1290,8 @@ lines otherwise."
     ("D" "docs" ide-k8s-docs)
     ("R" "reconnect server" eglot-reconnect)]])
 
-(ide-lang-register-menu '(ide-helm-mode ide-helm-text-mode yaml-ts-mode yaml-mode) #'ide-k8s-dispatch)
+(ide-lang-register '(ide-helm-mode ide-helm-text-mode yaml-ts-mode yaml-mode)
+  :run #'ide-k8s--run-command :debug #'ide-k8s--debug :menu #'ide-k8s-dispatch)
 
 (provide 'lang-k8s)
 ;;; lang-k8s.el ends here

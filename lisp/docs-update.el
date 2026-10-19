@@ -371,20 +371,24 @@ concatenate, search and parse the result."
      :run (ide-markdown--run-command))
     (ide-bash-dispatch :id "bash" :name "Bash"
      :summary "Run, check, format and explain shell scripts."
-     :tools (("Language server" "bash-language-server") ("Linter" "shellcheck") ("Formatter" "shfmt")))
+     :tools (("Language server" "bash-language-server") ("Linter" "shellcheck") ("Formatter" "shfmt"))
+     :run (ide-bash--run-command))
     (ide-dockerfile-dispatch :id "dockerfile" :name "Dockerfile and Compose"
      :summary "Build, run, scan and lint images; Compose actions."
      :tools (("Language server" "docker-langserver") ("Linter" "hadolint") ("Scanner" "trivy"))
      :run (ide-dockerfile--run-command))
-    (ide-terraform-dispatch :id "terraform" :name "Terraform"
-     :summary "Lint, validate, scan and explore; plan and apply live in the IaC menu."
-     :tools (("Language server" "terraform-ls") ("CLI" "terraform") ("Linter" "tflint") ("Scanner" "trivy")))
+    (iac-dispatch :id "terraform" :name "Terraform and Packer"
+     :summary "Init, plan and apply, lint, validate, scan and explore; Packer init, validate and build."
+     :tools (("Language server" "terraform-ls") ("CLI" "terraform" "packer") ("Linter" "tflint") ("Scanner" "trivy"))
+     :run (ide-terraform--run-command))
     (go :id "go" :name "Go" :modes (go-ts-mode go-mod-ts-mode) :files (".go" "go.mod")
      :summary "gopls, goimports on save, go-test in the drawer and Delve debugging (no language menu)."
-     :tools (("Language server" "gopls") ("Debugger" "dlv")))
+     :tools (("Language server" "gopls") ("Debugger" "dlv"))
+     :run (ide-go--run-command))
     (python :id "python" :name "Python" :modes (python-ts-mode python-mode) :files (".py")
      :summary "Pyright and Ruff, pytest in the drawer, debugpy, automatic virtualenvs (no language menu)."
-     :tools (("Language server" "pyright-langserver") ("Formatter" "ruff") ("Linter" "ruff") ("Runtime" "python" "uv")))
+     :tools (("Language server" "pyright-langserver") ("Formatter" "ruff") ("Linter" "ruff") ("Runtime" "python" "uv"))
+     :run (ide-python--run-command))
     (ansible :id "ansible" :name "Ansible" :modes (yaml-ts-mode) :files ("playbooks/, roles/, group_vars/")
      :summary "Ansible minor mode on YAML, ansible-doc and ansible-language-server (no language menu)."
      :tools (("Language server" "ansible-language-server") ("CLI" "ansible"))))
