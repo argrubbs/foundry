@@ -112,7 +112,11 @@
 t (always) or nil (only on M-x eglot)."
   :type '(choice (const auto) (const t) (const nil)))
 
-(defcustom ide-markdown-format-on-save t "Format Markdown buffers with prettier on save." :type 'boolean)
+(defcustom ide-markdown-format-on-save nil
+  "Format Markdown buffers with prettier on save.
+Off by default: it rewrites other people's READMEs.  `ide-markdown-toggle-format-on-save'
+turns it on for a buffer; `C-c l f' formats on demand."
+  :type 'boolean)
 
 (defcustom ide-markdown-spell-on-open nil "Turn Flyspell on in Markdown buffers." :type 'boolean)
 
@@ -121,10 +125,9 @@ t (always) or nil (only on M-x eglot)."
 
 ;;;; Mode, server, formatting -------------------------------------------------------------------
 
-;; 05-treesitter remaps markdown-mode to markdown-ts-mode; see the commentary for why not.
-;; Emacs 31 does not autoload markdown-ts-mode: make M-x markdown-ts-mode work.
+;; markdown-mode stays the major mode (see the commentary).  Emacs 31 does not
+;; autoload markdown-ts-mode: make M-x markdown-ts-mode work.
 (autoload 'markdown-ts-mode "markdown-ts-mode" nil t)
-(setq major-mode-remap-alist (assq-delete-all 'markdown-mode major-mode-remap-alist))
 
 (use-package markdown-toc :commands markdown-toc-generate-or-refresh-toc)
 
@@ -1294,7 +1297,7 @@ first with M-x ide-lang-trust-project."
     ("N" "rename (LSP)" eglot-rename)
     ("D" "references" xref-find-references)
     ("C" "TOC code action (LSP)" ide-markdown-lsp-toc)
-    ("X" "restart server" eglot-reconnect)
+    ("V" "restart server" eglot-reconnect)
     ("U" "trust project (enables lint)" ide-lang-trust-project)]])
 
 (ide-lang-register '(markdown-mode gfm-mode markdown-ts-mode)

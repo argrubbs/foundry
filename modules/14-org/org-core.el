@@ -26,7 +26,7 @@
   :config
   (require 'org-tempo)
   (dolist (tpl '(("py" . "src python") ("go" . "src go") ("sh" . "src bash")
-                 ("tf" . "src terraform") ("sq" . "src sql") ("http" . "src restclient")
+                 ("tf" . "src terraform") ("http" . "src restclient")
                  ("yml" . "src yaml") ("json" . "src json")))
     (add-to-list 'org-structure-template-alist tpl)))
 
@@ -49,7 +49,7 @@
           ("t" "Task" entry (file+headline "tasks.org" "Tasks")
            "* TODO %?\n  %U\n")
           ("s" "Code snippet" entry (file+headline "snippets.org" "Snippets")
-           "* %?\n  %U\n  #+begin_src %^{language|python|go|bash|terraform|sql}\n  %i\n  #+end_src\n")
+           "* %?\n  %U\n  #+begin_src %^{language|python|go|bash|terraform}\n  %i\n  #+end_src\n")
           ("p" "Post-mortem" entry (file+headline "postmortems.org" "Post-mortems")
            "* %^{Incident} :postmortem:\n  %U\n** Summary\n   %?\n** Impact\n** Timeline\n** Root cause\n** Action items\n"))))
 

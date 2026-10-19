@@ -28,9 +28,7 @@
         (markdown   "https://github.com/tree-sitter-grammars/tree-sitter-markdown" "split_parser"
                     "tree-sitter-markdown/src")
         (markdown-inline "https://github.com/tree-sitter-grammars/tree-sitter-markdown" "split_parser"
-                         "tree-sitter-markdown-inline/src")
-        (sql        "https://github.com/DerekStride/tree-sitter-sql"
-                    "gh-pages")))
+                         "tree-sitter-markdown-inline/src")))
 
 (setq treesit-font-lock-level 4)
 

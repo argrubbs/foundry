@@ -93,9 +93,13 @@ When SAVE is non-nil, save the buffer first.  Returns `buffer-file-name'."
   "Run COMMAND (a string, or a list of arguments) in the drawer as *run: NAME*.
 It runs in DIR (default: the project root).  Modified project buffers are saved
 first.  With COMINT the buffer accepts input, for programs that read stdin."
-  (let ((default-directory (file-name-as-directory (or dir (ide-lang-root))))
-        (compilation-buffer-name-function (lambda (_mode) (format "*run: %s*" name)))
-        (compilation-ask-about-save nil))
+  (let* ((default-directory (file-name-as-directory (or dir (ide-lang-root))))
+         (root default-directory)
+         (compilation-buffer-name-function (lambda (_mode) (format "*run: %s*" name)))
+         (compilation-ask-about-save nil)
+         ;; Only this project's files, not every modified buffer in Emacs.
+         (compilation-save-buffers-predicate
+          (lambda () (and buffer-file-name (file-in-directory-p buffer-file-name root)))))
     (compile (ide-lang--command-string command) comint)))
 
 (defun ide-lang-exe-or-error (name &optional hint)

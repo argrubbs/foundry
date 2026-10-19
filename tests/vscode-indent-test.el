@@ -186,17 +186,36 @@ TEXT marks point with `|'."
     (vsi-tab)
     (should (equal "function f() {\n        |" (vsi-test--text)))))
 
+(ert-deftest vsi-tab-after-a-word-completes ()
+  (let (completed (vsi-tab-completes t))
+    (cl-letf (((symbol-function 'completion-at-point) (lambda () (setq completed t))))
+      (vsi-test--buffer js-mode 'javascript 4 "ab|c"
+        (vsi-tab)
+        (should completed)
+        (should (equal "ab|c" (vsi-test--text))))
+      ;; Not inside a string, and not after whitespace or punctuation.
+      (setq completed nil)
+      (vsi-test--buffer js-mode 'javascript 4 "f(\"ab|\")"
+        (vsi-tab)
+        (should-not completed))
+      (vsi-test--buffer js-mode 'javascript 4 "f(|)"
+        (vsi-tab)
+        (should-not completed)
+        (should (equal "f(  |)" (vsi-test--text)))))))
+
 (ert-deftest vsi-tab-mid-line-moves-to-the-next-stop ()
-  (vsi-test--buffer js-mode 'javascript 4 "ab|c"
-    (vsi-tab)
-    (should (equal "ab  |c" (vsi-test--text)))
-    (vsi-tab)
-    (should (equal "ab      |c" (vsi-test--text)))))
+  (let ((vsi-tab-completes nil))
+    (vsi-test--buffer js-mode 'javascript 4 "ab|c"
+      (vsi-tab)
+      (should (equal "ab  |c" (vsi-test--text)))
+      (vsi-tab)
+      (should (equal "ab      |c" (vsi-test--text))))))
 
 (ert-deftest vsi-tab-does-not-reindent-the-line ()
-  (vsi-test--buffer js-mode 'javascript 4 "function f() {\n        foo|();\n}"
-    (vsi-tab)
-    (should (equal "function f() {\n        foo |();\n}" (vsi-test--text)))))
+  (let ((vsi-tab-completes nil))
+    (vsi-test--buffer js-mode 'javascript 4 "function f() {\n        foo|();\n}"
+      (vsi-tab)
+      (should (equal "function f() {\n        foo |();\n}" (vsi-test--text))))))
 
 (ert-deftest vsi-tab-shifts-selected-lines ()
   (vsi-test--buffer js-mode 'javascript 4 "|a\nb\n\nc"

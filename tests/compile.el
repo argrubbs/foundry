@@ -19,8 +19,11 @@
                       (directory-files-recursively (expand-file-name "lisp/" root) "\\.el\\'")))
        (byte-compile-error-on-warn t)
        (failed nil))
-  (dolist (f files)
-    (let ((elc (concat f "c"))) (when (file-exists-p elc) (delete-file elc))))
+  ;; Start clean, and drop compiled files whose source is gone (they are on the
+  ;; load-path and would otherwise serve stale code forever).
+  (dolist (elc (append (directory-files-recursively (expand-file-name "modules/" root) "\\.elc\\'")
+                       (directory-files-recursively (expand-file-name "lisp/" root) "\\.elc\\'")))
+    (delete-file elc))
   (dolist (f files)
     ;; `byte-compile-file' returns `no-byte-compile' for files that opt out (init.el).
     (unless (byte-compile-file f) (push f failed)))

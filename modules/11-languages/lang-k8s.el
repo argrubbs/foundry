@@ -545,7 +545,8 @@ parent), so every file seen is also registered by its absolute path.")
                                             (vconcat (cdr s))))))
       `(:schemas ,schemas :validate t :hover t :completion t
         :schemaStore (:enable t :url "https://www.schemastore.org/api/json/catalog.json")
-        :format (:enable t)))))
+        ;; No formatting: with Eglot's format-on-save it would rewrite every YAML file.
+        :format (:enable :json-false)))))
 
 (defun ide-k8s--apply-yaml-settings ()
   "Store the merged `yaml' settings, keeping any keys other modules added."

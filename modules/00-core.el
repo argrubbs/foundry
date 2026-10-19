@@ -55,12 +55,11 @@
 
 (setq sh-basic-offset 2
       json-ts-mode-indent-offset 2
-      typescript-ts-mode-indent-offset 2
+      typescript-ts-indent-offset 2
       js-indent-level 2
       css-indent-offset 2
       html-ts-indent-offset 2
-      lua-ts-mode-indent-offset 2
-      dockerfile-ts-mode-indent-offset 2
+      lua-ts-indent-offset 2
       yaml-indent-offset 2
       terraform-indent-level 2
       hcl-indent-level 2)

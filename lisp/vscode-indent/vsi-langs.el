@@ -269,7 +269,7 @@ or `until'."
 
 (vsi-define-language 'shell :modes '(sh-mode bash-ts-mode) :offset-vars '(sh-basic-offset))
 (vsi-define-language 'powershell :modes '(powershell-mode))
-(vsi-define-language 'markdown :modes '(markdown-mode gfm-mode))
+;; Not Markdown: markdown-mode's own TAB (heading cycling, list indentation) is worth more.
 (vsi-define-language 'toml :modes '(toml-ts-mode conf-toml-mode))
 (vsi-define-language 'terraform :modes '(terraform-mode hcl-mode))
 

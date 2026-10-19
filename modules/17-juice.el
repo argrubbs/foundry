@@ -27,9 +27,6 @@
 
 (defvar ide-keys-mode-map)
 (defvar consult-themes)
-(defvar doom-modeline-hud)
-(defvar doom-modeline-bar-width)
-(defvar doom-modeline-height)
 (defvar pulsar-delay)
 (defvar pulsar-iterations)
 (defvar pulsar-pulse-on-window-change)
@@ -114,10 +111,7 @@ Called by 01-ui so the first themed frame is already the right one."
           window-divider-default-bottom-width 1)
     (window-divider-mode 1))
 
-  ;; Modeline
-  (setq doom-modeline-hud t
-        doom-modeline-bar-width 5
-        doom-modeline-height 30)
+  ;; Modeline: 01-ui sizes it from IDE_NO_JUICE.
 
   ;; Cursorline
   (setq global-hl-line-modes '(prog-mode text-mode conf-mode dired-mode))
@@ -127,10 +121,9 @@ Called by 01-ui so the first themed frame is already the right one."
   (when (display-graphic-p)
     (pixel-scroll-precision-mode 1))
 
-  ;; Visual bell
-  (use-package doom-themes-ext-visual-bell
-    :ensure nil
-    :config (doom-themes-visual-bell-config))
+  ;; Visual bell (flash the modeline instead of beeping)
+  (with-eval-after-load 'doom-themes
+    (doom-themes-visual-bell-config))
 
   ;; Pulse
   (use-package pulsar

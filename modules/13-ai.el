@@ -17,6 +17,11 @@
   "Backend for inline completion: `ollama', `gemini' or `openai-fim'."
   :type '(choice (const ollama) (const gemini) (const openai-fim)))
 
+(defcustom ide-ai-inline-completion nil
+  "Start ghost-text inline completion (minuet) in every programming buffer.
+Off by default; `ide-ai-toggle-inline-completion' (C-c a t) switches it on and off."
+  :type 'boolean)
+
 (defcustom ide-ai-ollama-model "qwen2.5-coder:7b" "Ollama FIM model." :type 'string)
 (defcustom ide-ai-ollama-host "http://localhost:11434" "Ollama base URL." :type 'string)
 (defcustom ide-ai-gemini-model "gemini-2.0-flash" "Gemini model for inline completion." :type 'string)
@@ -74,7 +79,8 @@
         minuet-n-completions 1
         minuet-request-timeout 6
         minuet-context-window 2048
-        minuet-show-error-message-on-minibuffer t)
+        ;; An unreachable model must not nag after every pause in typing.
+        minuet-show-error-message-on-minibuffer nil)
   :config
   (ide-ai-apply-fim-backend)
   (add-to-list 'minuet-auto-suggestion-block-predicates
@@ -393,9 +399,24 @@ WHOLE-BUFFER non-nil means the entire buffer is about to be sent."
       (user-error "Cancelled"))))
 
 (defun ide-ai--maybe-enable-minuet ()
-  "Turn on inline suggestions, except in private buffers while a hosted model is used."
-  (unless (and (ide-ai-fim-hosted-p) (ide-ai-private-buffer-p))
+  "Turn on inline suggestions when wanted, except in private buffers with a hosted model."
+  (when (and ide-ai-inline-completion
+             (not (and (ide-ai-fim-hosted-p) (ide-ai-private-buffer-p))))
     (minuet-auto-suggestion-mode 1)))
+
+;;;###autoload
+(defun ide-ai-toggle-inline-completion ()
+  "Switch ghost-text inline completion on or off, in this and every programming buffer."
+  (interactive)
+  (setq ide-ai-inline-completion (not ide-ai-inline-completion))
+  (dolist (b (buffer-list))
+    (with-current-buffer b
+      (when (derived-mode-p 'prog-mode)
+        (if ide-ai-inline-completion
+            (ide-ai--maybe-enable-minuet)
+          (when (bound-and-true-p minuet-auto-suggestion-mode)
+            (minuet-auto-suggestion-mode -1))))))
+  (message "Inline completion %s" (if ide-ai-inline-completion "on" "off")))
 
 (defun ide-ai--disable-minuet-in-private-buffers ()
   "After switching to a hosted completion backend, stop suggestions in private buffers."

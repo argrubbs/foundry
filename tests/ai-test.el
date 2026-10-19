@@ -360,8 +360,14 @@
     (should-error (gptel-add-file "/p/.env") :type 'user-error)
     (ai-test--private-buffer (should-error (gptel-add) :type 'user-error))))
 
+(ert-deftest ai-inline-completion-is-opt-in ()
+  (let (calls (ide-ai-inline-completion nil))
+    (cl-letf (((symbol-function 'minuet-auto-suggestion-mode) (lambda (arg) (push arg calls))))
+      (with-temp-buffer (ide-ai--maybe-enable-minuet))
+      (should-not calls))))
+
 (ert-deftest ai-inline-completion-skips-private-buffers-on-hosted-backends ()
-  (let (calls (ide-ai-fim-backend 'gemini))
+  (let (calls (ide-ai-fim-backend 'gemini) (ide-ai-inline-completion t))
     (cl-letf (((symbol-function 'minuet-auto-suggestion-mode) (lambda (arg) (push arg calls))))
       (ai-test--private-buffer (ide-ai--maybe-enable-minuet))
       (should-not calls)

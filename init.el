@@ -103,7 +103,6 @@
   (let ((base (file-name-base file)))
     (cond
      ((string= base "00-lang-lib") 'lang-lib)
-     ((string= base "org-roam") 'ide-org-roam)
      (t (intern base)))))
 
 (dolist (file (ide--module-files))

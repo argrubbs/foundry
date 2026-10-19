@@ -40,6 +40,12 @@
   "When non-nil, guess a file's indentation size when `vscode-indent-mode' starts."
   :type 'boolean :group 'vscode-indent)
 
+(defcustom vsi-tab-completes t
+  "When non-nil, TAB right after a word completes it (`completion-at-point').
+Elsewhere TAB indents as in VS Code.  This is what `tab-always-indent' set to
+`complete' gives in modes that indent their own way."
+  :type 'boolean :group 'vscode-indent)
+
 (defcustom vsi-auto-indent-on-paste nil
   "When non-nil, re-indent yanked text, like `editor.autoIndentOnPaste'."
   :type 'boolean :group 'vscode-indent)
@@ -257,9 +263,14 @@ Right, or left if UNSHIFT.  A port of VS Code's `ShiftCommand'."
 (defun vsi-tab ()
   "Indent like VS Code's Tab.
 On a blank line, go to where code belongs.  With a selection of several lines,
-indent them all.  Anywhere else, move to the next indentation stop."
+indent them all.  Right after a word, complete it (see `vsi-tab-completes').
+Anywhere else, move to the next indentation stop."
   (interactive "*")
   (cond
+   ((and vsi-tab-completes (not (use-region-p))
+         (looking-back "\\(?:\\sw\\|\\s_\\)" (1- (point)))
+         (not (vsi--in-string-or-comment-p (1- (point)))))
+    (completion-at-point))
    ((and (use-region-p)
          (or (/= (line-number-at-pos (region-beginning)) (line-number-at-pos (region-end)))
              (save-excursion (goto-char (region-beginning))

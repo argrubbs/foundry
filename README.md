@@ -87,6 +87,10 @@ Notes:
 - Debuggers are downloaded on demand: `M-x ide-rust-install-debugger`, `M-x ide-web-install-debugger`,
   `M-x ide-powershell-install-pses`.
 - Not included yet: Nix, and Lua debugging.
+- Formatting on save is on for languages whose formatter is canonical (Go, Rust, Python, Lua, TOML,
+  shell, web). It is off for Markdown (prettier), YAML and PowerShell, where it would rewrite other
+  people's files; `C-c l f` formats any buffer on demand.
+- TAB after a word completes it; elsewhere it indents like VS Code (`lisp/vscode-indent`).
 - Known gaps: `kubectl` apply and diff need
   a reachable cluster. `kind` is installed for a throwaway local one.
 
@@ -107,7 +111,8 @@ and **ansible-xref** (`lisp/ansible-xref.el`), a small xref backend that follows
 
 ## AI
 
-- Inline ghost-text completion: minuet (Ollama by default; `M-x ide-ai-switch-backend`).
+- Inline ghost-text completion: minuet (Ollama by default; `M-x ide-ai-switch-backend`). Off until
+  you turn it on with `C-c a t` (`ide-ai-toggle-inline-completion`), or set `ide-ai-inline-completion`.
 - Chat and region actions: gptel (`C-c a i`, `C-c a r`, `C-c a c`).
 - Privacy: files that look like secrets (`.env`, `*.tfvars`, keys, kubeconfig, `*secrets*.yaml`; see
   `ide-ai-private-file-regexps`) are never sent to hosted models, whole-buffer sends to them ask first, and

@@ -136,8 +136,9 @@ The session-details and log files live under var/tools/pwsh/log/."
 (ide-lang-workspace-config
  :powershell
  `(:scriptAnalysis (:enable t)
-   :codeFormatting (:preset ,ide-powershell-format-preset :autoCorrectAliases t
-                    :useCorrectCasing t :trimWhitespaceAroundPipe t)
+   ;; Formatting fixes layout only; it never rewrites aliases (ls -> Get-ChildItem) or casing.
+   :codeFormatting (:preset ,ide-powershell-format-preset :autoCorrectAliases :json-false
+                    :useCorrectCasing :json-false :trimWhitespaceAroundPipe t)
    :enableProfileLoading :json-false
    :pester (:useLegacyCodeLens :json-false)))
 

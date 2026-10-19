@@ -339,7 +339,7 @@ while the core and user manifests still merge."
   (should (eq (key-binding (kbd "C-c w 7")) 'ide-toggle-structure))
   (should (eq (key-binding (kbd "C-c w 9")) 'magit-status))
   (should (eq (key-binding (kbd "M-.")) 'xref-find-definitions))
-  (should (eq (lookup-key prog-mode-map (kbd "M-RET")) 'eglot-code-actions))
+  (should (eq (lookup-key prog-mode-map (kbd "M-RET")) 'ide-code-actions))
   (should (eq (key-binding (kbd "C-c d o")) 'azdo-dispatch)))
 
 (ert-deftest test-mise-helpers ()

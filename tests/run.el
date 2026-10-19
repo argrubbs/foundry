@@ -2,7 +2,7 @@
 
 ;;; Commentary:
 ;;   emacs --init-directory . --batch -l init.el -l tests/run.el
-;; Pass a selector as the last argument to run a subset, e.g. `-- "^sql-"'.
+;; Pass a selector as the last argument to run a subset, e.g. `-- "^vsi-"'.
 
 ;;; Code:
 

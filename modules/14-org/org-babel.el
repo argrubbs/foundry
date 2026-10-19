@@ -18,7 +18,7 @@
 (with-eval-after-load 'org
   (org-babel-do-load-languages
    'org-babel-load-languages
-   (append '((python . t) (shell . t) (sql . t) (js . t) (emacs-lisp . t))
+   (append '((python . t) (shell . t) (js . t) (emacs-lisp . t))
            (cl-loop for (lang . feat) in '((go . ob-go) (restclient . ob-restclient))
                     when (locate-library (symbol-name feat))
                     collect (cons lang t))))

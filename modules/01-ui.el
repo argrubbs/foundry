@@ -26,7 +26,10 @@
 (use-package doom-modeline
   :demand t
   :init
-  (setq doom-modeline-height 26
+  ;; Taller, with the HUD, unless the visual polish is off (17-juice).
+  (setq doom-modeline-height (if (ide-env-flag-p "IDE_NO_JUICE") 26 30)
+        doom-modeline-hud (not (ide-env-flag-p "IDE_NO_JUICE"))
+        doom-modeline-bar-width (if (ide-env-flag-p "IDE_NO_JUICE") 4 5)
         doom-modeline-buffer-encoding t
         doom-modeline-vcs-max-length 24
         doom-modeline-env-version t

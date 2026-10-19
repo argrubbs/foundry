@@ -154,15 +154,23 @@ returns non-nil, or returns nil to leave it to the next one.")
     (define-key m (kbd "C-c a r") #'ide-ai-region-action)
     (define-key m (kbd "C-c a a") #'ide-ai-agent)
     (define-key m (kbd "C-c a c") #'ide-ai-add-project-context)
+    (define-key m (kbd "C-c a t") #'ide-ai-toggle-inline-completion)
     (define-key m (kbd "C-c o r") #'org-roam-node-find)
     (define-key m (kbd "C-c o i") #'org-roam-node-insert)
     (define-key m (kbd "C-c o b") #'org-roam-buffer-toggle)
     m)
   "Keymap of `ide-keys-mode'.")
 
+(defun ide-code-actions ()
+  "Offer the language server's code actions at point."
+  (interactive)
+  (if (bound-and-true-p eglot--managed-mode)
+      (call-interactively #'eglot-code-actions)
+    (message "No language server in this buffer (M-x eglot starts one)")))
+
 ;; Code actions live on M-RET in programming modes only, so Org, Markdown and
 ;; comint keep their own M-RET.
-(define-key prog-mode-map (kbd "M-RET") #'eglot-code-actions)
+(define-key prog-mode-map (kbd "M-RET") #'ide-code-actions)
 
 (defgroup ide-keys nil "IDE-style keybindings." :group 'convenience)
 

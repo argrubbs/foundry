@@ -65,15 +65,9 @@
   (unless (file-exists-p ide-docs-file) (user-error "No documentation at %s" ide-docs-file))
   (ide-docs--show (ide-docs--url "keys" query)))
 
-;;;###autoload
-(defun ide-docs-update (&optional dry-run)
-  "Update the documentation page deterministically from the live config and docstrings."
-  (interactive "P")
-  (require 'docs-update)
-  (ide-docs-update dry-run))
-
-;;;###autoload
-(defalias 'ide-docs-update-facts-only #'ide-docs-update)
+;; The updater is lisp/docs-update.el; it defines both commands.
+(autoload 'ide-docs-update "docs-update" nil t)
+(autoload 'ide-docs-update-facts-only "docs-update" nil t)
 
 ;;;; Keys ---------------------------------------------------------------------
 
