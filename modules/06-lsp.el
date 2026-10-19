@@ -18,6 +18,9 @@
         eglot-extend-to-xref t
         eglot-report-progress nil)
   :config
+  ;; Servers that register capabilities Eglot lacks (tsgo: didChangeConfiguration)
+  ;; would pop *Warnings* on every open; log such warnings without showing them.
+  (dolist (type '((eglot) (jsonrpc))) (add-to-list 'warning-suppress-types type))
   (add-hook 'eglot-managed-mode-hook #'eglot-inlay-hints-mode)
   (setq-default eglot-workspace-configuration
                 '(:gopls (:staticcheck t :usePlaceholders t

@@ -108,7 +108,12 @@ For tools you add under user/: they then behave like the built-in ones."
   (setq imenu-list-position 'right
         imenu-list-size 30
         imenu-list-focus-after-activation nil
-        imenu-list-auto-resize nil))
+        imenu-list-auto-resize nil)
+  :config
+  ;; The package installs its own split-window rule ahead of ours when it loads;
+  ;; drop it so the outline is a side window like the other tool windows.
+  (setq display-buffer-alist
+        (cl-remove-if (lambda (e) (eq (cadr e) 'imenu-list-display-buffer)) display-buffer-alist)))
 
 (defun ide-toggle-project-tree ()
   "Toggle the left project tree and focus it."

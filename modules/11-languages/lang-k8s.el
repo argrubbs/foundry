@@ -39,6 +39,7 @@
 (declare-function ide--ansible-file-p "lang-ansible")
 (declare-function eglot-current-server "eglot")
 (declare-function eglot-reconnect "eglot")
+(declare-function eglot--major-modes "eglot")
 (eval-when-compile (require 'treesit nil t))
 (declare-function kubel "kubel")
 (declare-function yaml-mode "yaml-mode")
@@ -464,6 +465,17 @@ any other templates/ file keeps the plain YAML mode."
   (if-let* ((exe (ide-helm-ls-program)))
       (append '("env") (ide-k8s--env) (list exe "serve"))
     (user-error "helm-ls not found; run M-x ide-mise-setup")))
+
+(define-advice eglot-shutdown (:around (fn server &rest args) ide-helm--tolerate-bad-shutdown-reply)
+  "helm-ls answers the shutdown request with an error that has no code, which
+makes Eglot signal `wrong-type-argument' on every close of the last template
+buffer.  The server is killed either way; swallow that one error for helm-ls."
+  (condition-case err
+      (apply fn server args)
+    (wrong-type-argument
+     (if (memq 'ide-helm-mode (eglot--major-modes server))
+         (message "helm-ls sent a malformed shutdown reply; server stopped anyway")
+       (signal (car err) (cdr err))))))
 
 (defun ide-helm--project-find (dir)
   "A project rooted at the chart of DIR, for charts outside any VCS project.

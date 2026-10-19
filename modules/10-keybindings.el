@@ -32,10 +32,14 @@
           (t (popper-toggle)))))
 
 (defun ide-toggle-problems ()
-  "Toggle the Problems (diagnostics) drawer."
+  "Toggle the Problems (diagnostics) drawer for this buffer.
+With nothing to list, say so instead of raising an error, as Flymake would."
   (interactive)
   (let ((win (get-buffer-window (format "*Flymake diagnostics for `%s'*" (buffer-name)))))
-    (if win (delete-window win) (flymake-show-buffer-diagnostics))))
+    (cond (win (delete-window win))
+          ((not (bound-and-true-p flymake-mode)) (message "No diagnostics: Flymake is off in this buffer"))
+          ((null (flymake-diagnostics)) (message "No problems in %s" (buffer-name)))
+          (t (flymake-show-buffer-diagnostics)))))
 
 (defun ide-search-everywhere ()
   "Search files in the project (or buffers when outside one)."
