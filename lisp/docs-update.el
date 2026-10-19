@@ -48,7 +48,7 @@
 (defvar ide-docs-contextual-maps
   '((minuet-active-mode-map minuet ".")
     (corfu-map corfu "\\`corfu-insert\\'")
-    (prog-mode-map prog-mode "\\`eglot-code-actions\\'")
+    (prog-mode-map prog-mode "\\`ide-code-actions\\'")
     (magit-status-mode-map devops-azdo-magit "\\`azdo-")
     (magit-azdo-pr-section-map devops-azdo-magit ".")
     (magit-azdo-wi-section-map devops-azdo-magit ".")

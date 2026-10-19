@@ -10,15 +10,6 @@
 
 (eval-when-compile (require 'eglot))
 
-(use-package ansible
-  :commands ansible
-  :hook (yaml-ts-mode . ide--maybe-ansible))
-
-(use-package ansible-doc
-  :commands (ansible-doc ansible-doc-mode)
-  :hook (yaml-ts-mode . ansible-doc-mode)
-  :init (setq ansible-doc-buffer-name "*ansible-doc*"))
-
 (defun ide--ansible-file-p ()
   "Non-nil if the current buffer looks like an Ansible file.
 Matches by path (playbooks, roles, vars directories) or, failing that, by a
@@ -47,6 +38,8 @@ top-level play or task key near the top of the file."
 (defun ide--maybe-ansible ()
   "Enable `ansible' minor mode for Ansible-looking YAML buffers."
   (when (and (ide--ansible-file-p) (fboundp 'ansible)) (ansible 1)))
+
+(add-hook 'yaml-ts-mode-hook #'ide--maybe-ansible)
 
 (with-eval-after-load 'eglot
   (add-to-list 'eglot-server-programs

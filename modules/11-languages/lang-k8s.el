@@ -421,6 +421,8 @@ because YAML formatters do not understand {{ }}."
   (ide-helm--setup))
 (set-keymap-parent ide-helm-text-mode-map ide-helm-mode-map)
 
+;; 01-lang-modes.el puts chart templates on this function and remaps yaml-mode
+;; and k8s-mode through the two below.
 (defun ide-helm-auto-mode ()
   "Choose the mode of a file under a templates/ directory.
 A chart's template gets `ide-helm-mode' (YAML) or `ide-helm-text-mode' (.tpl, .txt);
@@ -430,9 +432,6 @@ any other templates/ file keeps the plain YAML mode."
           ((ide-helm--template-file-p file) (ide-helm-text-mode))
           ((string-match-p "\\.ya?ml\\'" file) (yaml-ts-mode))
           (t (text-mode)))))
-
-(add-to-list 'auto-mode-alist '("/templates/.*\\.\\(ya?ml\\|tpl\\|txt\\)\\'" . ide-helm-auto-mode))
-(add-to-list 'auto-mode-alist '("/_[^/]*\\.tpl\\'" . ide-helm-auto-mode))
 
 (add-hook 'ide-helm-mode-hook #'eglot-ensure)
 (add-hook 'ide-helm-text-mode-hook #'eglot-ensure)
@@ -446,7 +445,6 @@ any other templates/ file keeps the plain YAML mode."
       (ide-helm-auto-mode)
     (k8s-mode)))
 (declare-function k8s-mode "k8s-mode")
-(add-to-list 'major-mode-remap-alist '(k8s-mode . ide-k8s--remap-k8s-mode))
 
 ;; The yaml-mode package registers \.ya?ml\' ahead of every entry added before it
 ;; loads, and 05-treesitter remaps yaml-mode to yaml-ts-mode; remap it once more so
@@ -455,7 +453,6 @@ any other templates/ file keeps the plain YAML mode."
   "Start `ide-helm-mode' for chart templates, `yaml-ts-mode' for any other YAML."
   (if (ide-helm--template-file-p) (ide-helm-auto-mode) (yaml-ts-mode)))
 (declare-function yaml-ts-mode "yaml-ts-mode")
-(add-to-list 'major-mode-remap-alist '(yaml-mode . ide-k8s--remap-yaml-mode))
 (add-hook 'k8s-mode-hook #'eglot-ensure)
 (add-hook 'k8s-mode-hook (lambda () (setq-local tab-width 2)))
 

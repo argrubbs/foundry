@@ -314,6 +314,27 @@ workspace configuration, keeping what other languages put there."
     (dolist (mode (if (listp modes) modes (list modes)))
       (setf (alist-get mode apheleia-mode-alist) name))))
 
+(defvar ide-lang-lazy-modules nil
+  "Alist (FEATURE . MODES): language modules and the major modes that load them.")
+
+(defun ide-lang-lazy (feature modes)
+  "Load FEATURE, a lang-*.el module, the first time one of MODES starts.
+The load happens before the mode's body, so hooks the module adds run for that
+buffer too.  In batch runs the module loads right away."
+  (push (cons feature modes) ide-lang-lazy-modules)
+  (if noninteractive
+      (require feature)
+    (dolist (mode modes)
+      (advice-add mode :before
+                  (lambda (&rest _)
+                    (dolist (m modes) (advice-remove m feature))
+                    (condition-case err
+                        (require feature)
+                      (error (display-warning
+                              'ide (format "Module %s failed: %s" feature (error-message-string err))
+                              :error))))
+                  `((name . ,feature) (depth . -100))))))
+
 (cl-defun ide-lang-register (modes &key run debug menu)
   "Register RUN and DEBUG hook functions and MENU for MODES."
   (when menu (ide-lang-register-menu modes menu))

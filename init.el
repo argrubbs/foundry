@@ -90,11 +90,15 @@
 (add-to-list 'load-path (expand-file-name "11-languages" ide-modules-directory))
 
 (defun ide--module-files ()
-  "Return module files in load order."
+  "Return module files in load order.
+Language modules (11-languages/lang-*.el) are left out: 01-lang-modes.el loads
+each one the first time a file of that language is opened."
   (let (files)
     (dolist (f (directory-files ide-modules-directory t "\\`[0-9][0-9]-.*"))
       (if (file-directory-p f)
-          (setq files (append files (directory-files f t "\\.el\\'")))
+          (setq files (append files
+                              (seq-remove (lambda (file) (string-prefix-p "lang-" (file-name-nondirectory file)))
+                                          (directory-files f t "\\.el\\'"))))
         (when (string-suffix-p ".el" f) (setq files (append files (list f))))))
     files))
 

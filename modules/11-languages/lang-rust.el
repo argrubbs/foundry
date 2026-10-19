@@ -42,7 +42,6 @@
 ;;;; Mode and server ------------------------------------------------------------------
 
 (ide-lang-setup 'rust-ts-mode
-  :auto-mode "\\.rs\\'"
   :server '("rust-analyzer")
   :tab-width 4
   :indent-tabs nil

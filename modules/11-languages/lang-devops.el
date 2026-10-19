@@ -147,9 +147,6 @@ Uses ghostel when installed, otherwise a comint compilation in the drawer."
 
 ;;;; TOML ----------------------------------------------------------------------------------
 
-(add-to-list 'auto-mode-alist '("\\(?:Cargo\\|poetry\\|uv\\|pdm\\)\\.lock\\'" . toml-ts-mode))
-(add-to-list 'auto-mode-alist '("/Pipfile\\'" . toml-ts-mode))
-
 (with-eval-after-load 'eglot
   (add-to-list 'eglot-server-programs '(toml-ts-mode . ("taplo" "lsp" "stdio"))))
 
@@ -311,9 +308,6 @@ Useful offline-first: taplo then validates and completes against that schema."
 
 ;;;; Shell ---------------------------------------------------------------------------------
 
-(add-to-list 'auto-mode-alist '("\\.envrc\\'" . bash-ts-mode))
-(add-to-list 'auto-mode-alist '("/PKGBUILD\\'" . bash-ts-mode))
-
 (add-hook 'bash-ts-mode-hook
           (lambda ()
             (setq-local tab-width 2 indent-tabs-mode nil)
@@ -462,8 +456,6 @@ Man pages are handled by the caller."
 (ide-lang-register-menu '(bash-ts-mode sh-mode) #'ide-bash-dispatch)
 
 ;;;; Dockerfile ----------------------------------------------------------------------------
-
-(add-to-list 'auto-mode-alist '("\\.dockerignore\\'" . conf-unix-mode))
 
 (defun ide-dockerfile--config ()
   "The nearest .hadolint.yaml (or .yml) above the file, for hadolint's --config."

@@ -80,14 +80,6 @@
 
 ;;;; Modes and servers -----------------------------------------------------------------------
 
-(dolist (entry '(("\\.[cm]?ts\\'" . typescript-ts-mode)
-                 ("\\.tsx\\'" . tsx-ts-mode)
-                 ("\\.[cm]?js\\'" . js-ts-mode)
-                 ("\\.jsx\\'" . js-ts-mode)
-                 ("\\.css\\'" . css-ts-mode)
-                 ("\\.html?\\'" . html-ts-mode)))
-  (add-to-list 'auto-mode-alist entry))
-
 ;; js-ts-mode and typescript-ts-mode embed the jsdoc grammar in comments and ask to
 ;; install it when it is missing; `ide-treesit-install-grammars' then fetches it.
 (defvar treesit-language-source-alist)
@@ -411,15 +403,7 @@ Decided by the nearest lockfile, then by the `packageManager' field."
                                     (with-current-buffer buf (revert-buffer t t t))))
                        (ide-web--project-dir))))
 
-;;;; Emmet ----------------------------------------------------------------------------------------------------
-
-(use-package emmet-mode
-  :commands emmet-mode
-  :hook ((html-ts-mode css-ts-mode tsx-ts-mode js-ts-mode) . emmet-mode)
-  :init (setq emmet-move-cursor-between-quotes t)
-  :config
-  (dolist (m '(tsx-ts-mode js-ts-mode typescript-ts-mode))
-    (add-to-list 'emmet-jsx-major-modes m)))
+;;;; Emmet (declared in 01-lang-modes.el) ------------------------------------------------------------------
 
 ;;;; Running --------------------------------------------------------------------------------------------------------
 
@@ -626,9 +610,6 @@ FILE is made relative to the package directory."
 
 ;;;; REPL ---------------------------------------------------------------------------------------------------------------------------------
 
-(use-package nodejs-repl
-  :commands (nodejs-repl nodejs-repl-send-region nodejs-repl-send-buffer nodejs-repl-switch-to-repl))
-
 (defun ide-web-repl ()
   "Open a Node REPL in a window beside the code."
   (interactive)
@@ -734,14 +715,6 @@ FILE is made relative to the package directory."
     t))
 
 ;;;; Live preview: simple-httpd + impatient-mode ------------------------------------------------------------------------------
-
-(use-package simple-httpd :commands (httpd-start httpd-stop httpd-running-p))
-(use-package impatient-mode
-  :commands (impatient-mode imp-visit-buffer)
-  :config
-  ;; a nil filter serves the buffer as it is, instead of as highlighted source
-  (dolist (m '(html-ts-mode css-ts-mode js-ts-mode))
-    (add-to-list 'imp-default-user-filters (cons m nil))))
 
 (defun ide-web--base-url ()
   (format "http://localhost:%d/" ide-web-preview-port))

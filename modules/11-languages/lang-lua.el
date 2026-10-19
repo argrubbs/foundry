@@ -58,7 +58,6 @@
 ;;;; Mode and server --------------------------------------------------------------------
 
 (ide-lang-setup 'lua-ts-mode
-  :auto-mode "\\.lua\\'"
   :server '("lua-language-server")
   :tab-width ide-lua-indent-width
   :indent-tabs nil

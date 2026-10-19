@@ -91,6 +91,8 @@ Notes:
   shell, web). It is off for Markdown (prettier), YAML and PowerShell, where it would rewrite other
   people's files; `C-c l f` formats any buffer on demand.
 - TAB after a word completes it; elsewhere it indents like VS Code (`lisp/vscode-indent`).
+- Each language's module (`modules/11-languages/lang-*.el`) loads the first time a file of that
+  language is opened; `01-lang-modes.el` holds the file associations and package declarations.
 - Known gaps: `kubectl` apply and diff need
   a reachable cluster. `kind` is installed for a throwaway local one.
 

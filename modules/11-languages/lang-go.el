@@ -19,13 +19,6 @@
   :config (lambda ()
             (add-hook 'before-save-hook #'ide--go-organize-imports -10 t)))
 
-
-(use-package gotest
-  :commands (go-test-current-test go-test-current-file go-test-current-project
-             go-test-current-benchmark))
-
-(use-package go-gen-test :commands go-gen-test-dwim)
-
 (defvar dap-go-debug-program)
 (with-eval-after-load 'dap-mode
   (let ((inhibit-message t)) (require 'dap-go))

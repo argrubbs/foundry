@@ -10,16 +10,10 @@
 (defvar eglot-server-programs)
 (declare-function ide-lang-run "00-lang-lib")
 
-(use-package hcl-mode
-  :mode ("\\.hcl\\'" "\\.pkr\\.hcl\\'" "\\.pkrvars\\.hcl\\'"))
-
-(use-package terraform-mode
-  :mode ("\\.tf\\'" "\\.tfvars\\'")
-  :hook (terraform-mode . terraform-format-on-save-mode))
-
 (with-eval-after-load 'eglot
   (add-to-list 'eglot-server-programs
                '(terraform-mode . ("terraform-ls" "serve"))))
+(add-hook 'terraform-mode-hook #'eglot-ensure)
 
 (defun ide--iac-run (name &rest command)
   "Run COMMAND in the bottom drawer in buffer *run: NAME*."

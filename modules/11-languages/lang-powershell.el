@@ -86,14 +86,6 @@
 
 ;;;; Mode and server ------------------------------------------------------------------------
 
-(use-package powershell
-  :mode ("\\.ps[dm]?1\\'" . powershell-mode)
-  :init
-  (setq powershell-indent-level 4)
-  (add-hook 'powershell-mode-hook #'eglot-ensure)
-  ;; PSES and Invoke-Formatter indent with 4 spaces.
-  (add-hook 'powershell-mode-hook (lambda () (setq-local tab-width 4 indent-tabs-mode nil))))
-
 (defun ide-powershell-pses-dir ()
   "Directory PSES is installed in (contains PowerShellEditorServices/)."
   (ide-lang-tools-dir "pses"))

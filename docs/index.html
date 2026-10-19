@@ -476,7 +476,7 @@ make doctor</pre></div>
    "l": "to first frame"
   },
   {
-   "v": "107",
+   "v": "108",
    "l": "documented keybindings"
   },
   {
@@ -484,11 +484,11 @@ make doctor</pre></div>
    "l": "CLIs and servers via mise"
   },
   {
-   "v": "37",
+   "v": "38",
    "l": "Emacs Lisp modules"
   },
   {
-   "v": "259",
+   "v": "261",
    "l": "automated tests"
   }
  ],
@@ -632,15 +632,6 @@ make doctor</pre></div>
    "cat": "Code & editing",
    "ctx": "global",
    "equiv": "Ctrl+Alt+B"
-  },
-  {
-   "keys": "M-RET",
-   "cmd": "eglot-code-actions",
-   "title": "Intentions",
-   "desc": "Show quick fixes and refactorings from the language server.",
-   "cat": "Code & editing",
-   "ctx": "prog-mode-map",
-   "equiv": "Alt+Enter"
   },
   {
    "keys": "C-c l h",
@@ -833,6 +824,14 @@ make doctor</pre></div>
    "cmd": "ide-ai-set-model",
    "title": "Pick provider & model",
    "desc": "Choose Ollama, Claude or Gemini and a model. In a chat or agent buffer it changes that session; elsewhere it sets the remembered default.",
+   "cat": "AI",
+   "ctx": "global"
+  },
+  {
+   "keys": "C-c a t",
+   "cmd": "ide-ai-toggle-inline-completion",
+   "title": "Ai Toggle Inline Completion",
+   "desc": "Switch ghost-text inline completion on or off, in this and every programming buffer",
    "cat": "AI",
    "ctx": "global"
   },
@@ -1291,6 +1290,15 @@ make doctor</pre></div>
    "desc": "Beep to tell the user this binding is undefined",
    "cat": "Contextual",
    "ctx": "azdo-threads-mode-map"
+  },
+  {
+   "keys": "M-RET",
+   "cmd": "ide-code-actions",
+   "title": "Intentions",
+   "desc": "Show quick fixes and refactorings from the language server.",
+   "cat": "Code & editing",
+   "ctx": "prog-mode-map",
+   "equiv": "Alt+Enter"
   },
   {
    "keys": "C-c h u",
@@ -2543,7 +2551,8 @@ make doctor</pre></div>
     "ide-web-toggle-test",
     "ide-web-typecheck",
     "ide-web-typecheck-watch",
-    "ide-compose-down-volumes"
+    "ide-compose-down-volumes",
+    "ide-code-actions"
    ]
   }
  ],
@@ -2607,6 +2616,10 @@ make doctor</pre></div>
   {
    "file": "modules/11-languages/00-lang-lib.el",
    "desc": "Shared helpers for the language modules"
+  },
+  {
+   "file": "modules/11-languages/01-lang-modes.el",
+   "desc": "Which files get which language, and when its module loads"
   },
   {
    "file": "modules/11-languages/lang-ansible.el",
@@ -4632,7 +4645,7 @@ make doctor</pre></div>
        "does": "Ask marksman for its table-of-contents code action at point"
       },
       {
-       "key": "X",
+       "key": "V",
        "label": "restart server",
        "cmd": "eglot-reconnect",
        "does": "restart server"

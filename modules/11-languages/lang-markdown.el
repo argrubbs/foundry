@@ -125,50 +125,8 @@ turns it on for a buffer; `C-c l f' formats on demand."
 
 ;;;; Mode, server, formatting -------------------------------------------------------------------
 
-;; markdown-mode stays the major mode (see the commentary).  Emacs 31 does not
-;; autoload markdown-ts-mode: make M-x markdown-ts-mode work.
-(autoload 'markdown-ts-mode "markdown-ts-mode" nil t)
-
-(use-package markdown-toc :commands markdown-toc-generate-or-refresh-toc)
-
-(use-package markdown-mode
-  :mode (("\\.\\(?:md\\|markdown\\|mkd\\|mdown\\)\\'" . markdown-mode)
-         ("\\(?:README\\|CHANGELOG\\|CONTRIBUTING\\|CODE_OF_CONDUCT\\|SECURITY\\|SUPPORT\\|HISTORY\\|CHANGES\\|PULL_REQUEST_TEMPLATE\\)\\.\\(?:md\\|markdown\\)\\'" . gfm-mode)
-         ("/\\.github/.*\\.md\\'" . gfm-mode))
-  :init
-  (setq markdown-fontify-code-blocks-natively t
-        markdown-enable-math t
-        markdown-enable-wiki-links t
-        markdown-wiki-link-search-type '(parent-directories)
-        markdown-italic-underscore t
-        markdown-unordered-list-item-prefix "- "
-        markdown-list-indent-width 2
-        markdown-asymmetric-header nil
-        markdown-header-scaling t
-        markdown-hide-urls nil
-        markdown-gfm-use-electric-backquote nil
-        markdown-use-pandoc-style-yaml-metadata t
-        markdown-spaces-after-code-fence 0
-        markdown-indent-on-enter 'indent-and-new-item)
-  :config
-  ;; Fenced blocks are fontified by the tree-sitter modes where the grammar exists.
-  (dolist (entry '(("sh" . bash-ts-mode) ("bash" . bash-ts-mode) ("shell" . bash-ts-mode)
-                   ("console" . bash-ts-mode) ("python" . python-ts-mode) ("py" . python-ts-mode)
-                   ("js" . js-ts-mode) ("javascript" . js-ts-mode) ("jsx" . tsx-ts-mode)
-                   ("ts" . typescript-ts-mode) ("typescript" . typescript-ts-mode)
-                   ("tsx" . tsx-ts-mode) ("json" . json-ts-mode) ("jsonc" . json-ts-mode)
-                   ("yaml" . yaml-ts-mode) ("yml" . yaml-ts-mode) ("toml" . toml-ts-mode)
-                   ("go" . go-ts-mode) ("rust" . rust-ts-mode) ("rs" . rust-ts-mode)
-                   ("lua" . lua-ts-mode) ("css" . css-ts-mode) ("html" . html-ts-mode)
-                   ("dockerfile" . dockerfile-ts-mode) ("hcl" . hcl-mode)
-                   ("terraform" . hcl-mode) ("nix" . nix-ts-mode) ("sql" . sql-mode)
-                   ("elisp" . emacs-lisp-mode) ("el" . emacs-lisp-mode)
-                   ("org" . org-mode) ("diff" . diff-mode)))
-    (when (or (not (string-suffix-p "-ts-mode" (symbol-name (cdr entry))))
-              (let ((lang (replace-regexp-in-string
-                           "-ts-mode\\'" "" (symbol-name (cdr entry)))))
-                (treesit-language-available-p (intern (if (equal lang "tsx") "tsx" lang)))))
-      (setf (alist-get (car entry) markdown-code-lang-modes nil nil #'equal) (cdr entry)))))
+;; markdown-mode stays the major mode (see the commentary).  The package, its
+;; settings and the file associations are declared in 01-lang-modes.el.
 
 (defun ide-markdown--lsp-wanted-p ()
   "Whether marksman should start with this buffer."
@@ -1085,8 +1043,6 @@ by Emacs do not see the page's own globals.")
   (kill-new (ide-markdown--org-to-md (buffer-substring-no-properties beg end)))
   (message "Copied as Markdown"))
 
-(use-package ox-gfm :after ox :defer t)
-
 (defun ide-org-export-markdown ()
   "Export this Org buffer to a sibling .md file.
 ox-gfm (Org's own exporter, so babel results, includes and macros are honoured) is used
@@ -1322,9 +1278,6 @@ first with M-x ide-lang-trust-project."
   (define-key markdown-mode-map (kbd "C-c o m") #'ide-markdown-org-menu)
   (define-key markdown-mode-map (kbd "M-S-<left>") #'markdown-promote-subtree)
   (define-key markdown-mode-map (kbd "M-S-<right>") #'markdown-demote-subtree))
-
-(with-eval-after-load 'org
-  (define-key org-mode-map (kbd "C-c o m") #'ide-markdown-org-menu))
 
 (provide 'lang-markdown)
 ;;; lang-markdown.el ends here
