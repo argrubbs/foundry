@@ -7,6 +7,9 @@
 ;; - `ide-lang-run'              run a command in the bottom drawer
 ;; - `ide-lang-define-linter'    an external linter as a Flymake backend (Eglot manages
 ;;                               one server per buffer; Flymake merges any number of linters)
+;; - `ide-lang-config-file'      the nearest configuration file of a tool
+;; - `ide-lang-show-text'        a tool's output in a read-only buffer
+;; - `ide-lang-sandbox-env'      an environment that keeps a tool's state in the sandbox
 ;; - `ide-lang-node-exe'         project-local node_modules/.bin tool, else PATH
 ;; - `ide-lang-ancestor'         nearest tree-sitter ancestor of a given type
 ;; - `ide-lang-fetch-extract'    download an archive into the sandbox
@@ -34,6 +37,7 @@
 (defvar apheleia-mode-alist)
 (defvar eglot-server-programs)
 (declare-function ide-add-drawer-buffer "02-layout")
+(declare-function ide-mise-contained-env "00-mise")
 (declare-function ide-docs--use-xwidget-p "15-docs")
 (declare-function xwidget-webkit-browse-url "xwidget")
 (declare-function which-key-add-key-based-replacements "which-key")
@@ -63,11 +67,13 @@
   (let ((default-directory (file-name-as-directory (or dir default-directory))))
     (if-let* ((p (project-current nil default-directory))) (project-root p) default-directory)))
 
-(defun ide-lang-command-string (command)
-  "Convert COMMAND (a string, or a list of arguments) to a shell command string."
-  (if (stringp command) command (mapconcat #'shell-quote-argument (delq nil command) " ")))
+(defun ide-lang-quote (arg)
+  "ARG quoted for a shell command line, left bare when it is made of safe characters."
+  (if (string-match-p "\\`[A-Za-z0-9_@%+=:,./-]+\\'" arg) arg (shell-quote-argument arg)))
 
-(defalias 'ide-lang--command-string #'ide-lang-command-string)
+(defun ide-lang-command-string (command)
+  "Convert COMMAND (a string, or a list of arguments, nil ones skipped) to a shell command string."
+  (if (stringp command) command (mapconcat #'ide-lang-quote (remq nil command) " ")))
 
 (defun ide-lang-require-file (&optional save)
   "Signal a `user-error' if current buffer is not visiting a file.
@@ -100,7 +106,7 @@ first.  With COMINT the buffer accepts input, for programs that read stdin."
          ;; Only this project's files, not every modified buffer in Emacs.
          (compilation-save-buffers-predicate
           (lambda () (and buffer-file-name (file-in-directory-p buffer-file-name root)))))
-    (compile (ide-lang--command-string command) comint)))
+    (compile (ide-lang-command-string command) comint)))
 
 (defun ide-lang-exe-or-error (name &optional hint)
   "Path to executable NAME, or a `user-error' mentioning HINT."
@@ -113,6 +119,50 @@ first.  With COMINT the buffer accepts input, for programs that read stdin."
                   (f (expand-file-name (concat "node_modules/.bin/" name) root)))
         (and (file-executable-p f) f))
       (executable-find name)))
+
+(defun ide-lang-config-file (names &optional start)
+  "The nearest file called one of NAMES in the directory of START or above, or nil.
+START defaults to the buffer's file, else `default-directory'.  The closest
+directory holding any of the names wins; inside it NAMES are tried in order."
+  (let ((names (ensure-list names)))
+    (when-let* ((dir (locate-dominating-file
+                      (or start buffer-file-name default-directory)
+                      (lambda (d) (cl-some (lambda (n) (file-exists-p (expand-file-name n d))) names)))))
+      (cl-loop for n in names
+               for f = (expand-file-name n dir)
+               when (file-exists-p f) return f))))
+
+(defun ide-lang-show-text (name text &optional mode)
+  "Show TEXT in the read-only buffer NAME, in MODE (default `special-mode'), and return it."
+  (let ((buf (get-buffer-create name)))
+    (with-current-buffer buf
+      (let ((inhibit-read-only t))
+        (funcall (or mode #'special-mode))
+        (erase-buffer)
+        (insert text)
+        (goto-char (point-min)))
+      (setq buffer-read-only t))
+    (pop-to-buffer buf)
+    buf))
+
+(defun ide-lang-sandbox-env (tool &rest extra)
+  "Environment entries (\"VAR=VALUE\") that keep TOOL's state under var/tools/TOOL/.
+The XDG data, config, cache and state directories and TMPDIR point there.  EXTRA
+entries are (VAR . SUBDIR) pairs, each a directory under that home, or ready-made
+\"VAR=VALUE\" strings.  The shared caches of `ide-mise-contained-env' (npm, trivy,
+...) are added for the variables the environment does not set already."
+  (let ((home (ide-lang-tools-dir tool)))
+    (append
+     (cl-loop for (var . sub) in (append '(("XDG_DATA_HOME" . "data") ("XDG_CONFIG_HOME" . "config")
+                                           ("XDG_CACHE_HOME" . "cache") ("XDG_STATE_HOME" . "state")
+                                           ("TMPDIR" . "tmp"))
+                                         (cl-remove-if-not #'consp extra))
+              for dir = (expand-file-name sub home)
+              do (make-directory dir t)
+              collect (concat var "=" dir))
+     (cl-remove-if #'consp extra)
+     (cl-loop for (var . dir) in (ide-mise-contained-env)
+              unless (getenv var) collect (concat var "=" dir)))))
 
 ;;;; Flymake linters ----------------------------------------------------------------------
 

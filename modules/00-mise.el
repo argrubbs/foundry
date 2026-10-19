@@ -35,9 +35,9 @@ An AZURE_CONFIG_DIR already set in the environment always wins."
 
 (defcustom ide-contain-tool-state t
   "When non-nil, keep the toolchains' own homes and caches inside this directory.
-Cargo, rustup, the Go module and build caches, uv, npm and pip would otherwise
-write to ~/.cargo, ~/.rustup, ~/go, ~/.cache/... and ~/.npm.  A variable that is
-already set in the environment always wins."
+Cargo, rustup, the Go module and build caches, uv, npm, pip and trivy would
+otherwise write to ~/.cargo, ~/.rustup, ~/go, ~/.cache/... and ~/.npm.  A variable
+that is already set in the environment always wins."
   :type 'boolean)
 
 (defun ide-mise-contained-env ()
@@ -50,7 +50,8 @@ already set in the environment always wins."
       ("GOCACHE" . ,(expand-file-name "go-build/" cache))
       ("UV_CACHE_DIR" . ,(expand-file-name "uv/" cache))
       ("npm_config_cache" . ,(expand-file-name "npm/" cache))
-      ("PIP_CACHE_DIR" . ,(expand-file-name "pip/" cache)))))
+      ("PIP_CACHE_DIR" . ,(expand-file-name "pip/" cache))
+      ("TRIVY_CACHE_DIR" . ,(expand-file-name "trivy/" cache)))))
 
 (defvar ide-mise-dir (expand-file-name "mise/" (expand-file-name "var/" user-emacs-directory))
   "Sandboxed mise directory.")

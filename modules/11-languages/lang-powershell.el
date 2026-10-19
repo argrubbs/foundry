@@ -52,15 +52,9 @@
 
 (defun ide-powershell--env ()
   "Environment assignments (\"K=V\" strings) that keep pwsh and .NET inside the sandbox."
-  (let ((home (ide-powershell--home)))
-    (dolist (d '("data" "config" "cache" "dotnet" "log" "tmp")) (make-directory (expand-file-name d home) t))
-    (list (concat "XDG_DATA_HOME=" (expand-file-name "data" home))
-          (concat "XDG_CONFIG_HOME=" (expand-file-name "config" home))
-          (concat "XDG_CACHE_HOME=" (expand-file-name "cache" home))
-          (concat "DOTNET_CLI_HOME=" (expand-file-name "dotnet" home))
-          (concat "TMPDIR=" (expand-file-name "tmp" home))
-          "POWERSHELL_TELEMETRY_OPTOUT=1" "DOTNET_CLI_TELEMETRY_OPTOUT=1"
-          "DOTNET_NOLOGO=1" "NO_COLOR=1" "TERM=dumb")))
+  (ide-lang-sandbox-env "pwsh" '("DOTNET_CLI_HOME" . "dotnet")
+                        "POWERSHELL_TELEMETRY_OPTOUT=1" "DOTNET_CLI_TELEMETRY_OPTOUT=1"
+                        "DOTNET_NOLOGO=1" "NO_COLOR=1" "TERM=dumb"))
 
 (defun ide-powershell--argv (&rest args)
   "Command line running pwsh with ARGS under the contained environment."
@@ -100,6 +94,7 @@ The session-details and log files live under var/tools/pwsh/log/."
         (log (ide-powershell--home "log")))
     (unless (file-exists-p start)
       (user-error "PowerShell Editor Services is not installed; run M-x ide-powershell-install-pses"))
+    (make-directory log t)
     (apply
      #'ide-powershell--argv
      "-NoLogo" "-NoProfile" "-NonInteractive" "-OutputFormat" "Text" "-File" start
@@ -144,8 +139,6 @@ The session-details and log files live under var/tools/pwsh/log/."
      dir 'zip)))
 
 ;;;; Running --------------------------------------------------------------------------------
-
-(defalias 'ide-powershell--shell-string #'ide-lang-command-string)
 
 (defun ide-powershell--pester-file-p (&optional file)
   (string-match-p "\\.[Tt]ests\\.ps1\\'" (or file buffer-file-name "")))
@@ -291,16 +284,10 @@ The session-details and log files live under var/tools/pwsh/log/."
 (defun ide-powershell-help (command)
   "Show Get-Help -Full for COMMAND (default: the symbol at point) in a buffer."
   (interactive (list (ide-powershell--read-command "Get-Help: ")))
-  (let ((text (ide-powershell--eval
-               (format "Get-Help %s -Full | Out-String -Width 100" (ide-powershell--quote command))))
-        (buf (get-buffer-create (format "*PowerShell help: %s*" command))))
-    (with-current-buffer buf
-      (let ((inhibit-read-only t))
-        (erase-buffer)
-        (insert text "\n")
-        (goto-char (point-min)))
-      (special-mode))
-    (pop-to-buffer buf)))
+  (ide-lang-show-text (format "*PowerShell help: %s*" command)
+                      (concat (ide-powershell--eval
+                               (format "Get-Help %s -Full | Out-String -Width 100" (ide-powershell--quote command)))
+                              "\n")))
 
 (defun ide-powershell-help-online (command)
   "Open the learn.microsoft.com page of COMMAND in the in-Emacs browser."

@@ -120,9 +120,9 @@
 (ert-deftest web-eslint-needs-a-config ()
   (lang-web-test--with-project '(("src/a.js" . "") ("package.json" . "{}"))
     (let ((buffer-file-name (expand-file-name "src/a.js" default-directory)))
-      (should-not (ide-web--eslint-config-p))
+      (should-not (ide-lang-config-file ide-web--eslint-configs))
       (write-region "export default [];" nil (expand-file-name "eslint.config.js" default-directory))
-      (should (ide-web--eslint-config-p)))))
+      (should (ide-lang-config-file ide-web--eslint-configs)))))
 
 (ert-deftest web-eslint-output-becomes-diagnostics ()
   (with-temp-buffer

@@ -239,15 +239,8 @@
   (interactive)
   (let ((res (ide-rust--request :rust-analyzer/expandMacro)))
     (unless res (user-error "No macro at point"))
-    (let ((buf (get-buffer-create (format "*rust macro: %s*" (plist-get res :name)))))
-      (with-current-buffer buf
-        (let ((inhibit-read-only t))
-          (erase-buffer)
-          (insert (plist-get res :expansion))
-          (rust-ts-mode)
-          (goto-char (point-min))
-          (setq buffer-read-only t)))
-      (pop-to-buffer buf))))
+    (ide-lang-show-text (format "*rust macro: %s*" (plist-get res :name))
+                        (plist-get res :expansion) #'rust-ts-mode)))
 
 (defun ide-rust--goto-location (loc)
   "Visit the LSP Location or LocationLink LOC."

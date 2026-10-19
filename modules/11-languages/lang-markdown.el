@@ -196,13 +196,6 @@ turns it on for a buffer; `C-c l f' formats on demand."
     ".markdownlint-cli2.yaml" ".markdownlint-cli2.cjs" ".markdownlint-cli2.mjs")
   "Files markdownlint-cli2 reads its configuration from.")
 
-(defun ide-markdown--lint-config (&optional dir)
-  "The nearest markdownlint configuration file above DIR (default: here), or nil."
-  (let ((dir (or dir default-directory)))
-    (cl-loop for name in ide-markdown--lint-config-names
-             for d = (locate-dominating-file dir name)
-             when d collect (expand-file-name name d) into found
-             finally return (car (sort found (lambda (a b) (> (length a) (length b))))))))
 
 (defun ide-markdown--relaxed-config ()
   "Path of the relaxed default rule set (line length, inline HTML, first-line h1 off)."
@@ -218,7 +211,7 @@ turns it on for a buffer; `C-c l f' formats on demand."
   "markdownlint-cli2 arguments for the current buffer followed by TAIL.
 A project config wins; a .markdownlint.* file outside the project root is passed
 explicitly (stdin has no directory of its own); with none the relaxed defaults apply."
-  (let ((cfg (ide-markdown--lint-config)))
+  (let ((cfg (ide-lang-config-file ide-markdown--lint-config-names)))
     (append (cond ((null cfg) (list "--config" (ide-markdown--relaxed-config)))
                   ((string-match-p "markdownlint-cli2" cfg) nil)
                   ((not (file-equal-p (file-name-directory cfg) (ide-lang-root)))
@@ -944,18 +937,13 @@ by Emacs do not see the page's own globals.")
   "HTML TEXT as TARGET (\"org\" or \"gfm\")."
   (ide-markdown--pandoc text (list "-f" "html-auto_identifiers" "-t" (if (equal target "gfm") "gfm-raw_html" target) "--wrap=preserve")))
 
-(defun ide-markdown--show-converted (name text mode)
-  "Show TEXT in a new buffer called NAME in MODE."
-  (let ((buf (generate-new-buffer name)))
-    (with-current-buffer buf (insert text) (goto-char (point-min)) (funcall mode))
-    (pop-to-buffer buf)))
 
 ;;;###autoload
 (defun ide-markdown-to-org ()
   "Convert the region (or buffer) from Markdown to Org in a new buffer."
   (interactive)
   (let ((src (ide-markdown--source-text)))
-    (ide-markdown--show-converted
+    (ide-lang-show-text
      (format "%s.org" (if buffer-file-name (file-name-base buffer-file-name) "converted"))
      (ide-markdown--md-to-org (car src)) #'org-mode)))
 
@@ -964,7 +952,7 @@ by Emacs do not see the page's own globals.")
   "Convert the region (or buffer) from Org to GFM Markdown in a new buffer."
   (interactive)
   (let ((src (ide-markdown--source-text)))
-    (ide-markdown--show-converted
+    (ide-lang-show-text
      (format "%s.md" (if buffer-file-name (file-name-base buffer-file-name) "converted"))
      (ide-markdown--org-to-md (car src)) #'markdown-mode)))
 

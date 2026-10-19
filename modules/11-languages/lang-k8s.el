@@ -18,7 +18,8 @@
 ;; an Ansible file are told apart here and there by `ide--ansible-file-p' and the chart
 ;; layout, so the two never claim the same buffer.  The cluster-facing commands (apply,
 ;; diff, explain, server dry-runs) need a reachable cluster; the command lines are built
-;; and tested without one.  Helm, kubectl and trivy write their caches under var/tools/k8s/.
+;; and tested without one.  Helm and kubectl write their caches under var/tools/k8s/,
+;; trivy under the shared TRIVY_CACHE_DIR (`ide-mise-contained-env').
 
 ;;; Code:
 
@@ -30,25 +31,12 @@
 (require 'compile)
 (require 'imenu)
 
-(defvar ide-run-command-functions)
-(defvar ide-debug-functions)
+(require '00-lang-lib)
+
 (defvar ide-cache-dir)
-(defvar ide-eglot-format-on-save)
 (defvar yaml-indent-offset)
-(defvar eglot-server-programs)
 (defvar kubel-context)
-(declare-function ide-lang-run "00-lang-lib")
-(declare-function ide-lang-exe-or-error "00-lang-lib")
-(declare-function ide-lang-root "00-lang-lib")
-(declare-function ide-lang-browse "00-lang-lib")
-(declare-function ide-lang-tools-dir "00-lang-lib")
-(declare-function ide-lang-diag "00-lang-lib")
-(declare-function ide-lang-parse-regexp "00-lang-lib")
-(declare-function ide-lang-register-menu "00-lang-lib")
-(declare-function ide-lang-workspace-config "00-lang-lib")
-(declare-function ide-lang-define-linter "00-lang-lib")
 (declare-function ide--ansible-file-p "lang-ansible")
-(declare-function eglot-ensure "eglot")
 (declare-function eglot-current-server "eglot")
 (declare-function eglot-reconnect "eglot")
 (eval-when-compile (require 'treesit nil t))
@@ -87,26 +75,16 @@ nil leaves KUBECONFIG as Emacs inherited it (and kubectl's own default after tha
 
 (defun ide-k8s--env ()
   "Environment entries that keep helm, kubectl and trivy out of the home directory."
-  (let ((dir (ide-lang-tools-dir "k8s" "state")))
-    (append
-     (when ide-k8s-kubeconfig (list (concat "KUBECONFIG=" (expand-file-name ide-k8s-kubeconfig))))
-     (list (concat "HELM_CACHE_HOME=" dir "/helm/cache")
-          (concat "HELM_CONFIG_HOME=" dir "/helm/config")
-          (concat "HELM_DATA_HOME=" dir "/helm/data")
-          (concat "KUBECACHEDIR=" dir "/kube-cache")
-          (concat "TRIVY_CACHE_DIR=" dir "/trivy-cache")
-           (concat "TMPDIR=" (let ((tmp (concat dir "/tmp"))) (make-directory tmp t) tmp))))))
+  (apply #'ide-lang-sandbox-env "k8s"
+         '("HELM_CACHE_HOME" . "cache/helm") '("HELM_CONFIG_HOME" . "config/helm")
+         '("HELM_DATA_HOME" . "data/helm") '("KUBECACHEDIR" . "cache/kube")
+         (when ide-k8s-kubeconfig (list (concat "KUBECONFIG=" (expand-file-name ide-k8s-kubeconfig))))))
 
 (defmacro ide-k8s--with-env (&rest body)
   "Run BODY with `ide-k8s--env' in front of `process-environment'."
   (declare (indent 0))
   `(let ((process-environment (append (ide-k8s--env) process-environment))) ,@body))
 
-(defun ide-k8s--cache-dir (name)
-  "A cache directory NAME under the sandbox cache dir (created)."
-  (let ((d (expand-file-name (concat "k8s-" name "/") ide-cache-dir)))
-    (make-directory d t)
-    d))
 
 ;;;; Detecting what a file is -----------------------------------------------------------
 
@@ -396,11 +374,9 @@ whether every segment was found."
 
 (defun ide-helm--setup ()
   "Settings shared by the Helm template modes."
-  (setq-local tab-width 2 indent-tabs-mode nil
-              comment-start "{{/* " comment-end " */}}"
+  (setq-local comment-start "{{/* " comment-end " */}}"
               imenu-create-index-function #'ide-helm--imenu-index
-              outline-regexp "{{-? *\\(?:define\\|block\\) "
-              ide-eglot-format-on-save nil)
+              outline-regexp "{{-? *\\(?:define\\|block\\) ")
   (font-lock-add-keywords nil ide-helm-font-lock-keywords 'append)
   (setq-local font-lock-multiline t))
 
@@ -607,13 +583,6 @@ custom resources would be flagged as unknown kinds (see `ide-k8s-insert-schema-c
 
 ;;;; Linters -------------------------------------------------------------------------------------
 
-(defun ide-k8s--yamllint-config (file)
-  "The project's yamllint configuration above FILE, or nil."
-  (when-let* ((dir (and file (locate-dominating-file
-                              file (lambda (d) (cl-some (lambda (n) (file-exists-p (expand-file-name n d)))
-                                                        '(".yamllint" ".yamllint.yaml" ".yamllint.yml")))))))
-    (cl-loop for n in '(".yamllint" ".yamllint.yaml" ".yamllint.yml")
-             when (file-exists-p (expand-file-name n dir)) return (expand-file-name n dir))))
 
 (defconst ide-k8s--yamllint-default
   (concat "{extends: default, rules: {line-length: disable, document-start: disable, "
@@ -626,7 +595,7 @@ custom resources would be flagged as unknown kinds (see `ide-k8s-insert-schema-c
 (defun ide-k8s--yamllint-args (file)
   "yamllint arguments for the buffer visiting FILE (read on stdin)."
   (append '("-f" "parsable")
-          (if-let* ((cfg (ide-k8s--yamllint-config file)))
+          (if-let* ((cfg (and file (ide-lang-config-file '(".yamllint" ".yamllint.yaml" ".yamllint.yml") file))))
               (list "-c" cfg)
             (list "-d" ide-k8s--yamllint-default))
           '("-")))
@@ -696,7 +665,7 @@ with the same kind and name."
 (defun ide-k8s--kubeconform-common ()
   "kubeconform options shared by the Flymake backend and the render-then-validate command."
   (append '("-strict" "-ignore-missing-schemas" "-cache")
-          (list (ide-k8s--cache-dir "kubeconform"))
+          (let ((d (expand-file-name "kubeconform/" ide-cache-dir))) (make-directory d t) (list d))
           (when ide-k8s-kubernetes-version (list "-kubernetes-version" ide-k8s-kubernetes-version))
           (when ide-k8s-crd-catalog
             (list "-schema-location" "default" "-schema-location" ide-k8s-crd-catalog))))
@@ -731,18 +700,6 @@ with the same kind and name."
                        (kill-buffer err)
                        (funcall callback code so se))))))))
 
-(defun ide-k8s--show-text (name text &optional mode)
-  "Show TEXT in a read-only buffer NAME, in MODE (default `special-mode')."
-  (let ((buf (get-buffer-create name)))
-    (with-current-buffer buf
-      (let ((inhibit-read-only t))
-        (funcall (or mode #'special-mode))
-        (erase-buffer)
-        (insert text)
-        (goto-char (point-min)))
-      (setq buffer-read-only t))
-    (pop-to-buffer buf)
-    buf))
 
 (defun ide-k8s--show-report (name entries)
   "List ENTRIES, each (FILE LINE SEVERITY MESSAGE), in a compilation-style buffer NAME.
@@ -760,11 +717,6 @@ Visiting a line with RET or `next-error' jumps to the file."
     (pop-to-buffer buf)
     buf))
 
-(defun ide-k8s--file-or-error ()
-  "The file of this buffer, saved, or a `user-error'."
-  (unless buffer-file-name (user-error "This buffer does not visit a file"))
-  (when (buffer-modified-p) (save-buffer))
-  buffer-file-name)
 
 ;;;; Helm commands -----------------------------------------------------------------------------------
 
@@ -891,8 +843,8 @@ appended.  The release name is the chart name."
      argv
      (lambda (code out err)
        (if (zerop code)
-           (ide-k8s--show-text name out #'yaml-ts-mode)
-         (ide-k8s--show-text "*helm template error*" err)))
+           (ide-lang-show-text name out #'yaml-ts-mode)
+         (ide-lang-show-text "*helm template error*" err)))
      root)))
 
 (defun ide-helm-template-and-validate ()
@@ -901,11 +853,9 @@ appended.  The release name is the chart name."
   (let ((root (ide-helm--chart-or-error)))
     (ide-k8s--with-env
       (ide-lang-run "helm template | kubeconform"
-                    (concat (mapconcat #'shell-quote-argument (ide-helm-command 'template root) " ")
-                            " | "
-                            (mapconcat #'shell-quote-argument
-                                       (append '("kubeconform") (ide-k8s--kubeconform-common) '("-summary" "-"))
-                                       " "))
+                    (concat (ide-lang-command-string (ide-helm-command 'template root)) " | "
+                            (ide-lang-command-string
+                             (append '("kubeconform") (ide-k8s--kubeconform-common) '("-summary" "-"))))
                     root))))
 
 ;;;; Jumping between templates and values ----------------------------------------------------------------
@@ -988,9 +938,9 @@ FILE is `-' when the manifests arrive on stdin."
   "Shell command for kubectl VERB on the current file; a chart template is rendered first."
   (let ((chart (and (memq (ide-k8s-file-kind) '(helm-template helm-chart)) (ide-helm-chart-root))))
     (if chart
-        (concat (mapconcat #'shell-quote-argument (ide-helm-command 'template chart) " ") " | "
-                (mapconcat #'shell-quote-argument (ide-k8s-kubectl-command verb "-") " "))
-      (mapconcat #'shell-quote-argument (ide-k8s-kubectl-command verb (ide-k8s--file-or-error)) " "))))
+        (concat (ide-lang-command-string (ide-helm-command 'template chart)) " | "
+                (ide-lang-command-string (ide-k8s-kubectl-command verb "-")))
+      (ide-lang-command-string (ide-k8s-kubectl-command verb (ide-lang-require-file t))))))
 
 (defun ide-k8s--kubectl (name verb)
   (ide-k8s--with-env (ide-lang-run name (ide-k8s--manifest-source verb))))
@@ -1066,7 +1016,7 @@ With prefix argument RECURSIVE, print the whole subtree.  Needs the cluster's AP
      (ide-k8s-explain-command target recursive)
      (lambda (code out err)
        (if (zerop code)
-           (ide-k8s--show-text (format "*kubectl explain: %s*" (car target)) out)
+           (ide-lang-show-text (format "*kubectl explain: %s*" (car target)) out)
          (message "kubectl explain %s failed: %s" (car target)
                   (car (split-string (string-trim err) "\n"))))))))
 
@@ -1081,8 +1031,8 @@ With prefix argument RECURSIVE, print the whole subtree.  Needs the cluster's AP
     (ide-k8s--call (list "kubectl" "kustomize" (expand-file-name dir))
                    (lambda (code out err)
                      (if (zerop code)
-                         (ide-k8s--show-text (format "*kustomize: %s*" (abbreviate-file-name dir)) out #'yaml-ts-mode)
-                       (ide-k8s--show-text "*kustomize error*" err))))))
+                         (ide-lang-show-text (format "*kustomize: %s*" (abbreviate-file-name dir)) out #'yaml-ts-mode)
+                       (ide-lang-show-text "*kustomize error*" err))))))
 
 (defun ide-k8s--object-line (file kind name)
   "Line in FILE of the resource KIND/NAME (the kind line), falling back to the first KIND."
@@ -1120,7 +1070,7 @@ With prefix argument RECURSIVE, print the whole subtree.  Needs the cluster's AP
   "What the on-demand scanners check: the chart directory, else this file."
   (if-let* ((root (and (memq (ide-k8s-file-kind) '(helm-template helm-chart)) (ide-helm-chart-root))))
       (directory-file-name root)
-    (ide-k8s--file-or-error)))
+    (ide-lang-require-file t)))
 
 (defun ide-k8s-kube-linter ()
   "Run kube-linter on this manifest (or chart) and list the findings."
@@ -1134,7 +1084,7 @@ With prefix argument RECURSIVE, print the whole subtree.  Needs the cluster's AP
            (let ((entries (ide-k8s--parse-kube-linter out)))
              (if entries (ide-k8s--show-report "kube-linter" entries)
                (message "kube-linter: no findings")))
-         (error (ide-k8s--show-text "*kube-linter error*" (format "%s\n%s\n%s" (error-message-string e) err out))))))))
+         (error (ide-lang-show-text "*kube-linter error*" (format "%s\n%s\n%s" (error-message-string e) err out))))))))
 
 (defun ide-k8s--map-rendered-line (file content line)
   "Line of the template FILE that rendered to CONTENT near rendered LINE, or nil.
@@ -1185,8 +1135,8 @@ lines otherwise."
                                      (alist-get 'Message m) note)))))))
 
 (defun ide-k8s-trivy-command (target)
-  "The trivy config scan command line for TARGET."
-  (list "trivy" "config" "-f" "json" "--quiet" "--cache-dir" (ide-k8s--cache-dir "trivy") target))
+  "The trivy config scan command line for TARGET (its cache: TRIVY_CACHE_DIR, in the sandbox)."
+  (list "trivy" "config" "-f" "json" "--quiet" target))
 
 (defun ide-k8s-trivy ()
   "Scan this file (or chart) for misconfigurations with trivy and list the findings."
@@ -1201,7 +1151,7 @@ lines otherwise."
            (let ((entries (ide-k8s--parse-trivy out (and (file-directory-p target) target))))
              (if entries (ide-k8s--show-report "trivy config" entries)
                (message "trivy: no misconfigurations found")))
-         (error (ide-k8s--show-text "*trivy error*" (format "%s\n%s" (error-message-string e) err)))))
+         (error (ide-lang-show-text "*trivy error*" (format "%s\n%s" (error-message-string e) err)))))
      (ide-lang-root))))
 
 (defun ide-k8s-actionlint-project ()
@@ -1263,11 +1213,10 @@ lines otherwise."
     (pcase (ide-k8s-file-kind)
       ((or 'helm-template 'helm-chart)
        (when-let* ((root (ide-helm-chart-root)))
-         (mapconcat #'shell-quote-argument (ide-helm-command 'template root) " ")))
-      ('k8s-manifest (mapconcat #'shell-quote-argument
-                                (ide-k8s-kubectl-command 'apply-client buffer-file-name) " "))
+         (ide-lang-command-string (ide-helm-command 'template root))))
+      ('k8s-manifest (ide-lang-command-string (ide-k8s-kubectl-command 'apply-client buffer-file-name)))
       ('kustomization "kubectl kustomize .")
-      ('gh-workflow (mapconcat #'shell-quote-argument (list "actionlint" "-oneline" buffer-file-name) " ")))))
+      ('gh-workflow (ide-lang-command-string (list "actionlint" "-oneline" buffer-file-name))))))
 
 (defun ide-k8s--debug ()
   "S-<f9> in a chart: helm install --dry-run --debug, which prints the computed values."

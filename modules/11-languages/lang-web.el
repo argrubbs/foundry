@@ -207,21 +207,13 @@ Decided by the nearest lockfile, then by the `packageManager' field."
         "npm")))
 
 (defun ide-web--env ()
-  "Environment entries that keep package managers and tsx inside the sandbox."
-  (let ((cache (ide-lang-tools-dir "web" "cache"))
-        (tmp (ide-lang-tools-dir "web" "tmp")))
-    (make-directory cache t)
-    (make-directory tmp t)
-    (append (list (concat "npm_config_cache=" (expand-file-name "npm" cache))
-                  (concat "YARN_CACHE_FOLDER=" (expand-file-name "yarn" cache))
-                  (concat "BUN_INSTALL_CACHE_DIR=" (expand-file-name "bun" cache))
-                  (concat "XDG_CACHE_HOME=" cache)
-                  (concat "XDG_DATA_HOME=" (expand-file-name "data" cache)) ; vitest keeps a token here
-                  (concat "XDG_STATE_HOME=" (expand-file-name "state" cache))
-                  (concat "TMPDIR=" tmp))
-            ;; npm warns about this key, so only pnpm projects get it
-            (when (equal (ide-web--package-manager) "pnpm")
-              (list (concat "npm_config_store_dir=" (expand-file-name "pnpm" cache)))))))
+  "Environment entries that keep package managers and tsx inside the sandbox.
+The npm cache is the shared one of `ide-mise-contained-env'."
+  (apply #'ide-lang-sandbox-env "web"
+         '("YARN_CACHE_FOLDER" . "cache/yarn") '("BUN_INSTALL_CACHE_DIR" . "cache/bun")
+         ;; npm warns about this key, so only pnpm projects get it
+         (when (equal (ide-web--package-manager) "pnpm")
+           (list '("npm_config_store_dir" . "cache/pnpm")))))
 
 (defun ide-web--tmpdir-env ()
   "The TMPDIR=... entry (tsx keeps its cache there)."
@@ -354,16 +346,9 @@ Decided by the nearest lockfile, then by the `packageManager' field."
     ".eslintrc" ".eslintrc.js" ".eslintrc.cjs" ".eslintrc.json" ".eslintrc.yaml" ".eslintrc.yml")
   "File names that make ESLint relevant to a project.")
 
-(defun ide-web--eslint-config-p ()
-  "Non-nil when an ESLint configuration exists above the buffer's file."
-  (locate-dominating-file
-   (or buffer-file-name default-directory)
-   (lambda (dir) (cl-some (lambda (n) (file-exists-p (expand-file-name n dir)))
-                          ide-web--eslint-configs))))
-
 (defun ide-web--eslint-exe ()
   "The project's eslint (else the installed one), only where ESLint is configured."
-  (when (ide-web--eslint-config-p) (ide-lang-node-exe "eslint")))
+  (when (ide-lang-config-file ide-web--eslint-configs) (ide-lang-node-exe "eslint")))
 
 (defun ide-web--eslint-parse (output buffer)
   "Flymake diagnostics for ESLint's JSON OUTPUT about BUFFER."

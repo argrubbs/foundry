@@ -26,10 +26,9 @@
 (require 'compile)
 (require 'flymake)
 
+(require '00-lang-lib)
+
 (defvar ide-run-command-functions)
-(defvar ide-cache-dir)
-(defvar ide-eglot-format-on-save)
-(defvar apheleia-formatters)
 (defvar apheleia-mode-alist)
 (defvar ghostel-shell)
 (defvar ghostel-buffer-name)
@@ -40,37 +39,15 @@
 (declare-function eglot-code-actions "eglot")
 (declare-function eglot-current-server "eglot")
 (declare-function eglot-format-buffer "eglot")
-(declare-function ide-lang-run "00-lang-lib")
-(declare-function ide-lang-exe-or-error "00-lang-lib")
-(declare-function ide-lang-root "00-lang-lib")
-(declare-function ide-lang-ancestor "00-lang-lib")
-(declare-function ide-lang-browse "00-lang-lib")
-(declare-function ide-lang-diag "00-lang-lib")
-(declare-function ide-lang-tools-dir "00-lang-lib")
-(declare-function ide-lang-define-linter "00-lang-lib")
-(declare-function ide-lang-register-menu "00-lang-lib")
-(declare-function iac-dispatch "lang-iac")
 (eval-when-compile (require 'treesit nil t))
 
 (defgroup ide-devops nil "TOML, shell, Docker and Terraform support." :group 'ide-lang)
 
 ;;;; Shared helpers ------------------------------------------------------------------------
 
-(defun ide-devops--file ()
-  "The current buffer's file, or a `user-error'."
-  (or buffer-file-name (user-error "Save the buffer to a file first")))
-
 (defun ide-devops--dir ()
   "Directory of the current file (or `default-directory')."
   (if buffer-file-name (file-name-directory buffer-file-name) default-directory))
-
-(defun ide-devops--quote (arg)
-  "ARG quoted for a shell command line, left bare when it is made of safe characters."
-  (if (string-match-p "\\`[A-Za-z0-9_@%+=:,./-]+\\'" arg) arg (shell-quote-argument arg)))
-
-(defun ide-devops--cmdline (argv)
-  "The shell command line for the list of arguments ARGV."
-  (mapconcat #'ide-devops--quote (delq nil argv) " "))
 
 (defun ide-devops--run (name command &optional dir comint)
   "Run COMMAND (string or argv list) in the drawer as *run: NAME* in DIR."
@@ -104,28 +81,11 @@ Uses ghostel when installed, otherwise a comint compilation in the drawer."
             buf))
       (ide-lang-run name command dir t))))
 
-(defun ide-devops--trivy-cache ()
-  "Trivy's cache directory inside the sandbox."
-  (expand-file-name "trivy/" ide-cache-dir))
-
 (defun ide-devops--trivy (kind target &rest extra)
-  "Run `trivy KIND TARGET EXTRA...' in the drawer, with the cache in the sandbox."
+  "Run `trivy KIND TARGET EXTRA...' in the drawer (its cache: TRIVY_CACHE_DIR, in the sandbox)."
   (ide-lang-exe-or-error "trivy")
-  (ide-devops--run (format "trivy %s" kind)
-                   (append (list "trivy" kind "--cache-dir" (ide-devops--trivy-cache)) extra (list target))))
+  (ide-devops--run (format "trivy %s" kind) (append (list "trivy" kind) extra (list target))))
 
-(defun ide-devops--local-config (names)
-  "Nearest file called one of NAMES in the current file's directory or above, or nil."
-  (when buffer-file-name
-    (cl-loop for n in names
-             for dir = (locate-dominating-file buffer-file-name n)
-             when dir return (expand-file-name n dir))))
-
-;;;; Linters next to Eglot ----------------------------------------------------------------
-
-;; Eglot sets `flymake-diagnostic-functions' to its own backend alone when it manages a
-;; buffer (eglot--setq-saving), which silently drops every `ide-lang-define-linter' backend.
-;; Put ours back once the server is up, and rerun the checks.
 ;; shellcheck, hadolint and tflint only read text or static config, so they are `:safe'
 ;; (they run in untrusted files).  terraform validate starts the module's provider
 ;; binaries, so it is not: it pauses until `ide-lang-trust-project'.
@@ -257,7 +217,7 @@ Array tables keep their relative order; keys before the first table stay where t
   "Check this file's syntax and schema (when one applies) with `taplo check'."
   (interactive)
   (ide-lang-exe-or-error "taplo")
-  (ide-devops--run "taplo check" (list "taplo" "check" (ide-devops--file))))
+  (ide-devops--run "taplo check" (list "taplo" "check" (ide-lang-require-file))))
 
 (defconst ide-toml-schemas
   '(("mise" . "https://mise.jdx.dev/schema/mise.json")
@@ -316,13 +276,10 @@ Useful offline-first: taplo then validates and completes against that schema."
 
 (defun ide-bash--shfmt-flags ()
   "Style flags for shfmt: `-i 2 -ci', unless an .editorconfig is in charge."
-  (unless (ide-devops--local-config '(".editorconfig"))
+  (unless (ide-lang-config-file ".editorconfig")
     (list "-i" "2" "-ci")))
 
-(with-eval-after-load 'apheleia
-  (setf (alist-get 'ide-shfmt apheleia-formatters)
-        '("shfmt" "-filename" filepath (ide-bash--shfmt-flags)))
-  (setf (alist-get 'bash-ts-mode apheleia-mode-alist) 'ide-shfmt))
+(ide-lang-define-formatter 'ide-shfmt '("shfmt" "-filename" filepath (ide-bash--shfmt-flags)) 'bash-ts-mode)
 
 (defun ide-bash--parse-shellcheck (output buffer)
   "Flymake diagnostics from `shellcheck -f json' OUTPUT."
@@ -348,13 +305,13 @@ Useful offline-first: taplo then validates and completes against that schema."
 (defun ide-bash-syntax-check ()
   "Check this script for syntax errors with `bash -n' (nothing is executed)."
   (interactive)
-  (ide-devops--run "bash -n" (list "bash" "-n" (ide-devops--file))))
+  (ide-devops--run "bash -n" (list "bash" "-n" (ide-lang-require-file))))
 
 (defun ide-bash-shellcheck-file ()
   "Run shellcheck on the file, following `source'd files, with results in the drawer."
   (interactive)
   (ide-lang-exe-or-error "shellcheck")
-  (ide-devops--run "shellcheck" (list "shellcheck" "-x" "-f" "gcc" (ide-devops--file))))
+  (ide-devops--run "shellcheck" (list "shellcheck" "-x" "-f" "gcc" (ide-lang-require-file))))
 
 (defvar ide-bash--args-history nil)
 
@@ -362,17 +319,17 @@ Useful offline-first: taplo then validates and completes against that schema."
   "Run this script with ARGS (a shell string) in the drawer; the buffer accepts input."
   (interactive (list (read-string "Arguments: " nil 'ide-bash--args-history)))
   (ide-devops--run "bash script"
-                   (concat "bash " (shell-quote-argument (ide-devops--file)) " " args) nil t))
+                   (concat "bash " (shell-quote-argument (ide-lang-require-file)) " " args) nil t))
 
 (defun ide-bash-trace ()
   "Run this script with `bash -x' to see every command as it executes."
   (interactive)
-  (ide-devops--run "bash -x" (list "bash" "-x" (ide-devops--file)) nil t))
+  (ide-devops--run "bash -x" (list "bash" "-x" (ide-lang-require-file)) nil t))
 
 (defun ide-bash-make-executable ()
   "chmod +x the file."
   (interactive)
-  (set-file-modes (ide-devops--file) (logior (file-modes buffer-file-name) #o111))
+  (set-file-modes (ide-lang-require-file) (logior (file-modes buffer-file-name) #o111))
   (message "%s is executable" (file-name-nondirectory buffer-file-name)))
 
 (defun ide-bash--shellcheck-code-at-point ()
@@ -427,11 +384,12 @@ Man pages are handled by the caller."
     (let ((text (ide-bash--help-text name)))
       (unless (and text (not (string-empty-p (string-trim text))))
         (user-error "No help found for %s" name))
-      (with-current-buffer (get-buffer-create (format "*help: %s*" name))
-        (let ((inhibit-read-only t))
-          (erase-buffer) (insert text) (goto-char (point-min)))
-        (special-mode)
-        (pop-to-buffer (current-buffer))))))
+      (ide-lang-show-text (format "*help: %s*" name) text))))
+
+(defun ide-bash--run-command ()
+  "S-<f10> runs the script."
+  (when (and buffer-file-name (derived-mode-p 'bash-ts-mode 'sh-mode))
+    (ide-lang-command-string (list "bash" buffer-file-name))))
 
 ;;;###autoload (autoload 'ide-bash-dispatch "lang-devops" nil t)
 (transient-define-prefix ide-bash-dispatch ()
@@ -476,7 +434,7 @@ Man pages are handled by the caller."
   :program "hadolint"
   :args (lambda (_file)
           (append (list "--format" "json" "--no-color")
-                  (when-let* ((c (ide-dockerfile--config))) (list "--config" c))
+                  (when-let* ((c (ide-lang-config-file '(".hadolint.yaml" ".hadolint.yml")))) (list "--config" c))
                   (list "-")))
   :parse #'ide-dockerfile--parse-hadolint)
 
@@ -524,12 +482,12 @@ BUILD-ARGS is an alist (NAME . VALUE); TARGET a stage name.  The context is FILE
 (defun ide-dockerfile--build (&optional ask-args stage run)
   "Build this Dockerfile (asking for ARG values with ASK-ARGS, targeting STAGE).
 With RUN, then run the image interactively in a terminal."
-  (let* ((file (ide-devops--file))
+  (let* ((file (ide-lang-require-file))
          (tag (read-string "Image tag: " (ide-dockerfile--default-tag (file-name-directory file))))
          (argv (ide-dockerfile--build-argv file tag (when ask-args (ide-dockerfile--read-build-args)) stage))
-         (cmd (ide-devops--cmdline argv)))
+         (cmd (ide-lang-command-string argv)))
     (if run
-        (ide-devops--terminal "docker run" (format "%s && docker run --rm -it %s" cmd (ide-devops--quote tag))
+        (ide-devops--terminal "docker run" (format "%s && docker run --rm -it %s" cmd (ide-lang-quote tag))
                               (ide-devops--dir))
       (ide-devops--run-docker "docker build" cmd))))
 
@@ -557,7 +515,7 @@ With RUN, then run the image interactively in a terminal."
 (defun ide-dockerfile-run-image (image)
   "Run IMAGE interactively (docker run --rm -it) in a terminal."
   (interactive (list (ide-dockerfile--read-image "Run image: ")))
-  (ide-devops--terminal "docker run" (format "docker run --rm -it %s" (ide-devops--quote image))
+  (ide-devops--terminal "docker run" (format "docker run --rm -it %s" (ide-lang-quote image))
                         (ide-devops--dir)))
 
 (defconst ide-dockerfile--bake-files
@@ -567,7 +525,7 @@ With RUN, then run the image interactively in a terminal."
 
 (defun ide-dockerfile--bake-file ()
   "The nearest bake definition above the buffer's directory, or nil."
-  (ide-devops--local-config ide-dockerfile--bake-files))
+  (ide-lang-config-file ide-dockerfile--bake-files))
 
 (defun ide-dockerfile--bake-targets (file)
   "Target names declared in bake FILE (HCL `target \"x\"' blocks, JSON keys, or compose services)."
@@ -634,8 +592,8 @@ With RUN, then run the image interactively in a terminal."
 (defun ide-dockerfile--run-command ()
   "S-<f10> in a Dockerfile builds it with the default tag."
   (when (derived-mode-p 'dockerfile-ts-mode 'dockerfile-mode)
-    (ide-devops--cmdline (ide-dockerfile--build-argv (ide-devops--file)
-                                                    (ide-dockerfile--default-tag (ide-devops--dir))))))
+    (ide-lang-command-string (ide-dockerfile--build-argv (ide-lang-require-file)
+                                                         (ide-dockerfile--default-tag (ide-devops--dir))))))
 
 ;;;###autoload (autoload 'ide-dockerfile-dispatch "lang-devops" nil t)
 (transient-define-prefix ide-dockerfile-dispatch ()
@@ -672,7 +630,7 @@ With RUN, then run the image interactively in a terminal."
   "The compose file this buffer is, or the nearest one above it."
   (if (and buffer-file-name (string-match-p ide-compose-file-regexp buffer-file-name))
       buffer-file-name
-    (or (ide-devops--local-config '("compose.yaml" "compose.yml" "docker-compose.yaml" "docker-compose.yml"))
+    (or (ide-lang-config-file '("compose.yaml" "compose.yml" "docker-compose.yaml" "docker-compose.yml"))
         (user-error "No compose file found"))))
 
 (defun ide-compose--argv (file &rest args)
@@ -719,7 +677,7 @@ With RUN, then run the image interactively in a terminal."
   (interactive (list (completing-read "Service: " (ide-compose--services) nil t)))
   (let ((file (ide-compose--file)))
     (ide-devops--terminal (format "compose exec %s" service)
-                          (ide-devops--cmdline
+                          (ide-lang-command-string
                            (ide-compose--argv file "exec" service "sh" "-c"
                                               "command -v bash >/dev/null && exec bash || exec sh"))
                           (file-name-directory file))))
@@ -764,7 +722,7 @@ With RUN, then run the image interactively in a terminal."
 (defun ide-compose--run-command ()
   "S-<f10> in a compose file brings the stack up."
   (when (bound-and-true-p ide-compose-mode)
-    (ide-devops--cmdline (ide-compose--argv (ide-compose--file) "up" "--build"))))
+    (ide-lang-command-string (ide-compose--argv (ide-compose--file) "up" "--build"))))
 
 (add-hook 'ide-run-command-functions #'ide-compose--run-command)
 
@@ -777,7 +735,7 @@ With RUN, then run the image interactively in a terminal."
 (defun ide-terraform--tflint-argv (file)
   "Command line linting the module that contains FILE (saved) and printing JSON."
   (let ((dir (directory-file-name (file-name-directory (expand-file-name file))))
-        (conf (ide-devops--local-config '(".tflint.hcl"))))
+        (conf (ide-lang-config-file ".tflint.hcl")))
     (append (list (concat "TFLINT_PLUGIN_DIR=" (ide-terraform--tflint-plugin-dir))
                   "tflint" (concat "--chdir=" dir) "--format" "json")
             (when conf (list "--config" conf)))))

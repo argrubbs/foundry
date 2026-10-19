@@ -78,17 +78,10 @@
 
 ;;;; stylua ------------------------------------------------------------------------------------
 
-(defun ide-lua-stylua-config (&optional dir)
-  "The stylua.toml or .stylua.toml governing DIR (default: here), or nil."
-  (let ((dir (or dir default-directory)))
-    (cl-loop for name in '("stylua.toml" ".stylua.toml")
-             for d = (locate-dominating-file dir name)
-             when d return (expand-file-name name d))))
-
 (defun ide-lua--stylua-args ()
   "Extra stylua arguments for the current buffer: the project's config, else our policy."
   (append
-   (if-let* ((cfg (ide-lua-stylua-config)))
+   (if-let* ((cfg (ide-lang-config-file '("stylua.toml" ".stylua.toml"))))
        (list "--config-path" cfg)
      (list "--indent-type" "Spaces" "--indent-width" (number-to-string ide-lua-indent-width)))
    (when buffer-file-name (list "--stdin-filepath" buffer-file-name))))

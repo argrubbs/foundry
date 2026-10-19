@@ -84,9 +84,9 @@
 ;;;; Shell ------------------------------------------------------------------------------
 
 (ert-deftest devops-bash-shfmt-flags-defer-to-editorconfig ()
-  (cl-letf (((symbol-function 'ide-devops--local-config) (lambda (&rest _) nil)))
+  (cl-letf (((symbol-function 'ide-lang-config-file) (lambda (&rest _) nil)))
     (should (equal (ide-bash--shfmt-flags) '("-i" "2" "-ci"))))
-  (cl-letf (((symbol-function 'ide-devops--local-config) (lambda (&rest _) "/p/.editorconfig")))
+  (cl-letf (((symbol-function 'ide-lang-config-file) (lambda (&rest _) "/p/.editorconfig")))
     (should-not (ide-bash--shfmt-flags))))
 
 (ert-deftest devops-bash-shellcheck-parser ()

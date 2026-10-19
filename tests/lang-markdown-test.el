@@ -131,9 +131,10 @@ Setext
     (unwind-protect
         (progn
           (make-directory sub t)
-          (should-not (ide-markdown--lint-config sub))
+          (should-not (ide-lang-config-file ide-markdown--lint-config-names sub))
           (with-temp-file (expand-file-name ".markdownlint.json" root) (insert "{}"))
-          (should (equal (ide-markdown--lint-config sub) (expand-file-name ".markdownlint.json" root)))
+          (should (equal (ide-lang-config-file ide-markdown--lint-config-names sub)
+                         (expand-file-name ".markdownlint.json" root)))
           (should (file-exists-p (ide-markdown--relaxed-config))))
       (delete-directory root t))))
 
