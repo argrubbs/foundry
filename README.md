@@ -118,7 +118,9 @@ and **ansible-xref** (`lisp/ansible-xref.el`), a small xref backend that follows
 - Chat and region actions: gptel (`C-c a i`, `C-c a r`, `C-c a c`).
 - Privacy: files that look like secrets (`.env`, `*.tfvars`, keys, kubeconfig, `*secrets*.yaml`; see
   `ide-ai-private-file-regexps`) are never sent to hosted models, whole-buffer sends to them ask first, and
-  `M-x ide-ai-mark-private` protects any other buffer. Local Ollama is unaffected.
+  `M-x ide-ai-mark-private` protects any other buffer. Text killed in a private buffer is refused by
+  `gptel-context-add-current-kill` and the menu's kill-ring prompt, but text you paste into another
+  buffer is sent like anything else you type there. Local Ollama is unaffected.
 - Provider and model: `C-c a M` (`ide-ai-set-model`) picks the provider (Ollama, Claude, Gemini) and
   model with completion, like agent-shell's picker: inside a chat or agent buffer it changes that
   session, elsewhere it sets and remembers the default. Set `ide-ai-default-model` for a fixed default;
