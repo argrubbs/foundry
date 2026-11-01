@@ -54,7 +54,7 @@
   (add-hook hook #'ide--use-spaces))
 
 (setq sh-basic-offset 2
-      json-ts-mode-indent-offset 2
+      json-ts-indent-offset 2
       typescript-ts-indent-offset 2
       js-indent-level 2
       css-indent-offset 2
@@ -79,9 +79,11 @@
 (electric-pair-mode 1)
 (delete-selection-mode 1)
 (global-auto-revert-mode 1)
-(savehist-mode 1)
-(save-place-mode 1)
-(recentf-mode 1)
+;; Batch runs (tests, compile, docs) must not overwrite the user's history.
+(unless noninteractive
+  (savehist-mode 1)
+  (save-place-mode 1)
+  (recentf-mode 1))
 (column-number-mode 1)
 (add-hook 'prog-mode-hook #'display-line-numbers-mode)
 

@@ -160,7 +160,12 @@ returns non-nil, or returns nil to leave it to the next one.")
   "Offer the language server's code actions at point."
   (interactive)
   (if (bound-and-true-p eglot--managed-mode)
-      (call-interactively #'eglot-code-actions)
+      ;; Emacs 32 moved code actions to its `refactor' library and made
+      ;; `eglot-code-actions' obsolete; Emacs 31 has only the latter.
+      (if (fboundp 'refactor)
+          (call-interactively #'refactor)
+        (with-suppressed-warnings ((obsolete eglot-code-actions))
+          (call-interactively #'eglot-code-actions)))
     (message "No language server in this buffer (M-x eglot starts one)")))
 
 ;; Code actions live on M-RET in programming modes only, so Org, Markdown and

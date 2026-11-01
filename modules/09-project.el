@@ -19,7 +19,10 @@
 ;; first interactive use (`ghostel-module-auto-install' asks; loading never prompts).
 (use-package ghostel :commands ghostel)
 
-(setq grep-command "rg --no-heading -n "
+;; `-H': rg omits the file name when searching a single file, which makes
+;; `grep-compute-defaults' decide to append /dev/null to every M-x grep.
+(setq grep-command "rg --no-heading -H -n "
+      grep-use-null-device nil
       xref-search-program 'ripgrep)
 
 (defun ide-project-terminal ()

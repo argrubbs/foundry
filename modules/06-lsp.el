@@ -9,7 +9,7 @@
 
 (use-package eglot
   :ensure nil
-  :commands (eglot eglot-ensure eglot-code-actions eglot-format-buffer)
+  :commands (eglot eglot-ensure eglot-format-buffer)
   ;; Each language starts Eglot from `ide-lang-setup' in its module.
   :init
   (setq eglot-events-buffer-config '(:size 0 :format short)
@@ -21,7 +21,6 @@
   ;; Servers that register capabilities Eglot lacks (tsgo: didChangeConfiguration)
   ;; would pop *Warnings* on every open; log such warnings without showing them.
   (dolist (type '((eglot) (jsonrpc))) (add-to-list 'warning-suppress-types type))
-  (add-hook 'eglot-managed-mode-hook #'eglot-inlay-hints-mode)
   (setq-default eglot-workspace-configuration
                 '(:gopls (:staticcheck t :usePlaceholders t
                           :analyses (:unusedparams t :shadow t)

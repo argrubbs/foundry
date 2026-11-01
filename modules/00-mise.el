@@ -266,9 +266,27 @@ The global mise's directories are dropped first, so only sandbox tools remain."
         (let ((res (ide-run-with-timeout 180 "az" "extension" "add" "--name" "azure-devops" "--yes")))
           (unless (eql (car res) 0)
             (ide-mise--log "az extension add failed (%s): %s" (car res) (string-trim (nth 2 res))))))))
-  (when (and (not noninteractive) (fboundp 'ide-treesit-install-grammars))
-    (ide-treesit-install-grammars))
+  (unless noninteractive
+    ;; Cloning and compiling grammars blocks Emacs; do it outside the process
+    ;; sentinel, and only once the user agrees.
+    (run-with-idle-timer 2 nil #'ide-mise--offer-grammars))
   (ide-mise--log "Done.  M-x ide-mise-doctor shows what is available."))
+
+(declare-function ide-treesit-install-grammars "05-treesitter")
+(declare-function ide-treesit-missing-grammars "05-treesitter")
+
+(defun ide-mise--offer-grammars ()
+  "Offer to install missing tree-sitter grammars now that the compilers are on PATH."
+  (when (fboundp 'ide-treesit-missing-grammars)
+    (when-let* ((missing (ide-treesit-missing-grammars)))
+      ;; Asked from an idle timer: never while the minibuffer is in use, and a
+      ;; prompt that cannot be shown still leaves the hint.
+      (if (and (not (active-minibuffer-window))
+               (ignore-errors
+                 (y-or-n-p (format "Build %d missing tree-sitter grammars now (Emacs is busy until done)? "
+                                   (length missing)))))
+          (ide-treesit-install-grammars)
+        (message "Run M-x ide-treesit-install-grammars to build %d missing grammars." (length missing))))))
 
 (defun ide-mise-install (&optional callback)
   "Run `mise install' for the manifest in the drawer, then refresh PATH.
@@ -292,11 +310,21 @@ CALLBACK is called with t on success, nil on failure."
                    (when at-end (goto-char (point-max))))))
      :sentinel (lambda (proc _event)
                  (when (memq (process-status proc) '(exit signal))
-                   (let ((ok (zerop (process-exit-status proc))))
-                     (if ok (ide-mise--post-install)
-                       (ide-mise--log "mise install failed (exit %s)" (process-exit-status proc)))
-                     (message "mise install %s" (if ok "finished" "FAILED; see *ide-mise*"))
-                     (when callback (funcall callback ok))))))))
+                   (ide-mise--install-finished (process-exit-status proc) callback))))))
+
+(defun ide-mise--install-finished (status callback)
+  "Finish a `mise install' that exited with STATUS, then call CALLBACK.
+CALLBACK always runs, with nil if the install or a post-install step failed,
+so `ide-mise-setup-batch' never waits forever."
+  (let ((ok (eql status 0)))
+    (unwind-protect
+        (condition-case err
+            (if ok (ide-mise--post-install)
+              (ide-mise--log "mise install failed (exit %s)" status))
+          (error (setq ok nil)
+                 (ide-mise--log "Post-install step failed: %s" (error-message-string err))))
+      (message "mise install %s" (if ok "finished" "FAILED; see *ide-mise*"))
+      (when callback (funcall callback ok)))))
 
 ;;;###autoload
 (defun ide-mise-setup ()
