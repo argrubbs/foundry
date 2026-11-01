@@ -44,6 +44,8 @@
 (declare-function xwidget-webkit-browse-url "xwidget")
 (declare-function which-key-add-key-based-replacements "which-key")
 (declare-function eglot-code-actions "eglot")
+(declare-function eglot-execute "eglot")
+(declare-function eglot-current-server "eglot")
 (declare-function eglot-server-capable "eglot")
 (declare-function eglot-ensure "eglot")
 (declare-function apheleia-mode "apheleia")
@@ -89,13 +91,35 @@ When SAVE is non-nil, save the buffer first.  Returns `buffer-file-name'."
   (when buffer-file-name
     (file-relative-name buffer-file-name (ide-lang-root))))
 
-(defun ide-lang-code-action (kind)
-  "Execute an Eglot code action matching KIND if supported."
+(defun ide-lang-code-action (kind &optional beg end interactive)
+  "Execute the Eglot code action of KIND for BEG..END (default: the whole buffer).
+By default (save hooks) the server's preferred action wins, else its first one;
+nothing happens when it offers none, and a failure is a message, not an error.
+Returns the action executed, `failed' after a failure (already reported), else nil.
+INTERACTIVE non-nil offers Eglot's menu of the actions instead (and signals)."
   (when (and (bound-and-true-p eglot--managed-mode)
              (fboundp 'eglot-server-capable)
              (eglot-server-capable :codeActionProvider))
-    (ignore-errors
-      (eglot-code-actions nil nil kind t))))
+    ;; Real bounds always: Eglot's interactive path compares them with its suggestion
+    ;; overlay, which fails on nil bounds.
+    (let ((beg (or beg (point-min)))
+          (end (or end (point-max))))
+      ;; Emacs 32 made `eglot-code-actions' obsolete for its `refactor' library,
+      ;; but it still takes the LSP kind string and returns the server's action
+      ;; plists that `eglot-execute' runs; `refactor' deals in its own objects
+      ;; and symbol kinds instead.
+      (with-suppressed-warnings ((obsolete eglot-code-actions))
+        (if interactive
+            (eglot-code-actions beg end kind t)
+          (condition-case err
+              (let* ((actions (eglot-code-actions beg end kind))
+                     (action (or (cl-find-if (lambda (a) (eq (plist-get a :isPreferred) t)) actions)
+                                 (car actions))))
+                (when action
+                  (eglot-execute (eglot-current-server) action)
+                  action))
+            (error (message "Code action %s failed: %s" kind (error-message-string err))
+                   'failed)))))))
 
 (defun ide-lang-run (name command &optional dir comint)
   "Run COMMAND (a string, or a list of arguments) in the drawer as *run: NAME*.
@@ -216,7 +240,31 @@ GROUPS is a plist of regexp group numbers: :line :col :severity :message
             (push (ide-lang-diag buffer linter line col sev msg) diags))))
       (nreverse diags))))
 
-(cl-defun ide-lang-define-linter (name &key modes program args parse (stdin t) (saved-only nil) safe)
+(defun ide-lang-lint-failure (proc diags ok-codes)
+  "Why the lint process PROC failed, or nil when its result stands.
+DIAGS are the diagnostics parsed from its output.  It failed when it found
+nothing and was killed by a signal or exited with a status not in OK-CODES (the
+statuses meaning \"no issues\" or \"issues found\"): a crash, a usage or
+configuration error, whose empty result must not clear the buffer's diagnostics."
+  (unless diags
+    (pcase (process-status proc)
+      ('signal (format "killed by signal %d" (process-exit-status proc)))
+      ('exit (let ((code (process-exit-status proc)))
+               (unless (memq code ok-codes) (format "exited with status %d" code)))))))
+
+(defun ide-lang-lint-failure-diag (buffer name failure output)
+  "A warning on the first line of BUFFER saying linter NAME failed (FAILURE), quoting
+the first lines of its OUTPUT."
+  (let* ((lines (split-string output "\n" t "[ \t]+"))
+         (head (string-join (seq-take lines 4) " | ")))
+    (ide-lang-diag buffer name 1 nil :warning
+                   (format "failed (%s): %s" failure
+                           (if (string-empty-p head) "no output" (truncate-string-to-width head 400))))))
+
+(defvar-local ide-lang--lint-failed nil "Linters whose failure was already shown in the echo area.")
+
+(cl-defun ide-lang-define-linter (name &key modes program args parse (stdin t) (saved-only nil) safe
+                                       directory (ok-codes '(0 1)))
   "Define Flymake backend `ide-lang-flymake-NAME' for an external linter and
 enable it in the mode hooks of MODES.
 
@@ -226,6 +274,14 @@ file name.  PARSE is called with the output and the source buffer and returns
 diagnostics.  STDIN non-nil sends the buffer to the process, so unsaved edits are
 linted; otherwise the saved file is read, and with SAVED-ONLY the backend stays
 quiet while the buffer has unsaved changes.
+
+DIRECTORY is a function returning the directory the linter runs in (default:
+the project root), for tools that find their configuration from there.
+OK-CODES are the exit statuses of a normal run (default 0 and 1, the usual
+\"clean\" and \"issues found\").  A run that ends otherwise, or by a signal,
+without a single diagnostic is a failure: instead of an empty (all clear)
+result, it is logged and shown as one warning on the first line quoting the
+tool's output.  The backend stays enabled, so the next check tries again.
 
 Emacs 31 only runs a Flymake backend in untrusted content (a file outside
 `trusted-content') when the backend is declared safe.  SAFE non-nil means the
@@ -239,19 +295,27 @@ back on `eglot-managed-mode-hook'."
   (let ((fn (intern (format "ide-lang-flymake-%s" name))))
     (defalias fn
       (lambda (report-fn &rest _)
-        (let ((exe (if (functionp program) (funcall program) (executable-find program)))
-              (src (current-buffer)))
+        (let ((src (current-buffer)) exe)
+          ;; A run still in flight is superseded: marked so its sentinel stays silent
+          ;; (its report function is obsolete) and forgotten, whatever happens next.
           (when-let* ((old (alist-get name ide-lang--lint-procs)))
-            (when (process-live-p old) (kill-process old)))
+            (process-put old 'ide-lang-superseded t)
+            (when (process-live-p old) (kill-process old))
+            (setf (alist-get name ide-lang--lint-procs nil 'remove) nil))
           (cond
            ;; An unsafe linter checks trust itself (see the docstring), so the user gets
            ;; one clear hint instead of Emacs's generic "Disabling ... (untrusted content)".
+           ;; This comes first: PROGRAM, ARGS and DIRECTORY may look at (or run) project
+           ;; files, so none of them is called before the project is trusted.
            ((and (not safe) (not (trusted-content-p)))
             (unless (memq name ide-lang--trust-hinted)
               (push name ide-lang--trust-hinted)
               (message "%s is paused: it runs project code. M-x ide-lang-trust-project to enable" name))
+            (setq ide-lang--lint-failed (delq name ide-lang--lint-failed))
             (funcall report-fn nil))
-           ((not exe) (funcall report-fn nil))
+           ((not (setq exe (if (functionp program) (funcall program) (executable-find program))))
+            (setq ide-lang--lint-failed (delq name ide-lang--lint-failed))
+            (funcall report-fn nil))
            ((and saved-only (buffer-modified-p)) (funcall report-fn nil))
            (t
             (let* ((file (buffer-file-name))
@@ -259,7 +323,8 @@ back on `eglot-managed-mode-hook'."
                                      (mapcar (lambda (a) (if (equal a "%f") (or file "-") a)) args))))
                    (input (and stdin (buffer-substring-no-properties (point-min) (point-max))))
                    (out (generate-new-buffer (format " *lint-%s*" name)))
-                   (default-directory (ide-lang-root))
+                   (default-directory (file-name-as-directory
+                                       (or (and directory (funcall directory)) (ide-lang-root))))
                    proc)
               (setq proc
                     (make-process
@@ -270,12 +335,30 @@ back on `eglot-managed-mode-hook'."
                        (when (memq (process-status p) '(exit signal))
                          (unwind-protect
                              (when (and (buffer-live-p src)
+                                        (not (process-get p 'ide-lang-superseded))
                                         (eq p (alist-get name (buffer-local-value 'ide-lang--lint-procs src))))
-                               (funcall report-fn
-                                        (condition-case err
-                                            (funcall parse (with-current-buffer out (buffer-string)) src)
-                                          (error (flymake-log :warning "%s parser: %s" name (error-message-string err))
-                                                 nil))))
+                               (let* ((output (with-current-buffer out (buffer-string)))
+                                      (diags (condition-case err
+                                                 (funcall parse output src)
+                                               (error (flymake-log :warning "%s parser: %s" name
+                                                                   (error-message-string err))
+                                                      nil)))
+                                      (failure (ide-lang-lint-failure p diags ok-codes)))
+                                 (with-current-buffer src
+                                   (if (not failure)
+                                       (progn (setq ide-lang--lint-failed (delq name ide-lang--lint-failed))
+                                              (funcall report-fn diags))
+                                     (let ((diag (ide-lang-lint-failure-diag src name failure output)))
+                                       (flymake-log :warning "%s" (flymake-diagnostic-text diag))
+                                       ;; Shown once; every time in an empty buffer, where
+                                       ;; Flymake has no text to put the warning on (it
+                                       ;; still counts it in the mode line).
+                                       (unless (or noninteractive
+                                                   (and (memq name ide-lang--lint-failed)
+                                                        (> (buffer-size) 0)))
+                                         (cl-pushnew name ide-lang--lint-failed)
+                                         (message "%s" (flymake-diagnostic-text diag)))
+                                       (funcall report-fn (list diag)))))))
                            (kill-buffer out))))))
               (setf (alist-get name ide-lang--lint-procs) proc)
               (when stdin
@@ -306,7 +389,12 @@ this for projects whose configuration you would run anyway.  The choice is saved
     (when (y-or-n-p (format "Trust all files under %s (linters may run its config code)? " root))
       (customize-save-variable 'trusted-content
                                (cl-adjoin root (and (boundp 'trusted-content) trusted-content) :test #'equal))
-      (when (bound-and-true-p flymake-mode) (flymake-start))
+      ;; Every buffer of the project, not only this one, so its paused linters start.
+      (dolist (buf (buffer-list))
+        (with-current-buffer buf
+          (when (and (bound-and-true-p flymake-mode) buffer-file-name
+                     (file-in-directory-p buffer-file-name root))
+            (flymake-start))))
       (message "Trusting %s" root))))
 
 ;;;; Language menus and server settings ------------------------------------------------------
@@ -428,7 +516,7 @@ CONFIG is a function run in each mode's hook."
                                      js-indent-level
                                      css-indent-offset
                                      html-ts-indent-offset
-                                     go-ts-mode-indent-offset
+                                     go-ts-indent-offset
                                      powershell-indent-level))
                         (when (boundp var) (set (make-local-variable var) width))))
                     (setq-local indent-tabs-mode indent-tabs)
@@ -478,20 +566,30 @@ CONFIG is a function run in each mode's hook."
                    return (alist-get 'browser_download_url a))
           (user-error "No asset matching %s in the latest %s release" regexp repo)))))
 
+(defun ide-lang-fetch-extract-command (url dir &optional kind fresh)
+  "Shell command downloading URL and extracting it into DIR (see `ide-lang-fetch-extract').
+With FRESH (DIR did not exist before), a failed download removes DIR again, so
+that its existence never passes for a finished install."
+  (let ((u (shell-quote-argument url))
+        (d (shell-quote-argument dir)))
+    (concat
+     "{ "
+     (if (eq kind 'zip)
+         (let ((zip (shell-quote-argument (expand-file-name "download.zip" dir))))
+           (format "curl -fsSL -o %s %s && unzip -qo %s -d %s && rm %s" zip u zip d zip))
+       (format "curl -fsSL %s | tar -xz -C %s" u d))
+     (format "; } && echo done || { %secho failed; exit 1; }"
+             (if fresh (format "rm -rf %s; " d) "")))))
+
 (defun ide-lang-fetch-extract (name url dir &optional kind)
   "Download URL and extract it into DIR, showing progress in the drawer.
-KIND is `tar' (a .tar.gz, the default) or `zip'."
-  (make-directory dir t)
-  (ide-lang-run (format "install %s" name)
-                (if (eq kind 'zip)
-                    (let ((zip (shell-quote-argument (expand-file-name "download" dir)))
-                          (u (shell-quote-argument url))
-                          (d (shell-quote-argument dir)))
-                      (format "curl -fsSL -o %s.zip %s && unzip -qo %s.zip -d %s && rm %s.zip && echo done"
-                              zip u zip d zip))
-                  (format "curl -fsSL %s | tar -xz -C %s && echo done"
-                          (shell-quote-argument url) (shell-quote-argument dir)))
-                dir))
+KIND is `tar' (a .tar.gz, the default) or `zip'.  When DIR is created here and
+the download fails, it is removed again."
+  (let ((fresh (not (file-exists-p dir))))
+    (make-directory dir t)
+    (ide-lang-run (format "install %s" name)
+                  (ide-lang-fetch-extract-command url dir kind fresh)
+                  dir)))
 
 (defun ide-lang-browse (url)
   "Show URL in the in-Emacs browser (xwidget WebKit) beside the code, else the system browser."
