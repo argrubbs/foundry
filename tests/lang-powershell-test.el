@@ -49,7 +49,10 @@
       (should (equal (car argv) "env"))
       (should (member "-Stdio" argv))
       (should (member "-DebugServiceOnly" argv))
-      (should (member "-BundledModulesPath" argv)))))
+      (should (member "-BundledModulesPath" argv))
+      ;; pwsh -File passes "@()" through as a literal string, not an empty array
+      (should-not (member "@()" argv))
+      (should-not (member "-AdditionalModules" argv)))))
 
 (ert-deftest powershell-debug-provider-fills-defaults ()
   (cl-letf (((symbol-function 'ide-powershell--debug-command) (lambda () '("pwsh")))
