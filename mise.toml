@@ -71,3 +71,6 @@ trivy        = "latest"
 "pypi:yamllint"         = "latest"
 marksman             = "latest"
 "npm:markdownlint-cli2" = "latest"
+
+# AI
+"npm:@agentclientprotocol/claude-agent-acp" = "latest"
