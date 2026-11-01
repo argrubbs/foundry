@@ -339,6 +339,52 @@ The npm cache is the shared one of `ide-mise-contained-env'."
   "The project's eslint (else the installed one), only where ESLint is configured."
   (when (ide-lang-config-file ide-web--eslint-configs) (ide-lang-node-exe "eslint")))
 
+(defun ide-web--eslint-major (exe)
+  "Major version of the ESLint at EXE, read from its package.json (0 when unknown).
+Nothing is run: EXE may be the project's own node_modules/.bin/eslint."
+  (or (cl-loop for f in (list (expand-file-name "../eslint/package.json" (file-name-directory exe))
+                              (expand-file-name "../package.json"
+                                                (file-name-directory (file-truename exe))))
+               for v = (when (file-readable-p f)
+                         (ignore-errors
+                           (with-temp-buffer
+                             (insert-file-contents f)
+                             (let ((pkg (json-parse-buffer :object-type 'alist)))
+                               (and (equal (alist-get 'name pkg) "eslint") (alist-get 'version pkg))))))
+               when (and (stringp v) (string-match "\\`\\([0-9]+\\)\\." v))
+               return (string-to-number (match-string 1 v)))
+      0))
+
+(defun ide-web--eslint-legacy-p ()
+  "Non-nil when the nearest ESLint configuration is a legacy .eslintrc* file."
+  (when-let* ((conf (ide-lang-config-file ide-web--eslint-configs)))
+    (string-prefix-p ".eslintrc" (file-name-nondirectory conf))))
+
+(defvar ide-web--eslint-legacy-hinted nil "Non-nil once the unsupported .eslintrc hint was shown.")
+
+(defun ide-web--eslint-command ()
+  "Argv prefix linting with ESLint here, or nil when it cannot run.
+ESLint 9 reads a legacy .eslintrc* only with ESLINT_USE_FLAT_CONFIG=false; ESLint
+10 dropped that format, so it is not run (it would fail on every buffer)."
+  (when-let* ((exe (ide-web--eslint-exe)))
+    (if (not (ide-web--eslint-legacy-p))
+        (list exe)
+      (let ((major (ide-web--eslint-major exe)))
+        (cond ((< major 9) (list exe))
+              ((= major 9) (list (or (executable-find "env") "env") "ESLINT_USE_FLAT_CONFIG=false" exe))
+              (t (unless (or ide-web--eslint-legacy-hinted noninteractive)
+                   (setq ide-web--eslint-legacy-hinted t)
+                   (message "ESLint %d does not read .eslintrc files; migrate to eslint.config.js" major))
+                 nil))))))
+
+(defun ide-web--eslint-dir ()
+  "Where ESLint runs: the directory of the nearest ESLint config, else the package.
+ESLint 9 looks for its flat config from the working directory, so a package's
+own config in a monorepo is only found from there."
+  (if-let* ((conf (ide-lang-config-file ide-web--eslint-configs)))
+      (file-name-directory conf)
+    (ide-web--project-dir)))
+
 (defun ide-web--eslint-parse (output buffer)
   "Flymake diagnostics for ESLint's JSON OUTPUT about BUFFER."
   (let ((start (string-match "^\\[" output)))
@@ -361,21 +407,28 @@ The npm cache is the shared one of `ide-mise-contained-env'."
 (ide-lang-define-linter
  'eslint
  :modes '(typescript-ts-mode tsx-ts-mode js-ts-mode)
- :program #'ide-web--eslint-exe
+ :program (lambda () (car (ide-web--eslint-command)))
+ :directory #'ide-web--eslint-dir
+ ;; 1 = problems found, 2 = configuration or internal error
+ :ok-codes '(0 1)
  :args (lambda (file)
-         (list "--format" "json" "--stdin" "--stdin-filename" (or file "stdin.ts")))
+         (append (cdr (ide-web--eslint-command))
+                 (list "--format" "json" "--stdin" "--stdin-filename" (or file "stdin.ts"))))
  :parse #'ide-web--eslint-parse)
 
 (defun ide-web-eslint-fix ()
   "Apply ESLint's automatic fixes to the current file."
   (interactive)
-  (let ((exe (or (ide-lang-node-exe "eslint") (user-error "eslint not found")))
+  (unless (trusted-content-p)
+    (user-error "ESLint runs project code; M-x ide-lang-trust-project first"))
+  (let ((cmd (or (ide-web--eslint-command)
+                 (user-error "No usable ESLint here (needs eslint and its configuration)")))
         (buf (current-buffer)))
     (ide-lang-require-file t)
-    (ide-lang-run-then "eslint --fix" (list exe "--fix" buffer-file-name)
+    (ide-lang-run-then "eslint --fix" (append cmd (list "--fix" buffer-file-name))
                        (lambda () (when (buffer-live-p buf)
                                     (with-current-buffer buf (revert-buffer t t t))))
-                       (ide-web--project-dir))))
+                       (ide-web--eslint-dir))))
 
 ;;;; Emmet (declared in 01-lang-modes.el) ------------------------------------------------------------------
 
@@ -395,11 +448,22 @@ The npm cache is the shared one of `ide-mise-contained-env'."
                 (shell-quote-argument file))
       (format "node %s" (shell-quote-argument file)))))
 
+(defun ide-web--in-project-dir (command)
+  "COMMAND (a list) as a shell command run from the project root (where
+`ide-run-current' runs it) that first enters the package directory, to which
+`ide-web--test-command' makes file names relative (a monorepo package)."
+  (let ((dir (ide-web--project-dir))
+        (root (ide-lang-root)))
+    (if (file-equal-p dir root)
+        (ide-lang-command-string command)
+      (format "cd %s && %s" (ide-lang-quote (file-relative-name dir root))
+              (ide-lang-command-string command)))))
+
 (defun ide-web--run-command ()
   "Hook for `ide-run-command-functions': run the file, or its tests."
   (when (and buffer-file-name (apply #'derived-mode-p ide-web-script-modes))
     (if (and (ide-web--test-file-p) (ide-web--test-runner))
-        (ide-lang-command-string (ide-web--test-command :file buffer-file-name))
+        (ide-web--in-project-dir (ide-web--test-command :file buffer-file-name))
       (format "env %s %s" (shell-quote-argument (ide-web--tmpdir-env))
               (ide-web--run-file-command buffer-file-name)))))
 
@@ -533,7 +597,8 @@ FILE is made relative to the package directory."
 (defun ide-web--code-action (kind)
   "Apply the LSP source action KIND (for example \"source.organizeImports\") to the buffer."
   (unless (bound-and-true-p eglot--managed-mode) (user-error "Eglot is not running in this buffer"))
-  (ide-lang-code-action kind))
+  (or (ide-lang-code-action kind)
+      (progn (message "No %s action to apply" kind) nil)))
 
 (defun ide-web-organize-imports ()
   "Sort and merge the imports."
