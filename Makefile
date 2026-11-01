@@ -1,4 +1,5 @@
-EMACS ?= emacs
+# Emacs 32 when installed (see launch.sh), else the system Emacs.
+EMACS ?= $(shell command -v emacs32 >/dev/null 2>&1 && echo emacs32 || echo emacs)
 ROOT  := $(CURDIR)
 RUN   := $(EMACS) --init-directory $(ROOT)
 # Prefer the mise-installed tools (node) when present.
