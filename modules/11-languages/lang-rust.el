@@ -28,6 +28,7 @@
 (require 'treesit)
 
 (defvar dap-codelldb-debug-path)
+(defvar dap-codelldb-debug-program)
 (defvar dap-codelldb-download-url)
 (declare-function dap-debug "dap-mode")
 (declare-function treesit-node-prev-sibling "treesit")
@@ -138,22 +139,108 @@
       (setq node (treesit-node-parent node)))
     names))
 
+(defun ide-rust--crate-root ()
+  "Directory of the nearest Cargo.toml above the buffer's file (its package), or nil."
+  (when buffer-file-name
+    (when-let* ((dir (locate-dominating-file buffer-file-name "Cargo.toml")))
+      (file-name-as-directory (expand-file-name dir)))))
+
+(defun ide-rust--crate-relative-file ()
+  "The buffer's file name relative to its package (crate root), else to the project."
+  (when buffer-file-name
+    (file-relative-name buffer-file-name (or (ide-rust--crate-root) (ide-lang-root)))))
+
+(defun ide-rust--package-args ()
+  "Cargo arguments selecting the package of the current file, for a command run at
+the project root: --manifest-path of a workspace member, nil for the root package."
+  (when-let* ((crate (ide-rust--crate-root))
+              ((not (file-equal-p crate (ide-lang-root)))))
+    (list "--manifest-path" (file-relative-name (expand-file-name "Cargo.toml" crate) (ide-lang-root)))))
+
+(defun ide-rust--package-name (crate)
+  "The [package] name in CRATE's Cargo.toml, or nil."
+  (let ((toml (expand-file-name "Cargo.toml" crate)))
+    (when (file-readable-p toml)
+      (with-temp-buffer
+        (insert-file-contents toml)
+        (goto-char (point-min))
+        (when (re-search-forward "^\\[package\\]" nil t)
+          (let ((end (save-excursion (if (re-search-forward "^\\[" nil t) (point) (point-max)))))
+            (when (re-search-forward "^name[ \t]*=[ \t]*[\"']\\([^\"']+\\)" end t)
+              (match-string 1))))))))
+
+(defun ide-rust--file-target (&optional rel)
+  "The cargo target and module path of the file at REL (relative to its crate root).
+A list (KIND NAME MODULES): KIND is `lib', `main' (src/main.rs's tree), `bin'
+\(src/bin/NAME), `test' (tests/NAME), `example' (examples/NAME), `bench'
+\(benches/NAME), `build' (build.rs) or nil; MODULES the module path of the file
+inside that target, a list of strings.  A file in a subdirectory of tests/,
+examples/ or benches/ belongs to a target only when that directory has a main.rs
+\(tests/common/mod.rs is a helper that any test may include: KIND nil)."
+  (let ((rel (or rel (ide-rust--crate-relative-file)))
+        (crate (ide-rust--crate-root)))
+    (cl-flet ((mods (path) (let ((p (replace-regexp-in-string "\\(?:\\`\\|/\\)mod\\'" "" path)))
+                             (and (not (string-empty-p p)) (split-string p "/")))))
+      (cond
+       ((null rel) nil)
+       ((equal rel "build.rs") (list 'build nil nil))
+       ((string-match "\\`\\(tests\\|examples\\|benches\\|src/bin\\)/\\([^/]+\\)\\.rs\\'" rel)
+        (list (ide-rust--dir-kind (match-string 1 rel)) (match-string 2 rel) nil))
+       ((string-match "\\`\\(tests\\|examples\\|benches\\|src/bin\\)/\\([^/]+\\)/\\(.*\\)\\.rs\\'" rel)
+        (let ((dir (match-string 1 rel)) (name (match-string 2 rel)) (m (match-string 3 rel)))
+          (when (or (equal m "main")
+                    (null crate)
+                    (file-exists-p (expand-file-name (format "%s/%s/main.rs" dir name) crate)))
+            (list (ide-rust--dir-kind dir) name (unless (equal m "main") (mods m))))))
+       ((equal rel "src/lib.rs") (list 'lib nil nil))
+       ((equal rel "src/main.rs") (list 'main nil nil))
+       ((string-match "\\`src/\\(.*\\)\\.rs\\'" rel)
+        (list (if (or (null crate) (file-exists-p (expand-file-name "src/lib.rs" crate))) 'lib 'main)
+              nil (mods (match-string 1 rel))))))))
+
+(defun ide-rust--dir-kind (dir)
+  "Target kind of the files directly in DIR (tests, examples, benches, src/bin)."
+  (pcase dir ("tests" 'test) ("examples" 'example) ("benches" 'bench) (_ 'bin)))
+
+(defun ide-rust--bin-args (target)
+  "Cargo arguments choosing the binary of TARGET (see `ide-rust--file-target').
+A file of the library or of src/main.rs runs the package's default binary,
+named after it, which must be named when src/bin/ holds more."
+  (pcase target
+    (`(bin ,name ,_) (list "--bin" name))
+    (`(example ,name ,_) (list "--example" name))
+    (`(,(or 'main 'lib) ,_ ,_)
+     (when-let* ((crate (ide-rust--crate-root))
+                 ((file-exists-p (expand-file-name "src/main.rs" crate)))
+                 ((file-directory-p (expand-file-name "src/bin" crate)))
+                 (pkg (ide-rust--package-name crate)))
+       (list "--bin" pkg)))))
+
+(defun ide-rust--target-args (target)
+  "Cargo test arguments limiting a run to TARGET's test target, when it is not the lib."
+  (pcase target
+    (`(test ,name ,_) (list "--test" name))
+    (`(bin ,name ,_) (list "--bin" name))
+    (`(example ,name ,_) (list "--example" name))
+    (`(bench ,name ,_) (list "--bench" name))
+    (`(main ,_ ,_) (ide-rust--bin-args target))))
+
 (defun ide-rust--test-name-at-point ()
-  "Qualified name (mod::path::fn) of the #[test] function around point, or nil."
+  "Qualified name (mod::path::fn) of the #[test] function around point, or nil.
+The path starts with the file's own module path inside its target."
   (when-let* ((fn (ide-lang-ancestor '("function_item")))
               (name (treesit-node-text (treesit-node-child-by-field-name fn "name") t)))
-    (string-join (append (ide-rust--module-path) (list name)) "::")))
+    (string-join (append (nth 2 (ide-rust--file-target)) (ide-rust--module-path) (list name)) "::")))
 
 (defun ide-rust--file-test-filter ()
-  "Arguments selecting the tests of the current file."
-  (let ((rel (ide-lang-relative-file)))
-    (cond
-     ((string-match "\\`tests/\\([^/]+\\)\\.rs\\'" rel) (list "--test" (match-string 1 rel)))
-     ((string-match "\\`\\(?:.*/\\)?src/\\(.*\\)\\.rs\\'" rel)
-      (let ((m (match-string 1 rel)))
-        (if (member m '("lib" "main")) nil
-          (list (replace-regexp-in-string "/" "::" (replace-regexp-in-string "/mod\\'" "" m))))))
-     (t nil))))
+  "Arguments selecting the tests of the current file (with its package in a workspace)."
+  (let ((target (ide-rust--file-target)))
+    (append
+     (ide-rust--package-args)
+     (ide-rust--target-args target)
+     (when-let* ((mods (nth 2 target))
+                 ((memq (car target) '(lib main))))
+       (list (string-join mods "::"))))))
 
 (defun ide-rust-test-all () "Run every test in the project." (interactive)
        (ide-lang-run "cargo test" (ide-rust--test-command)))
@@ -216,7 +303,11 @@
     (cond
      (runnable (ide-rust--run-runnable runnable))
      ((ide-rust--test-name-at-point)
-      (ide-lang-run "cargo test" (ide-rust--test-command (ide-rust--test-name-at-point) "--" "--exact" "--nocapture")))
+      (ide-lang-run "cargo test" (apply #'ide-rust--test-command
+                                        (append (ide-rust--package-args)
+                                                (ide-rust--target-args (ide-rust--file-target))
+                                                (list (ide-rust--test-name-at-point)
+                                                      "--" "--exact" "--nocapture")))))
      (t (user-error "No test at point")))))
 
 (defun ide-rust-related-tests ()
@@ -330,7 +421,8 @@ the executable under the debugger with breakpoints, locals and the debug REPL."
   (interactive)
   (require 'dap-mode)
   (require 'dap-codelldb)
-  (unless (file-exists-p dap-codelldb-debug-path)
+  ;; The adapter itself: its directory exists as soon as a download starts.
+  (unless (file-executable-p dap-codelldb-debug-program)
     (user-error "The debugger is not installed; run M-x ide-rust-install-debugger"))
   (let* ((r (or (ide-rust--pick-runnable "\\`\\(test \\|doctest\\|bench\\)")
                 (ide-rust--pick-runnable "\\`run")
@@ -364,10 +456,24 @@ the executable under the debugger with breakpoints, locals and the debug REPL."
 
 (defun ide-rust--run-command ()
   (when (derived-mode-p 'rust-ts-mode)
-    (let ((rel (ide-lang-relative-file)))
-      (if (and rel (string-prefix-p "tests/" rel))
-          (ide-lang-command-string (ide-rust--test-command "--test" (file-name-base rel)))
-        "cargo run"))))
+    (let* ((target (ide-rust--file-target))
+           (rel (ide-rust--crate-relative-file))
+           (pkg (ide-rust--package-args)))
+      (ide-lang-command-string
+       (pcase (car target)
+         ('test (apply #'ide-rust--test-command (append pkg (ide-rust--target-args target))))
+         ;; a helper under tests/ (tests/common/mod.rs): the package's tests
+         ((guard (and rel (string-prefix-p "tests/" rel))) (apply #'ide-rust--test-command pkg))
+         ('bench (append '("cargo" "bench") pkg (ide-rust--target-args target)))
+         ('build (append '("cargo" "build") pkg))
+         ('example (append '("cargo" "run") pkg (ide-rust--bin-args target)))
+         ;; A workspace member with a binary runs that (the file's binary when there
+         ;; are several); otherwise cargo picks (the root).
+         (_ (append '("cargo" "run")
+                    (when-let* ((crate (ide-rust--crate-root))
+                                ((or (file-exists-p (expand-file-name "src/main.rs" crate))
+                                     (file-directory-p (expand-file-name "src/bin" crate)))))
+                      (append pkg (ide-rust--bin-args target))))))))))
 
 ;;;###autoload (autoload 'ide-rust-dispatch "lang-rust" nil t)
 (transient-define-prefix ide-rust-dispatch ()
