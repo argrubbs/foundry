@@ -93,6 +93,26 @@ Called by 01-ui so the first themed frame is already the right one."
 
 ;;;; Visual polish --------------------------------------------------------------
 
+(defvar global-hl-line-buffers)
+
+(defconst ide-juice-hl-line-modes '(prog-mode text-mode conf-mode dired-mode)
+  "Major modes (and their derivatives) whose current line is highlighted.
+Terminals, shells and other special buffers are left alone.")
+
+(defun ide-juice--setup-hl-line ()
+  "Highlight the current line in `ide-juice-hl-line-modes' buffers only.
+Emacs 31 restricts the global mode with `global-hl-line-buffers'; older
+versions get buffer-local `hl-line-mode' from the modes' hooks."
+  (require 'hl-line)
+  (if (boundp 'global-hl-line-buffers)
+      (progn
+        (setq global-hl-line-buffers
+              `(and ,(eval (car (get 'global-hl-line-buffers 'standard-value)) t)
+                    (or ,@(mapcar (lambda (m) `(derived-mode . ,m)) ide-juice-hl-line-modes))))
+        (global-hl-line-mode 1))
+    (dolist (m ide-juice-hl-line-modes)
+      (add-hook (intern (format "%s-hook" m)) #'hl-line-mode))))
+
 (unless (ide-juice--plain-p)
   ;; Theme
   (ide-juice--load-theme ide-juice-default-theme)
@@ -114,8 +134,7 @@ Called by 01-ui so the first themed frame is already the right one."
   ;; Modeline: 01-ui sizes it from IDE_NO_JUICE.
 
   ;; Cursorline
-  (setq global-hl-line-modes '(prog-mode text-mode conf-mode dired-mode))
-  (global-hl-line-mode 1)
+  (ide-juice--setup-hl-line)
 
   ;; Pixel scrolling
   (when (display-graphic-p)
