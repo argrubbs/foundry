@@ -29,6 +29,7 @@
 
 (require '00-lang-lib)
 
+(defvar ide-var-dir)
 (defvar ide-run-command-functions)
 (defvar apheleia-mode-alist)
 (defvar ghostel-shell)
@@ -36,8 +37,7 @@
 (defvar ghostel-kill-buffer-on-exit)
 (defvar imenu-create-index-function)
 (declare-function ghostel "ghostel")
-(declare-function docker "docker")
-(declare-function eglot-code-actions "eglot")
+(declare-function docker "docker-core")
 (declare-function eglot-current-server "eglot")
 (declare-function eglot-format-buffer "eglot")
 (eval-when-compile (require 'treesit nil t))
@@ -87,9 +87,11 @@ Uses ghostel when installed, otherwise a comint compilation in the drawer."
   (ide-lang-exe-or-error "trivy")
   (ide-devops--run (format "trivy %s" kind) (append (list "trivy" kind) extra (list target))))
 
-;; shellcheck, hadolint and tflint only read text or static config, so they are `:safe'
-;; (they run in untrusted files).  terraform validate starts the module's provider
-;; binaries, so it is not: it pauses until `ide-lang-trust-project'.
+;; shellcheck and hadolint only read text and static config (.shellcheckrc directives,
+;; .hadolint.yaml rule settings), so they are `:safe' (they run in untrusted files).
+;; tflint is not: a repo's .tflint.hcl can set `plugin_dir' and make it execute binaries
+;; from the repo, and terraform validate starts the module's provider binaries.  Both
+;; pause until `ide-lang-trust-project'.
 
 ;;;; TOML ----------------------------------------------------------------------------------
 
@@ -275,6 +277,15 @@ Useful offline-first: taplo then validates and completes against that schema."
 ;; bash-language-server already runs shellcheck and reports it through Eglot with the
 ;; same codes (SC2086 ...) and quick fixes.  This backend only fills in when no server is
 ;; connected, so a buffer never shows each finding twice.
+;; Emacs 31's bash-ts-mode adds its own `sh-shellcheck-flymake': with the backend below
+;; (or bash-language-server's) every finding would show twice, and in untrusted files it
+;; only logs "Disabling ... (untrusted content)".  Drop it before Flymake first runs.
+(declare-function sh-shellcheck-flymake "sh-script")
+(defun ide-bash--drop-builtin-shellcheck ()
+  "Remove Emacs's built-in shellcheck Flymake backend from this buffer."
+  (remove-hook 'flymake-diagnostic-functions #'sh-shellcheck-flymake t))
+(add-hook 'bash-ts-mode-hook #'ide-bash--drop-builtin-shellcheck -95)
+
 (ide-lang-define-linter 'shellcheck :safe t
   :modes '(bash-ts-mode)
   :program (lambda () (unless (and (fboundp 'eglot-current-server) (eglot-current-server))
@@ -341,9 +352,35 @@ Useful offline-first: taplo then validates and completes against that schema."
         (treesit-node-text name t))
       (thing-at-point 'symbol t)))
 
+(defun ide-bash--project-command-p (name)
+  "Non-nil when running command NAME would run an executable the project supplies.
+That is a relative path (./script, bin/x: a file next to the untrusted content),
+or an absolute path or PATH lookup that resolves (symlinks followed) inside the
+project's own tree.  When the project root is the home directory or above it, only
+relative paths count: ~/.local/bin and the like are the user's, not a repo's.
+Foundry's own var/ (mise tools) never counts."
+  (let* ((root (file-truename (file-name-as-directory (ide-lang-root))))
+         (project-tree (not (file-in-directory-p (file-truename "~/") root)))
+         (inside (lambda (f)
+                   (let ((f (file-truename f)))
+                     (and project-tree
+                          (file-in-directory-p f root)
+                          (not (file-in-directory-p f (file-truename ide-var-dir))))))))
+    (if (string-match-p "/" name)
+        (or (not (file-name-absolute-p name)) (funcall inside (expand-file-name name)))
+      (when-let* ((exe (executable-find name))) (funcall inside exe)))))
+
+(defun ide-bash--check-trusted-command (name)
+  "Signal a `user-error' when NAME is project code and this file is not trusted."
+  (when (and (ide-bash--project-command-p name)
+             (not (and (fboundp 'trusted-content-p) (trusted-content-p))))
+    (user-error "%s is project code; M-x ide-lang-trust-project to allow running its --help" name)))
+
 (defun ide-bash--help-text (name)
   "Help text for command NAME: shell builtin help, tldr, or `NAME --help'.  Nil when unknown.
-Man pages are handled by the caller."
+Man pages are handled by the caller.  `NAME --help' is refused (see
+`ide-bash--check-trusted-command') when NAME is a path or a project executable
+and the project is not trusted."
   (let ((kind (string-trim (shell-command-to-string (format "type -t %s 2>/dev/null" (shell-quote-argument name))))))
     (cond
      ((member kind '("builtin" "keyword"))
@@ -351,6 +388,7 @@ Man pages are handled by the caller."
      ((executable-find "tldr")
       (shell-command-to-string (format "tldr %s 2>&1" (shell-quote-argument name))))
      ((equal kind "file")
+      (ide-bash--check-trusted-command name)
       (shell-command-to-string (format "timeout 5 %s --help 2>&1 </dev/null" (shell-quote-argument name)))))))
 
 (defun ide-bash-help-at-point (name)
@@ -388,7 +426,7 @@ Man pages are handled by the caller."
    ["Edit / explore"
     ("f" "format (shfmt)" apheleia-format-buffer)
     ("h" "help for command at point" ide-bash-help-at-point)
-    ("c" "code actions" eglot-code-actions)
+    ("c" "code actions" ide-code-actions)
     ("o" "outline (imenu)" imenu)]])
 
 (ide-lang-register '(bash-ts-mode sh-mode) :run #'ide-bash--run-command :menu #'ide-bash-dispatch)
@@ -752,8 +790,13 @@ note on the first line."
     (nreverse diags)))
 
 ;; Saved-only: tflint reads the module from disk.  `env' carries TFLINT_PLUGIN_DIR so plugins
-;; (tflint --init) live in the sandbox.
-(ide-lang-define-linter 'tflint :safe t
+;; (tflint --init) live in the sandbox.  Not `:safe': the repo's .tflint.hcl (read from the
+;; module directory even without --config) can point `plugin_dir' at repo binaries, which
+;; tflint then executes, so it waits for `ide-lang-trust-project'.  It exits 0 when
+;; clean, 2 when it found issues (maybe only in sibling files, so none parsed for this
+;; buffer) and 1 on errors (reported in its JSON, which become a note).
+(ide-lang-define-linter 'tflint
+  :ok-codes '(0 2)
   :modes '(terraform-mode)
   :program (lambda () (and (executable-find "tflint") (executable-find "env")))
   :args #'ide-terraform--tflint-argv

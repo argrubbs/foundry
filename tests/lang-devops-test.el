@@ -313,9 +313,102 @@
 (ert-deftest devops-tflint-real-run ()
   (skip-unless (and (executable-find "tflint") (executable-find "env")))
   (let* ((f (ide-devops-test--tmp "main.tf" "variable \"unused\" {\n  type = string\n}\n"))
+         ;; .tflint.hcl can make tflint run repo binaries, so it waits for a trusted project.
+         (trusted-content :all)
          (diags (ide-devops-test--lint #'ide-lang-flymake-tflint f #'terraform-mode)))
     (should (cl-find "terraform_unused_declarations" diags :key #'caddr :test #'string-match-p))
     (should (equal (car (cl-find "unused" diags :key #'caddr :test #'string-match-p)) 1))))
+
+(ert-deftest devops-tflint-issues-in-a-sibling-file-are-not-a-failure ()
+  "tflint exits 2 for issues anywhere in the module; none of them in this file is no panic."
+  (skip-unless (and (executable-find "tflint") (executable-find "env")))
+  (let* ((f (ide-devops-test--tmp "main.tf" "terraform {\n  required_version = \">= 1.0\"\n}\n"))
+         (trusted-content :all)
+         (buf (find-file-noselect f))
+         args done)
+    (with-temp-file (expand-file-name "other.tf" (file-name-directory f))
+      (insert "variable \"unused\" {\n  type = string\n}\n"))
+    (unwind-protect
+        (with-current-buffer buf
+          (delay-mode-hooks (terraform-mode))
+          (ide-lang-flymake-tflint (lambda (&rest a) (setq args a done t)))
+          (dotimes (_ 100) (unless done (accept-process-output nil 0.1)))
+          (should done)
+          (should-not (eq (car args) :panic))
+          (should (equal args '(nil))))
+      (kill-buffer buf))))
+
+(ert-deftest devops-bash-builtin-shellcheck-backend-is-removed ()
+  "Emacs 31's `sh-shellcheck-flymake' would duplicate every shellcheck finding."
+  (skip-unless (treesit-language-available-p 'bash))
+  (let ((f (ide-devops-test--tmp "a.sh" "#!/bin/bash\necho $x\n")))
+    (let ((buf (find-file-noselect f)))
+      (unwind-protect
+          (with-current-buffer buf
+            (unless (derived-mode-p 'bash-ts-mode) (bash-ts-mode))
+            (should (derived-mode-p 'bash-ts-mode))
+            (should-not (memq 'sh-shellcheck-flymake flymake-diagnostic-functions))
+            (should (memq 'ide-lang-flymake-shellcheck flymake-diagnostic-functions)))
+        (kill-buffer buf)))))
+
+(ert-deftest devops-tflint-waits-for-trust ()
+  "A repo .tflint.hcl can set plugin_dir to repo binaries: tflint must not run untrusted."
+  (let* ((f (ide-devops-test--tmp "main.tf" "variable \"unused\" {}\n"))
+         (trusted-content nil)
+         (started nil))
+    (with-temp-file (expand-file-name ".tflint.hcl" (file-name-directory f))
+      (insert "config {\n  plugin_dir = \"./p\"\n}\n"))
+    (cl-letf (((symbol-function 'make-process) (lambda (&rest _) (setq started t) nil))
+              ((symbol-function 'executable-find) (lambda (&rest _) "/bin/true")))
+      (should-not (ide-devops-test--lint #'ide-lang-flymake-tflint f #'terraform-mode)))
+    (should-not started)))
+
+(ert-deftest devops-bash-help-refuses-project-commands-untrusted ()
+  (let* ((dir (file-name-as-directory (make-temp-file "devops-help" t)))
+         (script (expand-file-name "script" dir))
+         (marker (expand-file-name "ran" dir))
+         (default-directory dir)
+         (trusted-content nil))
+    (with-temp-file script (insert "#!/bin/sh\ntouch " marker "\n"))
+    (set-file-modes script #o755)
+    (cl-letf (((symbol-function 'ide-lang-root) (lambda (&rest _) dir))
+              ((symbol-function 'executable-find)
+               (let ((orig (symbol-function 'executable-find)))
+                 (lambda (n &rest r) (if (equal n "tldr") nil (apply orig n r))))))
+      (should (ide-bash--project-command-p "./script"))
+      (should (ide-bash--project-command-p script))
+      (should-not (ide-bash--project-command-p "ls"))
+      (should-not (ide-bash--project-command-p "/bin/sh"))
+      (should-error (ide-bash--help-text "./script") :type 'user-error)
+      (let ((exec-path (cons dir exec-path)))
+        (should (ide-bash--project-command-p "script")))
+      ;; Builtin help runs no project code, so it is not refused.
+      (should (string-match-p "directory" (ide-bash--help-text "cd"))))
+    (should-not (file-exists-p marker))
+    (delete-directory dir t)))
+
+(ert-deftest devops-bash-help-allows-user-tools-when-root-is-home ()
+  "With the project root at ~ (or Foundry's own repo), ~/.local/bin and mise tools are not project code."
+  (let* ((bin (file-name-as-directory (make-temp-file "devops-bin" t)))
+         (tool (expand-file-name "mytool" bin))
+         (trusted-content nil))
+    (with-temp-file tool (insert "#!/bin/sh\n"))
+    (set-file-modes tool #o755)
+    (unwind-protect
+        (let ((exec-path (cons bin exec-path)))
+          ;; Root above the tool's directory (like ~ above ~/.local/bin): not project code.
+          (cl-letf (((symbol-function 'ide-lang-root) (lambda (&rest _) (file-name-directory (directory-file-name bin))))
+                    ((symbol-function 'file-truename)
+                     (let ((orig (symbol-function 'file-truename)))
+                       (lambda (f &rest r)
+                         (if (equal f "~/") (file-name-directory (directory-file-name bin)) (apply orig f r))))))
+            (should-not (ide-bash--project-command-p "mytool"))
+            (should (ide-bash--project-command-p "./mytool")))
+          ;; Root inside Foundry's var/ (mise tools): not project code.
+          (let ((ide-var-dir bin))
+            (cl-letf (((symbol-function 'ide-lang-root) (lambda (&rest _) bin)))
+              (should-not (ide-bash--project-command-p "mytool")))))
+      (delete-directory bin t))))
 
 (ert-deftest devops-terraform-validate-real-run ()
   (skip-unless (executable-find "terraform"))
