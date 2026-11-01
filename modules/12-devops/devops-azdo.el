@@ -21,17 +21,16 @@
 (defvar shr-width)
 (defvar shr-inhibit-images)
 
-(declare-function magit-insert-section "magit-section")
 (declare-function magit-insert-heading "magit-section")
 (declare-function magit-current-section "magit-section")
 (declare-function magit-diff-range "magit-diff")
-(declare-function magit-run-git "magit-git")
-(declare-function magit-call-git "magit-git")
+(declare-function magit-run-git "magit-process")
+(declare-function magit-call-git "magit-process")
 (declare-function magit-get-current-branch "magit-git")
 (declare-function magit-toplevel "magit-git")
 (declare-function magit-refresh "magit-mode")
 (declare-function magit-add-section-hook "magit-section")
-(declare-function magit-file-at-point "magit-diff")
+(declare-function magit-file-at-point "magit-git")
 (declare-function org-mode "org")
 (defvar magit-status-mode-map)
 (defvar magit-diff-mode-map)
@@ -129,6 +128,49 @@ Results are cached per directory for `azdo--ctx-ttl' seconds."
 
 (defvar azdo--token-cache nil "Cons of (EXPIRY-TIME . TOKEN).")
 
+(defconst azdo--token-margin 300
+  "Seconds before an Entra token's real expiry at which it is refetched.")
+
+(defun azdo--token-expiry (json)
+  "Return the time at which the cached token from JSON should be dropped.
+JSON is the alist from `az account get-access-token -o json'.  Prefer the
+POSIX `expires_on' (UTC), fall back to the local-time `expiresOn' string,
+and assume five minutes when neither parses.  `azdo--token-margin' seconds
+are subtracted so a token is never used right at its deadline."
+  (let* ((epoch (alist-get 'expires_on json))
+         (epoch (cond ((numberp epoch) epoch)
+                      ((and (stringp epoch) (string-match-p "\\`[0-9]+\\'" epoch))
+                       (string-to-number epoch))))
+         (local (alist-get 'expiresOn json))
+         (expiry (cond (epoch (seconds-to-time epoch))
+                       ((stringp local)
+                        (ignore-errors
+                          (let ((p (parse-time-string local)))
+                            (when (decoded-time-year p)
+                              (encode-time (append (list (or (decoded-time-second p) 0)
+                                                         (or (decoded-time-minute p) 0)
+                                                         (or (decoded-time-hour p) 0))
+                                                   (nthcdr 3 p)))))))
+                       (t (time-add (current-time) (+ 300 azdo--token-margin))))))
+    (time-subtract expiry azdo--token-margin)))
+
+(defun azdo--fetch-entra-token ()
+  "Fetch an Entra token with `az' and cache it until shortly before it expires."
+  (let* ((res (ide-run-with-timeout 30 "az" "account" "get-access-token"
+                                    "--resource" azdo--entra-resource "-o" "json"))
+         (json (and (eql (car res) 0)
+                    (ignore-errors
+                      (json-parse-string (nth 1 res) :object-type 'alist
+                                         :null-object nil :false-object nil))))
+         (tok (and (listp json) (alist-get 'accessToken json))))
+    (when (eq (car res) 'timeout)
+      (user-error "azdo: `az account get-access-token' timed out"))
+    (unless (and (stringp tok) (not (string-empty-p tok)))
+      (user-error "azdo: `az' returned no token (%s); run `az login' or set AZURE_DEVOPS_EXT_PAT"
+                  (string-trim (or (nth 2 res) ""))))
+    (setq azdo--token-cache (cons (azdo--token-expiry json) tok))
+    tok))
+
 (defun azdo--auth-header ()
   "Return the Authorization header value."
   (let ((pat (or (getenv "AZURE_DEVOPS_EXT_PAT")
@@ -139,18 +181,7 @@ Results are cached per directory for `azdo--ctx-ttl' seconds."
      (pat (concat "Basic " (base64-encode-string (concat ":" pat) t)))
      ((and azdo--token-cache (time-less-p (current-time) (car azdo--token-cache)))
       (concat "Bearer " (cdr azdo--token-cache)))
-     ((executable-find "az")
-      (let* ((res (ide-run-with-timeout 30 "az" "account" "get-access-token"
-                                        "--resource" azdo--entra-resource
-                                        "--query" "accessToken" "-o" "tsv"))
-             (tok (string-trim (nth 1 res))))
-        (when (eq (car res) 'timeout)
-          (user-error "azdo: `az account get-access-token' timed out"))
-        (when (string-empty-p tok)
-          (user-error "azdo: `az' returned no token (%s); run `az login' or set AZURE_DEVOPS_EXT_PAT"
-                      (string-trim (nth 2 res))))
-        (setq azdo--token-cache (cons (time-add (current-time) (* 50 60)) tok))
-        (concat "Bearer " tok)))
+     ((executable-find "az") (concat "Bearer " (azdo--fetch-entra-token)))
      (t (user-error "azdo: set AZURE_DEVOPS_EXT_PAT, add an auth-source entry for dev.azure.com, or install `az'")))))
 
 ;;;; HTTP --------------------------------------------------------------------
@@ -166,10 +197,15 @@ Results are cached per directory for `azdo--ctx-ttl' seconds."
   "Encode BODY (string, alist, vector) to a UTF-8 JSON unibyte string."
   (encode-coding-string (if (stringp body) body (json-serialize body)) 'utf-8))
 
+(defvar url-http-content-type)
+
 (defun azdo--parse-response ()
-  "Parse the current url response buffer into (STATUS . DATA)."
+  "Parse the current url response buffer into (STATUS . DATA).
+A body that is not JSON becomes ((raw . BODY)), plus (html . t) when it is
+an HTML page (Azure DevOps' sign-in page for a bad or expired PAT)."
   (goto-char (point-min))
-  (let ((status (or (and (boundp 'url-http-response-status) url-http-response-status) 0)))
+  (let ((status (or (and (boundp 'url-http-response-status) url-http-response-status) 0))
+        (ctype (and (boundp 'url-http-content-type) url-http-content-type)))
     (goto-char (if (and (boundp 'url-http-end-of-headers) url-http-end-of-headers)
                    url-http-end-of-headers (point-min)))
     (skip-chars-forward " \r\n")
@@ -179,7 +215,22 @@ Results are cached per directory for `azdo--ctx-ttl' seconds."
               (condition-case nil
                   (json-parse-string raw :object-type 'alist :array-type 'list
                                      :null-object nil :false-object nil)
-                (error `((raw . ,raw)))))))))
+                (error `((raw . ,raw)
+                         ,@(when (or (and (stringp ctype) (string-match-p "html" ctype))
+                                     (string-match-p "\\`[ \t\r\n]*<" raw))
+                             '((html . t)))))))))))
+
+(defun azdo--auth-error (status data)
+  "Return an error message when STATUS/DATA mean authentication failed, else nil.
+Azure DevOps answers a bad or expired PAT with 203 and an HTML sign-in page
+rather than 401, which would otherwise parse as an empty result.  Any auth
+failure also drops the cached Entra token so the next call fetches a new one."
+  (let ((html (and (consp data) (alist-get 'html data))))
+    (when (or (memql status '(203 401)) (and html (<= 200 status 299)))
+      (setq azdo--token-cache nil)
+      (format "azdo: authentication failed (HTTP %s%s); check AZURE_DEVOPS_EXT_PAT, \
+the dev.azure.com auth-source entry, or run `az login'"
+              status (if html ", got a sign-in page instead of JSON" "")))))
 
 (defun azdo--request (method url &optional body content-type)
   "Synchronously perform METHOD on URL with BODY; return parsed JSON."
@@ -194,6 +245,7 @@ Results are cached per directory for `azdo--ctx-ttl' seconds."
     (unwind-protect
         (with-current-buffer buf
           (let* ((res (azdo--parse-response)) (status (car res)) (data (cdr res)))
+            (when-let* ((msg (azdo--auth-error status data))) (error "%s" msg))
             (when (or (>= status 400) (zerop status))
               (error "azdo: HTTP %s: %s" status
                      (or (alist-get 'message data) (alist-get 'raw data) url)))
@@ -226,7 +278,10 @@ or after `azdo-request-timeout' seconds.  Failures are logged."
                  (condition-case e (setq res (azdo--parse-response))
                    (error (setq err (error-message-string e))))
                  (kill-buffer b)
-                 (cond ((plist-get status :error)
+                 (cond ((and res (azdo--auth-error (car res) (cdr res)))
+                        (message "%s" (azdo--auth-error (car res) (cdr res)))
+                        (funcall callback azdo--failed))
+                       ((plist-get status :error)
                         (message "azdo: request to %s failed: %S" url (plist-get status :error))
                         (funcall callback azdo--failed))
                        (err (message "azdo: unreadable response from %s: %s" url err)
@@ -269,6 +324,8 @@ or after `azdo-request-timeout' seconds.  Failures are logged."
 ;;;; Compose buffers (multi-line input) --------------------------------------
 
 (defvar-local azdo--compose-callback nil)
+(defvar-local azdo--compose-directory nil
+  "`default-directory' of the buffer the compose was started from.")
 (defvar azdo-compose-mode-map
   (let ((m (make-sparse-keymap)))
     (define-key m (kbd "C-c C-c") #'azdo-compose-finish)
@@ -279,22 +336,30 @@ or after `azdo-request-timeout' seconds.  Failures are logged."
 \\[azdo-compose-finish] submits, \\[azdo-compose-abort] cancels.")
 
 (defun azdo--compose (name initial callback)
-  "Pop up compose buffer NAME seeded with INITIAL; CALLBACK gets the text."
-  (let ((buf (get-buffer-create (format "*azdo-compose:%s*" name))))
+  "Pop up compose buffer NAME seeded with INITIAL; CALLBACK gets the text.
+CALLBACK runs with `default-directory' bound to the directory this was
+called from, so repository lookups in it see the originating repo even
+though the compose buffer is gone by then."
+  (let ((buf (get-buffer-create (format "*azdo-compose:%s*" name)))
+        (dir default-directory))
     (with-current-buffer buf
       (erase-buffer) (azdo-compose-mode)
       (insert (or initial ""))
-      (setq azdo--compose-callback callback)
+      (setq default-directory dir)
+      (setq azdo--compose-callback callback
+            azdo--compose-directory dir)
       (setq header-line-format "Write text.  C-c C-c to submit, C-c C-k to cancel."))
     (pop-to-buffer buf)))
 
 (defun azdo-compose-finish ()
   "Submit the compose buffer."
   (interactive)
-  (let ((text (string-trim (buffer-string))) (cb azdo--compose-callback))
+  (let ((text (string-trim (buffer-string))) (cb azdo--compose-callback)
+        (dir (or azdo--compose-directory default-directory)))
     (when (string-empty-p text) (user-error "Empty text"))
     (quit-window t)
-    (funcall cb text)))
+    (let ((default-directory dir))
+      (funcall cb text))))
 
 (defun azdo-compose-abort ()
   "Cancel composing."
@@ -398,7 +463,7 @@ or after `azdo-request-timeout' seconds.  Failures are logged."
       ("review" (azdo-pr-review id))
       ("checkout" (azdo-pr-checkout id))
       ("threads" (azdo-pr-threads id))
-      ("vote" (call-interactively #'azdo-pr-vote))
+      ("vote" (azdo-pr-vote (azdo--read-vote-key) id))
       ("complete" (azdo-pr-complete id))
       ("abandon" (azdo-pr-abandon id)))))
 
@@ -465,7 +530,8 @@ titles may contain commas.  An empty answer finishes."
          (items (condition-case err (azdo--assigned-work-items)
                   (error (message "azdo: could not load work items: %s" (error-message-string err))
                          nil)))
-         (wi-ids (azdo--read-work-item-ids items)))
+         (wi-ids (azdo--read-work-item-ids items))
+         (ctx (azdo--ctx!)))
     (unless (azdo--git-lines "rev-parse" "--abbrev-ref" "--symbolic-full-name" "@{u}")
       (when (y-or-n-p (format "Push %s to %s first? " src (plist-get (azdo--ctx!) :remote)))
         (magit-call-git "push" "--set-upstream" (plist-get (azdo--ctx!) :remote) src)))
@@ -474,7 +540,7 @@ titles may contain commas.  An empty answer finishes."
      (lambda (desc)
        (let* ((body (azdo--pr-body src tgt title desc draft
                                    (mapcar #'azdo--resolve-reviewer reviewers) wi-ids))
-              (pr (azdo--post (azdo--git-base) "/pullrequests" body)))
+              (pr (azdo--post (azdo--git-base ctx) "/pullrequests" body)))
          (message "Created PR #%s: %s" (alist-get 'pullRequestId pr) (alist-get 'title pr))
          (azdo--invalidate-cache)
          (azdo-pr-review (alist-get 'pullRequestId pr)))))))
@@ -568,11 +634,12 @@ titles may contain commas.  An empty answer finishes."
   "Post an inline review comment on the diff line at point."
   (interactive)
   (let* ((id (or azdo-current-pr (azdo--pr-id)))
-         (pos (azdo--hunk-position)))
+         (pos (azdo--hunk-position))
+         (ctx (azdo--ctx!)))
     (azdo--compose
      (format "comment-%s" id) nil
      (lambda (text)
-       (azdo--post (azdo--git-base) (format "/pullrequests/%s/threads" id)
+       (azdo--post (azdo--git-base ctx) (format "/pullrequests/%s/threads" id)
                    (azdo--comment-body pos text))
        (message "Comment posted on %s:%s" (nth 0 pos) (nth 1 pos))))))
 
@@ -670,7 +737,8 @@ titles may contain commas.  An empty answer finishes."
                      (azdo--post (azdo--git-base ctx)
                                  (format "/pullrequests/%s/threads/%s/comments" pr tid)
                                  `((content . ,text) (parentCommentId . 1) (commentType . 1)))
-                     (with-current-buffer buf (azdo-threads-refresh))))))
+                     (when (buffer-live-p buf)
+                       (with-current-buffer buf (azdo-threads-refresh)))))))
 
 (defun azdo--set-thread-status (status)
   (let ((th (azdo--thread-at-point)))
@@ -693,13 +761,16 @@ titles may contain commas.  An empty answer finishes."
   (azdo--invalidate-cache)
   (message "PR #%s: vote %s" id vote))
 
+(defun azdo--read-vote-key ()
+  (read-char-choice "Vote [a]pprove [s]uggestions [w]aiting [r]eject [0]reset: "
+                    (mapcar #'car azdo--votes)))
+
 ;;;###autoload
-(defun azdo-pr-vote (key)
-  "Vote on the current PR: a approve, s suggestions, w waiting, r reject, 0 reset."
-  (interactive
-   (list (read-char-choice "Vote [a]pprove [s]uggestions [w]aiting [r]eject [0]reset: "
-                           (mapcar #'car azdo--votes))))
-  (azdo--cast-vote (azdo--pr-id "Vote on PR: ") (nth 2 (assq key azdo--votes))))
+(defun azdo-pr-vote (key &optional id)
+  "Vote KEY on PR ID, or on the current PR when ID is nil.
+KEY: a approve, s suggestions, w waiting, r reject, 0 reset."
+  (interactive (list (azdo--read-vote-key)))
+  (azdo--cast-vote (or id (azdo--pr-id "Vote on PR: ")) (nth 2 (assq key azdo--votes))))
 
 ;;;###autoload
 (defun azdo--completion-body (pr strategy delete bypass reason)
