@@ -131,6 +131,18 @@ and **ansible-xref** (`lisp/ansible-xref.el`), a small xref backend that follows
   plugins (`~/.claude/plugins/cache/*/*/*/skills`); add more via
   `gptel-agent-skill-dirs`.  Use a strong model for agent work; small local models
   are unreliable at tool use.
+- MCP servers for outside agents (Claude Code and others): **emcp** and **elisp-dev-mcp** let an
+  agent ask this Emacs about itself instead of the web. emcp (HTTP on `127.0.0.1:38913`,
+  `ide-ai-emcp-port`) answers apropos, describe, definitions, references and Info; its profile
+  (`ide-ai-emcp-profile`) is read-only `inspect` by default, and `develop` / `full-control` add
+  variables, screenshots, eval and key sending (eval and keys always ask you first). elisp-dev-mcp
+  (stdio through `emacsclient -s foundry`) adds function/variable docs, Info lookup and reading
+  installed Elisp source, including elpaca packages but never `user/`: neither server returns
+  source, file commentary or references from `user/` (docstrings stay visible). emcp answers only requests addressed to localhost, so a web
+  page cannot reach it through DNS rebinding.
+  - `C-c a x` (`ide-ai-mcp-start`) starts the Emacs server and emcp; set `ide-ai-mcp-autostart`
+    to start them with Foundry. `C-c a X` opens emcp's session manager.
+  - `M-x ide-ai-mcp-register-claude` registers both with Claude Code (user scope).
 
 ## Documentation
 

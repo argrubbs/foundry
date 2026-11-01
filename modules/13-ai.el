@@ -4,6 +4,7 @@
 ;; minuet for ghost-text FIM completion (local Ollama or cloud), gptel for
 ;; conversational / region-based work, gptel-agent for autonomous tool-using
 ;; sessions (file edits, shell, Elisp, web, sub-agents and Agent Skills).
+;; emcp and elisp-dev-mcp serve this Emacs to outside agents over MCP.
 
 ;;; Code:
 
@@ -792,6 +793,244 @@ web and use Agent Skills; everything except reads and web access asks first."
 (defun ide-ai-chat ()
   "Open a gptel chat buffer."
   (interactive) (call-interactively #'gptel))
+
+;;;; MCP servers: let outside agents ask this Emacs ---------------------------------
+;; Two servers expose the running Foundry to agents such as Claude Code:
+;; emcp (HTTP, inside Emacs) for symbols, definitions, references, Info and,
+;; with richer profiles, variables, screenshots, eval and keys; elisp-dev-mcp
+;; (stdio through emacsclient) for docs, definitions, Info lookup and reading
+;; installed Elisp source.  Neither starts unless asked: `ide-ai-mcp-start'.
+
+(declare-function emcp-start "emcp")
+(declare-function emcp-stop "emcp")
+(declare-function emcp-server-url "emcp")
+(declare-function mcp-server-lib-start "mcp-server-lib-commands")
+(declare-function elisp-dev-mcp-enable "elisp-dev-mcp")
+(declare-function server-start "server")
+(declare-function emcp--server-transport "emcp-core")
+(declare-function mcp-server-lib-tool-throw "mcp-server-lib")
+(defvar emcp-http-port)
+(defvar emcp--servers)
+(defvar server-process)
+(defvar elisp-dev-mcp-additional-allowed-dirs)
+(defvar elpaca-builds-directory)
+(defvar elpaca-sources-directory)
+(defvar ide-modules-directory)
+(defvar server-name)
+
+(defcustom ide-ai-mcp-autostart nil
+  "Start the MCP servers when Foundry starts (not in batch runs or daemons).
+Otherwise start them with `ide-ai-mcp-start'."
+  :type 'boolean)
+
+(defcustom ide-ai-mcp-server-name "foundry"
+  "Emacs server name used for emacsclient, and so by elisp-dev-mcp.
+Distinct from the default \"server\" so another Emacs can run its own.
+Only applied when this Emacs is not already running a server."
+  :type 'string)
+
+(defcustom ide-ai-emcp-profile 'inspect
+  "Profile emcp serves: `inspect' (read-only lookups), `develop' (adds
+reading and setting variables and screenshots) or `full-control' (adds eval
+and sending keys, each confirmed by you first)."
+  :type '(choice (const inspect) (const develop) (const full-control)))
+
+(defcustom ide-ai-emcp-port 38913
+  "Fixed localhost port for emcp, so MCP clients can be registered once."
+  :type 'integer)
+
+(use-package emcp
+  :commands (emcp-start emcp-stop emcp-session-manager)
+  :config (setq emcp-http-port ide-ai-emcp-port))
+
+(use-package elisp-dev-mcp
+  :commands (elisp-dev-mcp-enable elisp-dev-mcp-disable)
+  :config
+  ;; elpaca builds are symlinks into sources; the server resolves links, so
+  ;; both trees must be allowed.  Foundry's own modules are readable too;
+  ;; user/ is not, as it may hold personal settings (see below for definitions).
+  (setq elisp-dev-mcp-additional-allowed-dirs
+        (list elpaca-builds-directory elpaca-sources-directory
+              ide-modules-directory (expand-file-name "lisp/" user-emacs-directory))))
+
+;; user/ stays private to outside agents: both servers can return the source
+;; of any loaded definition, so lookups that resolve into user/ are withheld.
+;; (emcp's eval in the full-control profile can still read anything; it asks.)
+
+(defun ide-ai--user-config-file-p (file)
+  "Non-nil when FILE is under the user/ directory of this config."
+  (and (stringp file)
+       (let ((user (file-name-as-directory (expand-file-name "user/" user-emacs-directory)))
+             (f (expand-file-name file)))
+         (or (string-prefix-p user f)
+             (string-prefix-p (file-truename user) (file-truename f))))))
+
+(defun ide-ai--elisp-dev-hide-user (_fn-name _sym file &rest _)
+  "Before elisp-dev-mcp reads a definition from FILE: refuse files in user/."
+  (when (ide-ai--user-config-file-p file)
+    (mcp-server-lib-tool-throw "Definition withheld: it is in the user's private user/ configuration")))
+
+(defun ide-ai--emcp-hide-user (def)
+  "Filter emcp's definition lookup DEF: withhold source from user/."
+  (if (ide-ai--user-config-file-p (plist-get def :file))
+      (list :file "user/ (private)" :source "Definition withheld: it is in the user's private user/ configuration.")
+    def))
+
+(defvar ide-ai--emcp-hiding-user nil "Non-nil while an emcp tool reads loaded files.")
+
+(defun ide-ai--emcp-references-hide-user (orig &rest args)
+  (let ((ide-ai--emcp-hiding-user t)) (apply orig args)))
+
+(defun ide-ai--elisp-refs-hide-user (paths)
+  (if ide-ai--emcp-hiding-user (cl-remove-if #'ide-ai--user-config-file-p paths) paths))
+
+(defun ide-ai--commentary-hide-user (orig &optional file)
+  "Around `lm-commentary': emcp's describe of a feature gets no commentary from user/."
+  (if (and ide-ai--emcp-hiding-user (ide-ai--user-config-file-p (or file buffer-file-name)))
+      "Commentary withheld: the file is in the user's private user/ configuration."
+    (funcall orig file)))
+
+(with-eval-after-load 'elisp-dev-mcp
+  (advice-add 'elisp-dev-mcp--get-function-definition-from-file :before #'ide-ai--elisp-dev-hide-user))
+
+(with-eval-after-load 'emcp-tools
+  (advice-add 'emcp-tools--find-definition :filter-return #'ide-ai--emcp-hide-user)
+  (advice-add 'emcp-tools-find-references :around #'ide-ai--emcp-references-hide-user)
+  (advice-add 'emcp-tools-describe :around #'ide-ai--emcp-references-hide-user))
+
+(with-eval-after-load 'lisp-mnt
+  (advice-add 'lm-commentary :around #'ide-ai--commentary-hide-user))
+
+(with-eval-after-load 'elisp-refs
+  (advice-add 'elisp-refs--loaded-paths :filter-return #'ide-ai--elisp-refs-hide-user))
+
+;; emcp listens on a fixed localhost port; a web page could reach it through
+;; DNS rebinding.  Only requests addressed to localhost, and not sent from
+;; another site's page, are answered.
+
+(defconst ide-ai--localhost-re "\\(127\\.0\\.0\\.1\\|localhost\\|\\[::1\\]\\)")
+
+(defun ide-ai--emcp-request-allowed-p (headers port)
+  "Non-nil when HEADERS address localhost on PORT and carry no foreign Origin."
+  (let ((host (alist-get 'Host headers)) (origin (alist-get 'Origin headers)))
+    (and (stringp host)
+         (string-match-p (format "\\`%s:%d\\'" ide-ai--localhost-re port) (downcase (string-trim host)))
+         (or (null origin)
+             (string-match-p (format "\\`https?://%s\\(:[0-9]+\\)?\\'" ide-ai--localhost-re)
+                             (downcase (string-trim origin)))))))
+
+(defun ide-ai--emcp-guard-request (orig server request send-response)
+  "Around emcp's HTTP handler: answer 403 to requests not addressed to localhost."
+  (if (ide-ai--emcp-request-allowed-p (plist-get request :headers)
+                                      (process-contact (emcp--server-transport server) :service))
+      (funcall orig server request send-response)
+    (funcall send-response '(:status Forbidden))))
+
+(with-eval-after-load 'emcp-http
+  (advice-add 'emcp--http-on-request :around #'ide-ai--emcp-guard-request))
+
+(defun ide-ai-mcp-elisp-dev-enable ()
+  "Make elisp-dev-mcp answer requests; the stdio script calls this per client.
+Registration is reference-counted, so each connecting client enables once and
+`elisp-dev-mcp-disable' undoes it when that client leaves."
+  (require 'mcp-server-lib-commands)
+  (require 'elisp-dev-mcp)
+  (ignore-errors (mcp-server-lib-start))  ; errors only when already running
+  (elisp-dev-mcp-enable))
+
+(defun ide-ai--server-live-p ()
+  "Non-nil when THIS Emacs runs a server.
+`server-running-p' is also true when another Emacs owns the socket."
+  (and (boundp 'server-process) (processp server-process) (process-live-p server-process)))
+
+(defun ide-ai--mcp-ensure-server ()
+  "Run an Emacs server for emacsclient, named `ide-ai-mcp-server-name' if new.
+Return the server name clients should use."
+  (require 'server)
+  (unless (ide-ai--server-live-p)
+    (let ((old server-name))
+      (setq server-name ide-ai-mcp-server-name)
+      (server-start)
+      (unless (ide-ai--server-live-p)
+        (setq server-name old)
+        (error "Could not start the Emacs server %S; another Emacs probably uses that name. Set `ide-ai-mcp-server-name' to another name"
+               ide-ai-mcp-server-name))))
+  server-name)
+
+(defvar ide-ai--emcp-profile nil "The emcp profile `ide-ai-mcp-start' started, if running.")
+
+(defun ide-ai--emcp-url ()
+  "URL of the emcp server Foundry started, or nil."
+  (when-let* ((server (and ide-ai--emcp-profile (boundp 'emcp--servers)
+                           (alist-get ide-ai--emcp-profile emcp--servers))))
+    (emcp-server-url server)))
+
+(defun ide-ai-mcp-stdio-script ()
+  "The stdio bridge elisp-dev-mcp clients run, from the installed mcp-server-lib."
+  (when-let* ((lib (locate-library "mcp-server-lib")))
+    (expand-file-name "emacs-mcp-stdio.sh" (file-name-directory lib))))
+
+;;;###autoload
+(defun ide-ai-mcp-start ()
+  "Start the Emacs server (for elisp-dev-mcp) and emcp on `ide-ai-emcp-port'."
+  (interactive)
+  (let ((name (ide-ai--mcp-ensure-server)))
+    (require 'emcp)
+    ;; A different profile started earlier holds the port: replace it.
+    (when (and (ide-ai--emcp-url) (not (eq ide-ai--emcp-profile ide-ai-emcp-profile)))
+      (ide-ai-mcp-stop))
+    (setq emcp-http-port ide-ai-emcp-port)
+    (emcp-start ide-ai-emcp-profile)
+    (setq ide-ai--emcp-profile ide-ai-emcp-profile)
+    (message "MCP: emcp (%s) at %s · elisp-dev-mcp via emacsclient -s %s"
+             ide-ai-emcp-profile (ide-ai--emcp-url) name)))
+
+;;;###autoload
+(defun ide-ai-mcp-stop ()
+  "Stop emcp.  The Emacs server keeps running for emacsclient."
+  (interactive)
+  (if (not (ide-ai--emcp-url))
+      (message "MCP: emcp is not running")
+    (emcp-stop ide-ai--emcp-profile)
+    (message "MCP: emcp (%s) stopped" ide-ai--emcp-profile))
+  (setq ide-ai--emcp-profile nil))
+
+(defun ide-ai-mcp-claude-commands ()
+  "The `claude mcp add' argument lists registering both servers for this Emacs."
+  (require 'server)
+  (let ((script (or (ide-ai-mcp-stdio-script) (user-error "The mcp-server-lib package is not installed"))))
+    (list (list "mcp" "add" "--scope" "user" "--transport" "http" "emcp"
+                (format "http://127.0.0.1:%d/mcp" ide-ai-emcp-port))
+          (list "mcp" "add" "--scope" "user" "elisp-dev" "--" script
+                (concat "--socket=" (if (ide-ai--server-live-p) server-name ide-ai-mcp-server-name))
+                "--init-function=ide-ai-mcp-elisp-dev-enable"
+                "--stop-function=elisp-dev-mcp-disable"
+                "--server-id=elisp-dev-mcp"))))
+
+;;;###autoload
+(defun ide-ai-mcp-register-claude ()
+  "Register emcp and elisp-dev-mcp with Claude Code (user scope).
+Existing entries named emcp and elisp-dev are replaced."
+  (interactive)
+  (unless (executable-find "claude") (user-error "The claude CLI is not on PATH"))
+  (let ((commands (ide-ai-mcp-claude-commands)))
+    (when (y-or-n-p "Register emcp and elisp-dev with Claude Code, replacing any existing entries? ")
+      (dolist (args commands)
+        (let ((name (if (member "--transport" args) "emcp" "elisp-dev")))
+          (call-process "claude" nil nil nil "mcp" "remove" "--scope" "user" name)
+          (with-temp-buffer
+            (unless (zerop (apply #'call-process "claude" nil t nil args))
+              (user-error "Command claude mcp add %s failed: %s" name (string-trim (buffer-string)))))))
+      (message "Registered emcp and elisp-dev with Claude Code; start them with %s"
+               (substitute-command-keys "\\[ide-ai-mcp-start]")))))
+
+(defun ide-ai--mcp-autostart ()
+  "Start the MCP servers at startup when `ide-ai-mcp-autostart' asks for it."
+  (when (and ide-ai-mcp-autostart (not noninteractive) (not (daemonp)))
+    (condition-case err (ide-ai-mcp-start)
+      (error (display-warning 'ide (format "MCP servers did not start: %s" (error-message-string err)))))))
+
+(add-hook 'emacs-startup-hook #'ide-ai--mcp-autostart)
 
 (provide '13-ai)
 ;;; 13-ai.el ends here
