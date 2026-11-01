@@ -1,6 +1,6 @@
 ;;; vscode-indent.el --- Indent like VS Code -*- lexical-binding: t; -*-
 
-;; Author: Foundry
+;; Author: McGeEmacs
 ;; Version: 0.1
 ;; Package-Requires: ((emacs "29.1"))
 ;; Keywords: convenience, languages

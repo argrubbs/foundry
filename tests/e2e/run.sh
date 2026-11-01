@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# End-to-end test: start a real Foundry frame on a sample project and drive it
+# End-to-end test: start a real McGeEmacs frame on a sample project and drive it
 # like a user (tests/e2e/e2e.el).  Needs a display; a frame will appear.
 #
 #   tests/e2e/run.sh [--keep]     --keep leaves the sample project and report behind
@@ -19,7 +19,7 @@ if [ -z "${DISPLAY:-}" ] && [ -z "${WAYLAND_DISPLAY:-}" ] && ! ls /run/user/"$(i
   exit 3
 fi
 
-WORK=$(mktemp -d -t foundry-e2e.XXXXXX)
+WORK=$(mktemp -d -t mcgeemacs-e2e.XXXXXX)
 PROJECT=$WORK/project
 REPORT=$WORK/report.txt
 mkdir -p "$PROJECT/chart/templates"

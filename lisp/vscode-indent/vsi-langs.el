@@ -1,4 +1,4 @@
-;;; vsi-langs.el --- Indentation rules of the languages Foundry configures -*- lexical-binding: t; -*-
+;;; vsi-langs.el --- Indentation rules of the languages McGeEmacs configures -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 ;; Each rule set is VS Code's `language-configuration.json' for that language

@@ -61,11 +61,10 @@
 
 (set-face-attribute 'default nil :height 120)
 
-;; Branding.  Deliberately no `foundry-' symbols or feature: that namespace belongs to
-;; the unrelated foundry.el package.
-(setq frame-title-format '("Foundry — " (:eval (if buffer-file-name (abbreviate-file-name buffer-file-name) "%b")))
+;; Branding.
+(setq frame-title-format '("McGeEmacs — " (:eval (if buffer-file-name (abbreviate-file-name buffer-file-name) "%b")))
       icon-title-format frame-title-format
-      initial-scratch-message ";; Foundry — a full-featured Emacs IDE\n;; C-c h d  documentation    C-c w 8  Services & DevOps    C-c a M  AI model\n\n")
+      initial-scratch-message ";; McGeEmacs — a full-featured Emacs IDE\n;; C-c h d  documentation    C-c w 8  Services & DevOps    C-c a M  AI model\n\n")
 
 ;; which-key (built in since Emacs 30): show the continuations of a pending prefix.
 (use-package which-key

@@ -358,7 +358,7 @@ That is a relative path (./script, bin/x: a file next to the untrusted content),
 or an absolute path or PATH lookup that resolves (symlinks followed) inside the
 project's own tree.  When the project root is the home directory or above it, only
 relative paths count: ~/.local/bin and the like are the user's, not a repo's.
-Foundry's own var/ (mise tools) never counts."
+McGeEmacs's own var/ (mise tools) never counts."
   (let* ((root (file-truename (file-name-as-directory (ide-lang-root))))
          (project-tree (not (file-in-directory-p (file-truename "~/") root)))
          (inside (lambda (f)

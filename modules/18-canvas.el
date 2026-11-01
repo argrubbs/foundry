@@ -6,7 +6,7 @@
 ;; It needs Emacs 32 with canvas images and dynamic modules, the
 ;; canvas-cairo module of canvas-diagram built on this machine, and the
 ;; programs chromium and Xvfb.  Under an Emacs without canvas images, such
-;; as the system Emacs 31, this module does nothing, so Foundry is the
+;; as the system Emacs 31, this module does nothing, so McGeEmacs is the
 ;; same there as before.
 ;;
 ;; The three packages are clones side by side under `ide-canvas-directory':

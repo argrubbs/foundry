@@ -1,4 +1,4 @@
-;;; init.el --- Foundry: a sandboxed Emacs IDE -*- lexical-binding: t; -*-
+;;; init.el --- McGeEmacs: a sandboxed Emacs IDE -*- lexical-binding: t; -*-
 
 ;;; Commentary:
 ;; Bootstraps elpaca inside the sandbox, then loads modules in order.

@@ -1,7 +1,7 @@
 ;;; 17-juice.el --- Juice: visual polish and themes -*- lexical-binding: t; -*-
 
 ;;; Commentary:
-;; Visual polish for Foundry: themes, typography, subtle line highlights,
+;; Visual polish for McGeEmacs: themes, typography, subtle line highlights,
 ;; indent guides, cursor pulsing, smooth scrolling and ligatures.
 ;;
 ;;   C-c j t   pick a theme (live preview via consult-theme)
@@ -32,7 +32,7 @@
 (defvar pulsar-pulse-on-window-change)
 
 (defgroup ide-juice nil
-  "Visual polish for Foundry."
+  "Visual polish for McGeEmacs."
   :group 'faces)
 
 (defcustom ide-juice-font-family "JetBrainsMono Nerd Font"

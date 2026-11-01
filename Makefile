@@ -18,7 +18,7 @@ compile:
 test:
 	$(RUN) --batch -l init.el -l tests/run.el
 
-# Drives a real Foundry frame like a user (needs a display; a window appears).
+# Drives a real McGeEmacs frame like a user (needs a display; a window appears).
 e2e:
 	tests/e2e/run.sh
 
@@ -53,12 +53,12 @@ voice-mac:
 doctor:
 	$(RUN) --batch -l init.el --eval '(ide-mise-doctor)'
 
-# Generate foundry.desktop with absolute paths and install it for the current user.
+# Generate mcgeemacs.desktop with absolute paths and install it for the current user.
 desktop:
-	sed 's|@ROOT@|$(ROOT)|g' foundry.desktop.in > foundry.desktop
-	install -Dm644 foundry.desktop $(HOME)/.local/share/applications/foundry.desktop
+	sed 's|@ROOT@|$(ROOT)|g' mcgeemacs.desktop.in > mcgeemacs.desktop
+	install -Dm644 mcgeemacs.desktop $(HOME)/.local/share/applications/mcgeemacs.desktop
 	-update-desktop-database $(HOME)/.local/share/applications 2>/dev/null
-	@echo "Installed $(HOME)/.local/share/applications/foundry.desktop"
+	@echo "Installed $(HOME)/.local/share/applications/mcgeemacs.desktop"
 
 run:
 	./launch.sh

@@ -224,7 +224,7 @@
   "Run BODY as if another Emacs owns every server name; this one serves only when LIVE.
 `server-start' is stubbed: it starts nothing unless LIVE is `on-start'."
   (declare (indent 1))
-  `(let ((server-name "server") (server-process nil) (ide-ai-mcp-server-name "foundry-test") dummy)
+  `(let ((server-name "server") (server-process nil) (ide-ai-mcp-server-name "mcgeemacs-test") dummy)
      (require 'server)
      (unwind-protect
          (cl-letf (((symbol-function 'server-running-p) (lambda (&rest _) t))
@@ -247,10 +247,10 @@
     (should-error (ide-ai--mcp-ensure-server))
     (should (equal server-name "server"))
     ;; registration names the socket this Emacs will serve
-    (should (member "--socket=foundry-test" (cadr (ide-ai-mcp-claude-commands)))))
+    (should (member "--socket=mcgeemacs-test" (cadr (ide-ai-mcp-claude-commands)))))
   ;; Starting works: our name.
   (ai-mcp-test--server 'on-start
-    (should (equal (ide-ai--mcp-ensure-server) "foundry-test")))
+    (should (equal (ide-ai--mcp-ensure-server) "mcgeemacs-test")))
   ;; Already serving: keep and report our own name.
   (ai-mcp-test--server t
     (should (equal (ide-ai--mcp-ensure-server) "mine"))
@@ -259,13 +259,13 @@
 ;;;; Registration and startup -------------------------------------------------------------
 
 (ert-deftest ai-mcp-claude-commands-point-at-real-endpoints ()
-  (let* ((ide-ai-mcp-server-name "foundry-test")
+  (let* ((ide-ai-mcp-server-name "mcgeemacs-test")
          (cmds (ide-ai-mcp-claude-commands))
          (http (car cmds)) (stdio (cadr cmds))
          (script (nth (1+ (cl-position "--" stdio :test #'equal)) stdio)))
     (should (equal (car (last http)) (format "http://127.0.0.1:%d/mcp" ide-ai-emcp-port)))
     (should (file-executable-p script))
-    (should (member "--socket=foundry-test" stdio))
+    (should (member "--socket=mcgeemacs-test" stdio))
     (should (member "--init-function=ide-ai-mcp-elisp-dev-enable" stdio))
     (should (fboundp 'ide-ai-mcp-elisp-dev-enable))
     (should (fboundp 'elisp-dev-mcp-disable))))

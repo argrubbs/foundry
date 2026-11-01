@@ -349,12 +349,12 @@
         (should-not closed)))))
 
 (defun k8s-test--cluster-p ()
-  "Non-nil when the kind-foundry-test cluster of the sandbox answers."
+  "Non-nil when the kind-mcgeemacs-test cluster of the sandbox answers."
   (and (executable-find "kubectl")
        (file-exists-p (expand-file-name "tools/k8s/kubeconfig" ide-var-dir))
        (let ((process-environment (cons (concat "KUBECONFIG=" (expand-file-name "tools/k8s/kubeconfig" ide-var-dir))
                                         process-environment)))
-         (zerop (call-process "kubectl" nil nil nil "--context" "kind-foundry-test"
+         (zerop (call-process "kubectl" nil nil nil "--context" "kind-mcgeemacs-test"
                               "--request-timeout=3s" "get" "--raw" "/readyz")))))
 
 (ert-deftest k8s-cluster-explain-and-server-dry-run ()
@@ -363,7 +363,7 @@
          (k8s-test--var (file-name-as-directory (make-temp-file "k8s-var" t)))
          (ide-var-dir k8s-test--var)
          (ide-k8s-kubeconfig kubeconfig)
-         (ide-k8s-context "kind-foundry-test"))
+         (ide-k8s-context "kind-mcgeemacs-test"))
     (let ((out (ide-k8s--with-env
                  (with-temp-buffer
                    (apply #'call-process (car (ide-k8s-explain-command '("Deployment.spec.template.spec.containers.ports" . "apps/v1")))
