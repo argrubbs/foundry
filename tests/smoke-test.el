@@ -1,7 +1,7 @@
 ;;; smoke-test.el --- Automated validation of isolated config -*- lexical-binding: t; -*-
 
 ;;; Commentary:
-;; Run with: emacs --init-directory ~/.config/emacs-foundry --batch \
+;; Run with: emacs --init-directory ~/.config/mcgeemacs --batch \
 ;;             -l init.el -l tests/smoke-test.el
 
 ;;; Code:
@@ -269,10 +269,10 @@ and refuses (rather than prompting) when the buffer has unsaved edits."
 (ert-deftest test-safe-mode-launcher ()
   "The launcher and the desktop entry both offer a safe mode that skips user/."
   (let ((launch (expand-file-name "launch.sh" user-emacs-directory))
-        (desktop (expand-file-name "foundry.desktop.in" user-emacs-directory)))
+        (desktop (expand-file-name "mcgeemacs.desktop.in" user-emacs-directory)))
     (should (string-match-p "--safe" (with-temp-buffer (insert-file-contents launch) (buffer-string))))
     (let ((text (with-temp-buffer (insert-file-contents desktop) (buffer-string))))
-      (should (string-match-p "^Name=Foundry$" text))
+      (should (string-match-p "^Name=McGeEmacs$" text))
       (should (string-match-p "^Actions=safe-mode;" text))
       (should (string-match-p "^\\[Desktop Action safe-mode\\]" text))
       (should (string-match-p "^Exec=.*launch.sh --safe" text)))
@@ -550,14 +550,10 @@ while the core and user manifests still merge."
   (should-not (cl-some (lambda (re) (string-match-p re "/elpaca/builds/popper/popper.el"))
                        native-comp-jit-compilation-deny-list)))
 
-(ert-deftest test-foundry-branding ()
-  "The name shows in the frame title, the scratch buffer and the launcher, without claiming a `foundry-' namespace."
-  (should (equal (car frame-title-format) "Foundry — "))
-  (should (string-match-p "Foundry" initial-scratch-message))
-  (should-not (featurep 'foundry))
-  (let (clash)
-    (mapatoms (lambda (s) (when (and (string-prefix-p "foundry-" (symbol-name s)) (or (fboundp s) (boundp s))) (push s clash))))
-    (should-not clash)))
+(ert-deftest test-mcgeemacs-branding ()
+  "The name shows in the frame title and the scratch buffer."
+  (should (equal (car frame-title-format) "McGeEmacs — "))
+  (should (string-match-p "McGeEmacs" initial-scratch-message)))
 
 (ert-deftest test-ui-sanitized ()
   "Verify that GUI cruft is disabled."

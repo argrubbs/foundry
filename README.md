@@ -1,4 +1,4 @@
-# Foundry
+# McGeEmacs
 
 A sandboxed, full-featured Emacs IDE: tool windows, Magit with Azure DevOps, Kubernetes, Docker,
 Terraform, AI and Org, installed entirely under one directory.
@@ -7,14 +7,14 @@ Terraform, AI and Org, installed entirely under one directory.
 ## Quick start
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/argrubbs/foundry/main/quickstart.sh | bash
+curl -fsSL https://raw.githubusercontent.com/argrubbs/mcgeemacs/main/quickstart.sh | bash
 ```
 
 Or clone manually:
 
 ```bash
-git clone https://github.com/argrubbs/foundry.git ~/.config/emacs-foundry
-cd ~/.config/emacs-foundry
+git clone https://github.com/argrubbs/mcgeemacs.git ~/.config/mcgeemacs
+cd ~/.config/mcgeemacs
 ./launch.sh
 ```
 
@@ -24,7 +24,7 @@ Nothing is written outside this directory (`var/`, `.cache/`, `elpaca/`).
 
 Add your own packages, tools and settings without touching the core. Everything
 in `user/` loads **after** the core modules (alphabetically), is never overwritten,
-and an error in one file only shows a warning (start **Foundry (safe mode)** from your launcher, or `./launch.sh --safe`, to skip
+and an error in one file only shows a warning (start **McGeEmacs (safe mode)** from your launcher, or `./launch.sh --safe`, to skip
 them all).
 
 | Key | Command | |
@@ -148,12 +148,12 @@ and **ansible-xref** (`lisp/ansible-xref.el`), a small xref backend that follows
   `ide-ai-emcp-port`) answers apropos, describe, definitions, references and Info; its profile
   (`ide-ai-emcp-profile`) is read-only `inspect` by default, and `develop` / `full-control` add
   variables, screenshots, eval and key sending (eval and keys always ask you first). elisp-dev-mcp
-  (stdio through `emacsclient -s foundry`) adds function/variable docs, Info lookup and reading
+  (stdio through `emacsclient -s mcgeemacs`) adds function/variable docs, Info lookup and reading
   installed Elisp source, including elpaca packages but never `user/`: neither server returns
   source, file commentary or references from `user/` (docstrings stay visible). emcp answers only requests addressed to localhost, so a web
   page cannot reach it through DNS rebinding.
   - `C-c a x` (`ide-ai-mcp-start`) starts the Emacs server and emcp; set `ide-ai-mcp-autostart`
-    to start them with Foundry. `C-c a X` opens emcp's session manager.
+    to start them with McGeEmacs. `C-c a X` opens emcp's session manager.
   - `M-x ide-ai-mcp-register-claude` registers both with Claude Code (user scope).
 
 ## Documentation
@@ -187,8 +187,8 @@ Run `make docs` (or `make docs-update`) from the command line, or `C-c h u` (`M-
 
 ## Desktop launcher
 
-`make desktop` generates `foundry.desktop` (absolute paths) and installs it to
-`~/.local/share/applications/`, so "Foundry" appears in your application menu.
+`make desktop` generates `mcgeemacs.desktop` (absolute paths) and installs it to
+`~/.local/share/applications/`, so "McGeEmacs" appears in your application menu.
 
 ## Tools via mise (portable)
 

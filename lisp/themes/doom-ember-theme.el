@@ -1,7 +1,7 @@
 ;;; doom-ember-theme.el --- A forge-lit dark theme: warm charcoal, ember and steel -*- lexical-binding: t; no-byte-compile: t; -*-
 
 ;;; Commentary:
-;; Foundry's house theme.  Built on `doom-themes' so solaire-mode, doom-modeline,
+;; McGeEmacs's house theme.  Built on `doom-themes' so solaire-mode, doom-modeline,
 ;; org, magit and the rest are already styled.  Warm near-black surfaces,
 ;; molten-orange accents, amber types and strings picked to stay distinct
 ;; (functions, keywords, strings, types and constants never share a hue).

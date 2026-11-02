@@ -429,9 +429,9 @@ Each call is a plist of its keywords plus :prompt, :model, :on-disk, :context an
 ;;;; Vocabulary
 
 (ert-deftest voice-vocabulary-reaches-the-recognizer ()
-  (let ((ide-voice-vocabulary "Foundry, gptel"))
+  (let ((ide-voice-vocabulary "McGeEmacs, gptel"))
     (should (equal (ide-voice--add-vocabulary '("whisper-cli" "--file" "x.wav"))
-                   '("whisper-cli" "--file" "x.wav" "--prompt" "Foundry, gptel"))))
+                   '("whisper-cli" "--file" "x.wav" "--prompt" "McGeEmacs, gptel"))))
   (let ((ide-voice-vocabulary nil))
     (should (equal (ide-voice--add-vocabulary '("whisper-cli")) '("whisper-cli")))))
 

@@ -1,7 +1,7 @@
-;;; e2e.el --- Drive a live Foundry the way a user would -*- lexical-binding: t; -*-
+;;; e2e.el --- Drive a live McGeEmacs the way a user would -*- lexical-binding: t; -*-
 
 ;;; Commentary:
-;; End-to-end tests.  tests/e2e/run.sh starts a real Foundry frame with this file
+;; End-to-end tests.  tests/e2e/run.sh starts a real McGeEmacs frame with this file
 ;; loaded after init.el; once Elpaca has activated every package the tests run
 ;; inside that session, pressing keys with `execute-kbd-macro' and looking at
 ;; what a user would see: which buffer is current, where windows went, what the
@@ -370,7 +370,7 @@
   (e2e-reset))
 
 (ert-deftest e2e-41-m-x-runs-a-command ()
-  "M-x with completion runs a Foundry command."
+  "M-x with completion runs a McGeEmacs command."
   (let ((before ide-ai-inline-completion))
     (e2e-keys "M-x ide-ai-toggle-inline-completion RET" 0.5)
     (should (eq ide-ai-inline-completion (not before)))
@@ -428,7 +428,7 @@ only the server warnings the config logs without showing (eglot, jsonrpc)."
 ;;;; Driver -------------------------------------------------------------------------------
 
 (defun e2e--own-frames (frames)
-  "The (FUN . ARGS) of FRAMES that belong to Foundry or these tests, innermost first."
+  "The (FUN . ARGS) of FRAMES that belong to McGeEmacs or these tests, innermost first."
   (let (own)
     (dolist (f frames)
       (let ((fun (ignore-errors (backtrace-frame-fun f))))
@@ -437,7 +437,7 @@ only the server warnings the config logs without showing (eglot, jsonrpc)."
                    (not (string-prefix-p "e2e--" (symbol-name fun))))
           (push (cons fun (seq-take (ignore-errors (backtrace-frame-args f)) 3)) own))))
     (setq own (nreverse own))
-    ;; An error raised from a hook or a package shows no Foundry frame: give the raw top.
+    ;; An error raised from a hook or a package shows no McGeEmacs frame: give the raw top.
     (if (< (length own) 2)
         (mapcar (lambda (f) (cons (ignore-errors (backtrace-frame-fun f))
                                   (seq-take (ignore-errors (backtrace-frame-args f)) 3)))

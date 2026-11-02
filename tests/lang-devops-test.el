@@ -388,7 +388,7 @@
     (delete-directory dir t)))
 
 (ert-deftest devops-bash-help-allows-user-tools-when-root-is-home ()
-  "With the project root at ~ (or Foundry's own repo), ~/.local/bin and mise tools are not project code."
+  "With the project root at ~ (or McGeEmacs's own repo), ~/.local/bin and mise tools are not project code."
   (let* ((bin (file-name-as-directory (make-temp-file "devops-bin" t)))
          (tool (expand-file-name "mytool" bin))
          (trusted-content nil))
@@ -404,7 +404,7 @@
                          (if (equal f "~/") (file-name-directory (directory-file-name bin)) (apply orig f r))))))
             (should-not (ide-bash--project-command-p "mytool"))
             (should (ide-bash--project-command-p "./mytool")))
-          ;; Root inside Foundry's var/ (mise tools): not project code.
+          ;; Root inside McGeEmacs's var/ (mise tools): not project code.
           (let ((ide-var-dir bin))
             (cl-letf (((symbol-function 'ide-lang-root) (lambda (&rest _) bin)))
               (should-not (ide-bash--project-command-p "mytool")))))

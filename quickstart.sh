@@ -1,26 +1,26 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# Foundry Quickstart Installer
+# McGeEmacs Quickstart Installer
 #
 # One-line installation:
-#   curl -fsSL https://raw.githubusercontent.com/argrubbs/foundry/main/quickstart.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/argrubbs/mcgeemacs/main/quickstart.sh | bash
 #
 # Or with options:
-#   curl -fsSL https://raw.githubusercontent.com/argrubbs/foundry/main/quickstart.sh | bash -s -- --help
+#   curl -fsSL https://raw.githubusercontent.com/argrubbs/mcgeemacs/main/quickstart.sh | bash -s -- --help
 # ==============================================================================
 
 set -euo pipefail
 
 # --- Configuration & Defaults ------------------------------------------------
-FOUNDRY_REPO="${FOUNDRY_REPO:-https://github.com/argrubbs/foundry.git}"
-FOUNDRY_BRANCH="${FOUNDRY_BRANCH:-main}"
-FOUNDRY_DIR="${FOUNDRY_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}/emacs-foundry}"
-FOUNDRY_DESKTOP="${FOUNDRY_DESKTOP:-1}"
-FOUNDRY_BIN="${FOUNDRY_BIN:-1}"
-FOUNDRY_PACKAGES="${FOUNDRY_PACKAGES:-1}"
-FOUNDRY_COMPILE="${FOUNDRY_COMPILE:-1}"
-FOUNDRY_TOOLS="${FOUNDRY_TOOLS:-0}"
-FOUNDRY_DRY_RUN="${FOUNDRY_DRY_RUN:-0}"
+MCGEEMACS_REPO="${MCGEEMACS_REPO:-https://github.com/argrubbs/mcgeemacs.git}"
+MCGEEMACS_BRANCH="${MCGEEMACS_BRANCH:-main}"
+MCGEEMACS_DIR="${MCGEEMACS_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}/mcgeemacs}"
+MCGEEMACS_DESKTOP="${MCGEEMACS_DESKTOP:-1}"
+MCGEEMACS_BIN="${MCGEEMACS_BIN:-1}"
+MCGEEMACS_PACKAGES="${MCGEEMACS_PACKAGES:-1}"
+MCGEEMACS_COMPILE="${MCGEEMACS_COMPILE:-1}"
+MCGEEMACS_TOOLS="${MCGEEMACS_TOOLS:-0}"
+MCGEEMACS_DRY_RUN="${MCGEEMACS_DRY_RUN:-0}"
 
 # --- Colors & Typography ------------------------------------------------------
 if [ -t 1 ]; then
@@ -45,40 +45,40 @@ error()   { printf "${RED}[✗]${RESET} ${BOLD}%s${RESET}\n" "$*" >&2; }
 banner() {
     printf "${EMBER}"
     cat << 'EOF'
-  ███████╗ ██████╗ ██╗   ██╗███╗   ██╗██████╗ ██████╗ ██╗   ██╗
-  ██╔════╝██╔═══██╗██║   ██║████╗  ██║██╔══██╗██╔══██╗╚██╗ ██╔╝
-  █████╗  ██║   ██║██║   ██║██╔██╗ ██║██║  ██║██████╔╝ ╚████╔╝ 
-  ██╔══╝  ██║   ██║██║   ██║██║╚██╗██║██║  ██║██╔══██╗  ╚██╔╝  
-  ██║     ╚██████╔╝╚██████╔╝██║ ╚████║██████╔╝██║  ██║   ██║   
-  ╚═╝      ╚═════╝  ╚═════╝ ╚═╝  ╚═══╝╚═════╝ ╚═╝  ╚═╝   ╚═╝   
+███╗   ███╗ ██████╗ ██████╗ ███████╗███████╗███╗   ███╗ █████╗  ██████╗███████╗
+████╗ ████║██╔════╝██╔════╝ ██╔════╝██╔════╝████╗ ████║██╔══██╗██╔════╝██╔════╝
+██╔████╔██║██║     ██║  ███╗█████╗  █████╗  ██╔████╔██║███████║██║     ███████╗
+██║╚██╔╝██║██║     ██║   ██║██╔══╝  ██╔══╝  ██║╚██╔╝██║██╔══██║██║     ╚════██║
+██║ ╚═╝ ██║╚██████╗╚██████╔╝███████╗███████╗██║ ╚═╝ ██║██║  ██║╚██████╗███████║
+╚═╝     ╚═╝ ╚═════╝ ╚═════╝ ╚══════╝╚══════╝╚═╝     ╚═╝╚═╝  ╚═╝ ╚═════╝╚══════╝
 EOF
     printf "${RESET}"
-    printf "${GOLD}  Foundry${RESET} ${MUTED}· The modern IDE workflow, inside Emacs.${RESET}\n\n"
+    printf "${GOLD}  McGeEmacs${RESET} ${MUTED}· The modern IDE workflow, inside Emacs.${RESET}\n\n"
 }
 
 usage() {
     cat << EOF
-Foundry Quickstart Installer
+McGeEmacs Quickstart Installer
 
 Usage:
   quickstart.sh [options]
-  curl -fsSL https://raw.githubusercontent.com/argrubbs/foundry/main/quickstart.sh | bash -s -- [options]
+  curl -fsSL https://raw.githubusercontent.com/argrubbs/mcgeemacs/main/quickstart.sh | bash -s -- [options]
 
 Options:
-  --dir <path>       Target directory (default: ~/.config/emacs-foundry)
+  --dir <path>       Target directory (default: ~/.config/mcgeemacs)
   --branch <branch>  Git branch to clone (default: main)
-  --repo <url>       Git repository URL (default: https://github.com/argrubbs/foundry.git)
+  --repo <url>       Git repository URL (default: https://github.com/argrubbs/mcgeemacs.git)
   --tools            Pre-install all CLI tools and language servers via mise (~2 GB)
   --no-packages      Skip pre-installing Elpaca packages
   --no-compile       Skip byte-compiling Emacs Lisp files
   --no-desktop       Skip installing desktop application launcher
-  --no-bin           Skip creating ~/.local/bin/foundry symlink
+  --no-bin           Skip creating ~/.local/bin/mcgeemacs symlink
   --dry-run          Show actions without making changes
   -h, --help         Show this help message
 
 Environment Variables:
-  FOUNDRY_DIR, FOUNDRY_REPO, FOUNDRY_BRANCH, FOUNDRY_TOOLS,
-  FOUNDRY_PACKAGES, FOUNDRY_COMPILE, FOUNDRY_DESKTOP, FOUNDRY_BIN
+  MCGEEMACS_DIR, MCGEEMACS_REPO, MCGEEMACS_BRANCH, MCGEEMACS_TOOLS,
+  MCGEEMACS_PACKAGES, MCGEEMACS_COMPILE, MCGEEMACS_DESKTOP, MCGEEMACS_BIN
 EOF
     exit 0
 }
@@ -88,23 +88,23 @@ parse_args() {
     while [ $# -gt 0 ]; do
         case "$1" in
             --dir)
-                FOUNDRY_DIR="$2"; shift 2 ;;
+                MCGEEMACS_DIR="$2"; shift 2 ;;
             --branch)
-                FOUNDRY_BRANCH="$2"; shift 2 ;;
+                MCGEEMACS_BRANCH="$2"; shift 2 ;;
             --repo)
-                FOUNDRY_REPO="$2"; shift 2 ;;
+                MCGEEMACS_REPO="$2"; shift 2 ;;
             --tools)
-                FOUNDRY_TOOLS=1; shift ;;
+                MCGEEMACS_TOOLS=1; shift ;;
             --no-packages)
-                FOUNDRY_PACKAGES=0; shift ;;
+                MCGEEMACS_PACKAGES=0; shift ;;
             --no-compile)
-                FOUNDRY_COMPILE=0; shift ;;
+                MCGEEMACS_COMPILE=0; shift ;;
             --no-desktop)
-                FOUNDRY_DESKTOP=0; shift ;;
+                MCGEEMACS_DESKTOP=0; shift ;;
             --no-bin)
-                FOUNDRY_BIN=0; shift ;;
+                MCGEEMACS_BIN=0; shift ;;
             --dry-run)
-                FOUNDRY_DRY_RUN=1; shift ;;
+                MCGEEMACS_DRY_RUN=1; shift ;;
             -h|--help)
                 usage ;;
             *)
@@ -153,7 +153,7 @@ check_prerequisites() {
         local major_ver
         major_ver=$(echo "$emacs_ver_str" | grep -oE '[0-9]+(\.[0-9]+)+' | head -n1 | cut -d. -f1 || echo "0")
         if [ "$major_ver" -lt 29 ]; then
-            error "Foundry requires Emacs 29.1 or newer (detected Emacs $major_ver)."
+            error "McGeEmacs requires Emacs 29.1 or newer (detected Emacs $major_ver)."
             missing=1
         fi
     else
@@ -179,71 +179,71 @@ check_prerequisites() {
 
 # --- Clone or Update Repository -----------------------------------------------
 setup_repo() {
-    if [ "$FOUNDRY_DRY_RUN" = "1" ]; then
-        info "[dry-run] Would clone/update $FOUNDRY_REPO ($FOUNDRY_BRANCH) to $FOUNDRY_DIR"
+    if [ "$MCGEEMACS_DRY_RUN" = "1" ]; then
+        info "[dry-run] Would clone/update $MCGEEMACS_REPO ($MCGEEMACS_BRANCH) to $MCGEEMACS_DIR"
         return 0
     fi
 
-    if [ -d "$FOUNDRY_DIR/.git" ]; then
-        step "Updating existing Foundry repository at $FOUNDRY_DIR..."
+    if [ -d "$MCGEEMACS_DIR/.git" ]; then
+        step "Updating existing McGeEmacs repository at $MCGEEMACS_DIR..."
         local cur_url
-        cur_url=$(git -C "$FOUNDRY_DIR" remote get-url origin 2>/dev/null || echo "")
+        cur_url=$(git -C "$MCGEEMACS_DIR" remote get-url origin 2>/dev/null || echo "")
         info "Current remote: $cur_url"
-        info "Fetching branch '$FOUNDRY_BRANCH'..."
-        git -C "$FOUNDRY_DIR" fetch origin "$FOUNDRY_BRANCH"
-        git -C "$FOUNDRY_DIR" checkout "$FOUNDRY_BRANCH"
-        git -C "$FOUNDRY_DIR" pull --ff-only origin "$FOUNDRY_BRANCH" || {
+        info "Fetching branch '$MCGEEMACS_BRANCH'..."
+        git -C "$MCGEEMACS_DIR" fetch origin "$MCGEEMACS_BRANCH"
+        git -C "$MCGEEMACS_DIR" checkout "$MCGEEMACS_BRANCH"
+        git -C "$MCGEEMACS_DIR" pull --ff-only origin "$MCGEEMACS_BRANCH" || {
             warn "Could not fast-forward existing repository; keeping local working tree."
         }
-    elif [ -d "$FOUNDRY_DIR" ] && [ -z "$(ls -A "$FOUNDRY_DIR" 2>/dev/null)" ]; then
-        step "Cloning Foundry into empty directory $FOUNDRY_DIR..."
-        git clone --branch "$FOUNDRY_BRANCH" "$FOUNDRY_REPO" "$FOUNDRY_DIR"
-    elif [ -e "$FOUNDRY_DIR" ]; then
-        error "Target directory '$FOUNDRY_DIR' exists and is not empty."
+    elif [ -d "$MCGEEMACS_DIR" ] && [ -z "$(ls -A "$MCGEEMACS_DIR" 2>/dev/null)" ]; then
+        step "Cloning McGeEmacs into empty directory $MCGEEMACS_DIR..."
+        git clone --branch "$MCGEEMACS_BRANCH" "$MCGEEMACS_REPO" "$MCGEEMACS_DIR"
+    elif [ -e "$MCGEEMACS_DIR" ]; then
+        error "Target directory '$MCGEEMACS_DIR' exists and is not empty."
         error "Please move or remove it, or specify a different location using --dir <path>."
         exit 1
     else
-        step "Cloning Foundry into $FOUNDRY_DIR..."
-        mkdir -p "$(dirname "$FOUNDRY_DIR")"
-        git clone --branch "$FOUNDRY_BRANCH" "$FOUNDRY_REPO" "$FOUNDRY_DIR"
+        step "Cloning McGeEmacs into $MCGEEMACS_DIR..."
+        mkdir -p "$(dirname "$MCGEEMACS_DIR")"
+        git clone --branch "$MCGEEMACS_BRANCH" "$MCGEEMACS_REPO" "$MCGEEMACS_DIR"
     fi
 
-    chmod +x "$FOUNDRY_DIR/launch.sh"
+    chmod +x "$MCGEEMACS_DIR/launch.sh"
 }
 
 # --- Package Installation & Compilation ---------------------------------------
-bootstrap_foundry() {
-    if [ "$FOUNDRY_DRY_RUN" = "1" ]; then
+bootstrap_mcgeemacs() {
+    if [ "$MCGEEMACS_DRY_RUN" = "1" ]; then
         info "[dry-run] Would pre-fetch Elpaca packages and byte-compile"
         return 0
     fi
 
-    if [ "$FOUNDRY_PACKAGES" = "1" ]; then
+    if [ "$MCGEEMACS_PACKAGES" = "1" ]; then
         step "Pre-installing Elpaca packages (ensures fast initial launch)..."
-        make -C "$FOUNDRY_DIR" packages
+        make -C "$MCGEEMACS_DIR" packages
         success "Packages installed."
     fi
 
-    if [ "$FOUNDRY_COMPILE" = "1" ]; then
-        step "Byte-compiling Foundry configuration..."
-        make -C "$FOUNDRY_DIR" compile
+    if [ "$MCGEEMACS_COMPILE" = "1" ]; then
+        step "Byte-compiling McGeEmacs configuration..."
+        make -C "$MCGEEMACS_DIR" compile
         success "Byte-compilation complete."
     fi
 }
 
 # --- Desktop & CLI Integration ------------------------------------------------
 setup_integrations() {
-    if [ "$FOUNDRY_DRY_RUN" = "1" ]; then
+    if [ "$MCGEEMACS_DRY_RUN" = "1" ]; then
         info "[dry-run] Would configure CLI launcher and desktop entry"
         return 0
     fi
 
-    # CLI symlink: ~/.local/bin/foundry
-    if [ "$FOUNDRY_BIN" = "1" ]; then
+    # CLI symlink: ~/.local/bin/mcgeemacs
+    if [ "$MCGEEMACS_BIN" = "1" ]; then
         local bin_dir="$HOME/.local/bin"
         mkdir -p "$bin_dir"
-        ln -sf "$FOUNDRY_DIR/launch.sh" "$bin_dir/foundry"
-        success "Created CLI command: $bin_dir/foundry"
+        ln -sf "$MCGEEMACS_DIR/launch.sh" "$bin_dir/mcgeemacs"
+        success "Created CLI command: $bin_dir/mcgeemacs"
 
         if [[ ":$PATH:" != *":$bin_dir:"* ]]; then
             warn "$bin_dir is not currently in your PATH."
@@ -253,48 +253,48 @@ setup_integrations() {
     fi
 
     # Desktop entry (Linux)
-    if [ "$FOUNDRY_DESKTOP" = "1" ] && [ "$(uname -s)" = "Linux" ]; then
+    if [ "$MCGEEMACS_DESKTOP" = "1" ] && [ "$(uname -s)" = "Linux" ]; then
         step "Installing desktop application launcher..."
-        make -C "$FOUNDRY_DIR" desktop || warn "Could not install desktop entry; continuing."
-        success "Desktop launcher installed (Foundry is in your application menu)."
+        make -C "$MCGEEMACS_DIR" desktop || warn "Could not install desktop entry; continuing."
+        success "Desktop launcher installed (McGeEmacs is in your application menu)."
     fi
 
     # Optional mise tools
-    if [ "$FOUNDRY_TOOLS" = "1" ]; then
+    if [ "$MCGEEMACS_TOOLS" = "1" ]; then
         step "Installing developer CLI tools & language servers via mise (~2 GB)..."
-        make -C "$FOUNDRY_DIR" tools
+        make -C "$MCGEEMACS_DIR" tools
         success "Developer tools installed."
     fi
 }
 
 # --- Validation ---------------------------------------------------------------
 verify_setup() {
-    if [ "$FOUNDRY_DRY_RUN" = "1" ]; then
+    if [ "$MCGEEMACS_DRY_RUN" = "1" ]; then
         info "[dry-run] Would run smoke verification"
         return 0
     fi
 
     step "Verifying installation..."
-    IDE_NO_USER=1 emacs --init-directory "$FOUNDRY_DIR" --batch -l "$FOUNDRY_DIR/early-init.el" -l "$FOUNDRY_DIR/init.el" --eval '(message "Foundry core initialized successfully.")'
-    success "Foundry core verified cleanly."
+    IDE_NO_USER=1 emacs --init-directory "$MCGEEMACS_DIR" --batch -l "$MCGEEMACS_DIR/early-init.el" -l "$MCGEEMACS_DIR/init.el" --eval '(message "McGeEmacs core initialized successfully.")'
+    success "McGeEmacs core verified cleanly."
 }
 
 # --- Completion Summary -------------------------------------------------------
 print_summary() {
     printf "\n"
-    success "Foundry is installed and ready!"
+    success "McGeEmacs is installed and ready!"
     printf "\n"
     printf "${BOLD}How to launch:${RESET}\n"
-    if [ -x "$HOME/.local/bin/foundry" ]; then
-        printf "  ${EMBER}foundry${RESET}                    # Direct terminal launcher\n"
-        printf "  ${EMBER}foundry --safe${RESET}             # Safe mode (skips user/ config)\n"
+    if [ -x "$HOME/.local/bin/mcgeemacs" ]; then
+        printf "  ${EMBER}mcgeemacs${RESET}                    # Direct terminal launcher\n"
+        printf "  ${EMBER}mcgeemacs --safe${RESET}             # Safe mode (skips user/ config)\n"
     fi
-    printf "  ${EMBER}%s/launch.sh${RESET}\n\n" "$FOUNDRY_DIR"
+    printf "  ${EMBER}%s/launch.sh${RESET}\n\n" "$MCGEEMACS_DIR"
 
-    if [ "$FOUNDRY_TOOLS" = "0" ]; then
+    if [ "$MCGEEMACS_TOOLS" = "0" ]; then
         printf "${BOLD}Language tools & CLIs (mise):${RESET}\n"
-        printf "  ${MUTED}Foundry bundles 54 tools & language servers via mise.${RESET}\n"
-        printf "  ${MUTED}Run ${EMBER}make -C %s tools${RESET}${MUTED} or press ${GOLD}C-c w 8 m${RESET}${MUTED} in Emacs to install them.${RESET}\n\n" "$FOUNDRY_DIR"
+        printf "  ${MUTED}McGeEmacs bundles 54 tools & language servers via mise.${RESET}\n"
+        printf "  ${MUTED}Run ${EMBER}make -C %s tools${RESET}${MUTED} or press ${GOLD}C-c w 8 m${RESET}${MUTED} in Emacs to install them.${RESET}\n\n" "$MCGEEMACS_DIR"
     fi
 
     printf "${BOLD}Getting started:${RESET}\n"
@@ -302,7 +302,7 @@ print_summary() {
     printf "  ${GOLD}C-c w 8${RESET}    Services, tools, Docker, Kubernetes & DevOps drawer\n"
     printf "  ${GOLD}C-c a M${RESET}    Select AI model (local Ollama / Claude / Gemini)\n"
     printf "  ${GOLD}C-c u n${RESET}    Create custom user config in user/\n\n"
-    printf "${MUTED}Enjoy coding in Foundry!${RESET}\n"
+    printf "${MUTED}Enjoy coding in McGeEmacs!${RESET}\n"
 }
 
 # --- Main Entry Point ---------------------------------------------------------
@@ -311,7 +311,7 @@ main() {
     parse_args "$@"
     check_prerequisites
     setup_repo
-    bootstrap_foundry
+    bootstrap_mcgeemacs
     setup_integrations
     verify_setup
     print_summary

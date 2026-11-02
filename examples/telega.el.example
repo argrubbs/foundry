@@ -1,7 +1,7 @@
 ;;; telega.el --- Telegram client integration -*- lexical-binding: t; -*-
 
 ;;; Commentary:
-;; Telegram client configuration for Foundry.
+;; Telegram client configuration for McGeEmacs.
 ;; Documentation: https://zevlg.github.io/telega.el
 ;;
 ;; Telega runs on top of Telegram's TDLib. By default, this configuration uses

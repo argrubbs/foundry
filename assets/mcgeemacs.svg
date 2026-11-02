@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- McGee: an orange tabby, in the colours of the ember theme. -->
+  <defs>
+    <linearGradient id="fur" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffb347" />
+      <stop offset="60%" stop-color="#ff8c42" />
+      <stop offset="100%" stop-color="#e8622a" />
+    </linearGradient>
+    <linearGradient id="tag" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#a995e8" />
+      <stop offset="100%" stop-color="#6b4fb8" />
+    </linearGradient>
+  </defs>
+
+  <!-- === EARS === -->
+  <path d="M 14 58 L 15 15 C 15 9 20 7 25 11 L 56 34 Z"
+        fill="url(#fur)" stroke="#3a1f0c" stroke-width="4" stroke-linejoin="round" />
+  <path d="M 114 58 L 113 15 C 113 9 108 7 103 11 L 72 34 Z"
+        fill="url(#fur)" stroke="#3a1f0c" stroke-width="4" stroke-linejoin="round" />
+  <path d="M 24 44 L 24 22 L 42 36 Z" fill="#f7a8a0" />
+  <path d="M 104 44 L 104 22 L 86 36 Z" fill="#f7a8a0" />
+
+  <!-- === COLLAR === -->
+  <path d="M 34 94 C 50 108 78 108 94 94 L 96 104 C 78 118 50 118 32 104 Z"
+        fill="#6b4fb8" stroke="#3a1f0c" stroke-width="4" stroke-linejoin="round" />
+
+  <!-- === HEAD === -->
+  <path d="M 64 26
+           C 94 26 118 42 118 68
+           C 118 92 94 106 64 106
+           C 34 106 10 92 10 68
+           C 10 42 34 26 64 26 Z"
+        fill="url(#fur)" stroke="#3a1f0c" stroke-width="4" stroke-linejoin="round" />
+
+  <!-- === TABBY MARKINGS: the forehead M, for McGee === -->
+  <path d="M 45 52 L 50 31 L 64 46 L 78 31 L 83 52"
+        fill="none" stroke="#a8431a" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" />
+  <g fill="none" stroke="#a8431a" stroke-width="5" stroke-linecap="round">
+    <path d="M 13 66 L 28 69" />
+    <path d="M 15 79 L 29 79" />
+    <path d="M 115 66 L 100 69" />
+    <path d="M 113 79 L 99 79" />
+  </g>
+
+  <!-- === MUZZLE === -->
+  <path d="M 64 68
+           C 74 68 88 76 88 87
+           C 88 97 76 103 64 103
+           C 52 103 40 97 40 87
+           C 40 76 54 68 64 68 Z"
+        fill="#fff1dc" />
+
+  <!-- === EYES === -->
+  <ellipse cx="42" cy="63" rx="10.5" ry="11" fill="#3a1f0c" />
+  <ellipse cx="86" cy="63" rx="10.5" ry="11" fill="#3a1f0c" />
+  <ellipse cx="42" cy="63" rx="8.5" ry="9" fill="#ff9a1f" />
+  <ellipse cx="86" cy="63" rx="8.5" ry="9" fill="#ff9a1f" />
+  <ellipse cx="42" cy="63" rx="3.5" ry="8" fill="#1c1815" />
+  <ellipse cx="86" cy="63" rx="3.5" ry="8" fill="#1c1815" />
+  <circle cx="45" cy="59" r="2.2" fill="#ffffff" />
+  <circle cx="89" cy="59" r="2.2" fill="#ffffff" />
+
+  <!-- === NOSE, MOUTH, WHISKERS === -->
+  <path d="M 57 76 L 71 76 C 72 76 72.5 77 72 78 L 65 85 C 64.5 85.6 63.5 85.6 63 85 L 56 78 C 55.5 77 56 76 57 76 Z"
+        fill="#e8502e" stroke="#3a1f0c" stroke-width="1.5" stroke-linejoin="round" />
+  <path d="M 64 85 L 64 90 C 64 95 55 97 51 92 M 64 90 C 64 95 73 97 77 92"
+        fill="none" stroke="#3a1f0c" stroke-width="2.5" stroke-linecap="round" />
+  <g fill="none" stroke="#3a1f0c" stroke-width="1.8" stroke-linecap="round">
+    <path d="M 46 84 L 24 88" />
+    <path d="M 82 84 L 104 88" />
+  </g>
+
+  <!-- === THE TAG: a purple Emacs "e" === -->
+  <circle cx="64" cy="112" r="13" fill="url(#tag)" stroke="#3a1f0c" stroke-width="3.5" />
+  <path d="M 58 112 L 70 112 C 70 107 67.5 105.5 64 105.5 C 60 105.5 57.5 108.5 57.5 112 C 57.5 116 60.5 118.5 64 118.5 C 66.5 118.5 68.5 117.5 70 115.5"
+        fill="none" stroke="#ffffff" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" />
+</svg>

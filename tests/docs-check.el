@@ -191,9 +191,9 @@
                   (other (push (list (alist-get 'title r) 'unknown-lang other) bad))))
     (should-not bad)))
 
-(ert-deftest docs-brand-is-foundry ()
-  (should (string-match-p "<title>Foundry" docs--html))
-  (should (string-match-p "<span>Foundry<br>" docs--html))
+(ert-deftest docs-brand-is-mcgeemacs ()
+  (should (string-match-p "<title>McGeEmacs" docs--html))
+  (should (string-match-p "<span>McGeEmacs<br>" docs--html))
   (should-not (string-match-p "Emacs IDE (safe mode)" docs--html)))
 
 (ert-deftest docs-anchors-resolve ()

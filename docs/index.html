@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Foundry — a full-featured Emacs IDE</title>
-<meta name="description" content="Documentation and interactive explorer for Foundry, the sandboxed Emacs IDE: keybindings, tool windows, Azure DevOps, Kubernetes, Docker, IaC, AI and Org.">
+<title>McGeEmacs — a full-featured Emacs IDE</title>
+<meta name="description" content="Documentation and interactive explorer for McGeEmacs, the sandboxed Emacs IDE: keybindings, tool windows, Azure DevOps, Kubernetes, Docker, IaC, AI and Org.">
 <style>
 :root{
   --bg:#1c1815; --surface:#211d19; --surface2:#2a2520; --line:#3e362e;
@@ -214,7 +214,7 @@ footer{border-top:1px solid var(--line);margin-top:4rem;padding-top:1.4rem;color
 <a class="skip" href="#main">Skip to content</a>
 <div class="shell">
 <nav class="side" aria-label="Sections">
-  <a class="brand" href="#top"><span class="logo" aria-hidden="true">F</span><span>Foundry<br><small style="font-weight:400;color:var(--muted)">Emacs IDE</small></span></a>
+  <a class="brand" href="#top"><span class="logo" aria-hidden="true">M</span><span>McGeEmacs<br><small style="font-weight:400;color:var(--muted)">Emacs IDE</small></span></a>
   <ol id="navlist">
     <li class="grp" role="presentation">Start</li>
     <li><a href="#overview">Overview</a></li>
@@ -243,9 +243,9 @@ footer{border-top:1px solid var(--line);margin-top:4rem;padding-top:1.4rem;color
 <noscript><div class="callout bad"><strong>JavaScript is off.</strong> The explorer sections are rendered from embedded data and need JavaScript. The same information is in <code>README.md</code> and <code>modules/10-keybindings.el</code>.</div></noscript>
 
 <header class="hero" id="top">
-  <p style="margin:0 0 .6rem;font:600 .8rem var(--mono);color:var(--accent);letter-spacing:.1em">FOUNDRY · SANDBOXED · PORTABLE · KEYBOARD-FIRST</p>
+  <p style="margin:0 0 .6rem;font:600 .8rem var(--mono);color:var(--accent);letter-spacing:.1em">MCGEEMACS · SANDBOXED · PORTABLE · KEYBOARD-FIRST</p>
   <h1>The modern IDE workflow,<br><em>inside Emacs.</em></h1>
-  <p>Foundry is a modular Emacs configuration with IDE-style tool windows, a first-class Azure DevOps forge in Magit, Kubernetes, Docker and Terraform porcelains, inline AI completion and a literate Org knowledge base — installed entirely under one directory and launched next to your daily-driver setup.</p>
+  <p>McGeEmacs is a modular Emacs configuration with IDE-style tool windows, a first-class Azure DevOps forge in Magit, Kubernetes, Docker and Terraform porcelains, inline AI completion and a literate Org knowledge base — installed entirely under one directory and launched next to your daily-driver setup.</p>
   <div class="stats" id="stats" aria-label="Project at a glance"></div>
 </header>
 
@@ -254,7 +254,7 @@ footer{border-top:1px solid var(--line);margin-top:4rem;padding-top:1.4rem;color
   <p class="lede">Four ideas hold the design together.</p>
   <div class="grid g2">
     <div class="card"><h3>Tool windows, not split chaos</h3><p>Compilation output, terminals, diagnostics, container logs and cloud consoles dock into a single bottom drawer (<code>popper</code> + <code>display-buffer-alist</code>). The project tree sits left, the structure outline right. <kbd>Esc</kbd> always returns focus to your code.</p></div>
-    <div class="card"><h3>Zero dotfile pollution</h3><p>Everything — packages, caches, auto-saves, databases, even the installed CLIs and Azure login state — lives inside <code>~/.config/emacs-foundry/</code>. Your <code>~/.emacs.d</code> is never touched.</p></div>
+    <div class="card"><h3>Zero dotfile pollution</h3><p>Everything — packages, caches, auto-saves, databases, even the installed CLIs and Azure login state — lives inside <code>~/.config/mcgeemacs/</code>. Your <code>~/.emacs.d</code> is never touched.</p></div>
     <div class="card"><h3>No browser required for DevOps</h3><p>Pull requests, review threads, votes, completion, Boards work items and pipeline status are driven through the Azure DevOps REST API and surfaced as Magit sections and transient menus.</p></div>
     <div class="card"><h3>Portable tooling</h3><p>One <code>mise.toml</code> declares 50 CLIs and language servers. <code>M-x ide-mise-setup</code> (or <code>make tools</code>) bootstraps a checksum-verified <code>mise</code> and installs them into the sandbox on any Linux or macOS machine.</p></div>
   </div>
@@ -267,10 +267,10 @@ footer{border-top:1px solid var(--line);margin-top:4rem;padding-top:1.4rem;color
     <div>
       <div class="codebox"><button class="btn copy" type="button" data-copy-target="qs1">Copy</button>
 <pre id="qs1"><span class="cm"># 1. one-line install (curl | bash)</span>
-curl -fsSL https://raw.githubusercontent.com/argrubbs/foundry/main/quickstart.sh | bash
+curl -fsSL https://raw.githubusercontent.com/argrubbs/mcgeemacs/main/quickstart.sh | bash
 
 <span class="cm"># 2. or launch beside your normal Emacs</span>
-cd ~/.config/emacs-foundry
+cd ~/.config/mcgeemacs
 ./launch.sh
 
 <span class="cm"># 3. optional: add it to your application menu</span>
@@ -330,7 +330,7 @@ make doctor</pre></div>
   </div>
   <div class="kblist" id="kblist"></div>
   <div class="callout" style="margin-top:1.2rem"><strong>No standard editing keys are replaced</strong>
-    Foundry only binds <kbd>C-c</kbd> + letter (reserved for users), <kbd>M-s</kbd> (the search prefix), <kbd>C-=</kbd> and function keys. Go to definition and usages use the standard <kbd>M-.</kbd> and <kbd>M-?</kbd>, and <kbd>C-s</kbd> stays Isearch. <kbd>M-RET</kbd> for code actions is bound in programming modes only, so Org and Markdown keep theirs.
+    McGeEmacs only binds <kbd>C-c</kbd> + letter (reserved for users), <kbd>M-s</kbd> (the search prefix), <kbd>C-=</kbd> and function keys. Go to definition and usages use the standard <kbd>M-.</kbd> and <kbd>M-?</kbd>, and <kbd>C-s</kbd> stays Isearch. <kbd>M-RET</kbd> for code actions is bound in programming modes only, so Org and Markdown keep theirs.
   </div>
 </section>
 
@@ -378,7 +378,7 @@ make doctor</pre></div>
     <div class="card"><h3>Safe by design</h3>
       <ul style="margin:.3rem 0 0;padding-left:1.1rem;color:var(--muted)">
         <li>Core files are never edited, and core updates never touch <code>user/</code>.</li>
-        <li>A broken file shows a warning and the rest still load. Start <b>Foundry (safe mode)</b> from your launcher, or run <code>./launch.sh --safe</code>, to skip them all.</li>
+        <li>A broken file shows a warning and the rest still load. Start <b>McGeEmacs (safe mode)</b> from your launcher, or run <code>./launch.sh --safe</code>, to skip them all.</li>
         <li>Packages install into the sandbox like the built-in ones; tools from <code>user/mise.toml</code> go into <code>var/mise/</code>.</li>
         <li><code>make compile</code> and <code>make test</code> ignore <code>user/</code>.</li>
       </ul></div>
@@ -465,7 +465,7 @@ make doctor</pre></div>
   </div>
 </section>
 
-<footer>Documentation for Foundry, the sandboxed Emacs IDE. Source of truth: the <code>modules/</code> directory. Run <code>make docs-check</code> to confirm this page still matches the configuration.</footer>
+<footer>Documentation for McGeEmacs, the sandboxed Emacs IDE. Source of truth: the <code>modules/</code> directory. Run <code>make docs-check</code> to confirm this page still matches the configuration.</footer>
 </main>
 </div>
 <script type="application/json" id="ide-data">
@@ -3264,7 +3264,7 @@ make doctor</pre></div>
   }
  ],
  "tree": [
-  ["~/.config/emacs-foundry/", "d"],
+  ["~/.config/mcgeemacs/", "d"],
   ["├─ early-init.el  init.el  custom.el", "n"],
   ["├─ mise.toml  Makefile  launch.sh  README.md", "n"],
   ["├─ modules/", "d"],
@@ -3425,11 +3425,11 @@ make doctor</pre></div>
   {
    "id": "telega",
    "title": "Telegram client integration",
-   "blurb": "Telegram client configuration for Foundry. Documentation: https://zevlg.github.io/telega.el",
+   "blurb": "Telegram client configuration for McGeEmacs. Documentation: https://zevlg.github.io/telega.el",
    "files": [
     {
      "path": "user/telega.el",
-     "code": ";;; telega.el --- Telegram client integration -*- lexical-binding: t; -*-\n\n;;; Commentary:\n;; Telegram client configuration for Foundry.\n;; Documentation: https://zevlg.github.io/telega.el\n;;\n;; Telega runs on top of Telegram's TDLib. By default, this configuration uses\n;; the official pre-built Docker container (`zevlg/telega-server:latest`),\n;; avoiding the lengthy compilation of TDLib and its C++ dependencies.\n;;\n;; Keybindings:\n;;   C-c t     `telega' (Open root chats overview)\n;;   C-c T     `telega-prefix-map' (Navigation, chat folders, calls, etc.)\n;;\n;; Install into user/ with: M-x ide-user-install-example RET telega RET\n\n;;; Code:\n\n(defvar ide-var-dir)\n(declare-function ide-add-drawer-buffer \"02-layout\")\n\n(when (fboundp 'ide-add-drawer-buffer)\n  (ide-add-drawer-buffer \"\\\\*telega-server\\\\*\")\n  (ide-add-drawer-buffer \"\\\\*Telegram Notification Messages\\\\*\"))\n\n(use-package telega\n  :commands (telega telega-server-version)\n  :bind ((\"C-c t\" . telega)\n         (\"C-c T\" . telega-prefix-map)\n         (\"C-c x t\" . telega)\n         (\"C-c x T\" . telega-prefix-map))\n  :init\n  (setq telega-directory (expand-file-name \"telega/\" ide-var-dir)\n        telega-database-dir telega-directory\n        telega-server-logfile (expand-file-name \"telega-server.log\" telega-directory)\n        telega-cache-dir (expand-file-name \"cache\" telega-directory)\n        telega-temp-dir (expand-file-name \"temp\" telega-directory)\n        telega-use-docker t)\n  :config\n  (add-hook 'telega-chat-mode-hook #'telega-completions-setup-capf)\n  (when (require 'telega-transient nil t)\n    (when (fboundp 'telega-transient-keymaps-mode)\n      (telega-transient-keymaps-mode 1)))\n  (when (require 'telega-mnz nil t)\n    (when (fboundp 'global-telega-mnz-mode)\n      (global-telega-mnz-mode 1)))\n  (require 'ol-telega nil t)\n  (require 'telega-dired-dwim nil t)\n  (when (fboundp 'telega-notifications-mode)\n    (telega-notifications-mode 1))\n  (setq telega-chat-fill-column 80\n        telega-emoji-use-images t\n        telega-completing-read-function #'completing-read\n        telega-symbol-folder \"📁\"))\n\n(provide 'user-telega)\n;;; telega.el ends here\n"
+     "code": ";;; telega.el --- Telegram client integration -*- lexical-binding: t; -*-\n\n;;; Commentary:\n;; Telegram client configuration for McGeEmacs.\n;; Documentation: https://zevlg.github.io/telega.el\n;;\n;; Telega runs on top of Telegram's TDLib. By default, this configuration uses\n;; the official pre-built Docker container (`zevlg/telega-server:latest`),\n;; avoiding the lengthy compilation of TDLib and its C++ dependencies.\n;;\n;; Keybindings:\n;;   C-c t     `telega' (Open root chats overview)\n;;   C-c T     `telega-prefix-map' (Navigation, chat folders, calls, etc.)\n;;\n;; Install into user/ with: M-x ide-user-install-example RET telega RET\n\n;;; Code:\n\n(defvar ide-var-dir)\n(declare-function ide-add-drawer-buffer \"02-layout\")\n\n(when (fboundp 'ide-add-drawer-buffer)\n  (ide-add-drawer-buffer \"\\\\*telega-server\\\\*\")\n  (ide-add-drawer-buffer \"\\\\*Telegram Notification Messages\\\\*\"))\n\n(use-package telega\n  :commands (telega telega-server-version)\n  :bind ((\"C-c t\" . telega)\n         (\"C-c T\" . telega-prefix-map)\n         (\"C-c x t\" . telega)\n         (\"C-c x T\" . telega-prefix-map))\n  :init\n  (setq telega-directory (expand-file-name \"telega/\" ide-var-dir)\n        telega-database-dir telega-directory\n        telega-server-logfile (expand-file-name \"telega-server.log\" telega-directory)\n        telega-cache-dir (expand-file-name \"cache\" telega-directory)\n        telega-temp-dir (expand-file-name \"temp\" telega-directory)\n        telega-use-docker t)\n  :config\n  (add-hook 'telega-chat-mode-hook #'telega-completions-setup-capf)\n  (when (require 'telega-transient nil t)\n    (when (fboundp 'telega-transient-keymaps-mode)\n      (telega-transient-keymaps-mode 1)))\n  (when (require 'telega-mnz nil t)\n    (when (fboundp 'global-telega-mnz-mode)\n      (global-telega-mnz-mode 1)))\n  (require 'ol-telega nil t)\n  (require 'telega-dired-dwim nil t)\n  (when (fboundp 'telega-notifications-mode)\n    (telega-notifications-mode 1))\n  (setq telega-chat-fill-column 80\n        telega-emoji-use-images t\n        telega-completing-read-function #'completing-read\n        telega-symbol-folder \"📁\"))\n\n(provide 'user-telega)\n;;; telega.el ends here\n"
     }
    ]
   }

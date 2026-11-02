@@ -795,7 +795,7 @@ web and use Agent Skills; everything except reads and web access asks first."
   (interactive) (call-interactively #'gptel))
 
 ;;;; MCP servers: let outside agents ask this Emacs ---------------------------------
-;; Two servers expose the running Foundry to agents such as Claude Code:
+;; Two servers expose the running McGeEmacs to agents such as Claude Code:
 ;; emcp (HTTP, inside Emacs) for symbols, definitions, references, Info and,
 ;; with richer profiles, variables, screenshots, eval and keys; elisp-dev-mcp
 ;; (stdio through emacsclient) for docs, definitions, Info lookup and reading
@@ -819,11 +819,11 @@ web and use Agent Skills; everything except reads and web access asks first."
 (defvar server-name)
 
 (defcustom ide-ai-mcp-autostart nil
-  "Start the MCP servers when Foundry starts (not in batch runs or daemons).
+  "Start the MCP servers when McGeEmacs starts (not in batch runs or daemons).
 Otherwise start them with `ide-ai-mcp-start'."
   :type 'boolean)
 
-(defcustom ide-ai-mcp-server-name "foundry"
+(defcustom ide-ai-mcp-server-name "mcgeemacs"
   "Emacs server name used for emacsclient, and so by elisp-dev-mcp.
 Distinct from the default \"server\" so another Emacs can run its own.
 Only applied when this Emacs is not already running a server."
@@ -847,7 +847,7 @@ and sending keys, each confirmed by you first)."
   :commands (elisp-dev-mcp-enable elisp-dev-mcp-disable)
   :config
   ;; elpaca builds are symlinks into sources; the server resolves links, so
-  ;; both trees must be allowed.  Foundry's own modules are readable too;
+  ;; both trees must be allowed.  McGeEmacs's own modules are readable too;
   ;; user/ is not, as it may hold personal settings (see below for definitions).
   (setq elisp-dev-mcp-additional-allowed-dirs
         (list elpaca-builds-directory elpaca-sources-directory
@@ -960,7 +960,7 @@ Return the server name clients should use."
 (defvar ide-ai--emcp-profile nil "The emcp profile `ide-ai-mcp-start' started, if running.")
 
 (defun ide-ai--emcp-url ()
-  "URL of the emcp server Foundry started, or nil."
+  "URL of the emcp server McGeEmacs started, or nil."
   (when-let* ((server (and ide-ai--emcp-profile (boundp 'emcp--servers)
                            (alist-get ide-ai--emcp-profile emcp--servers))))
     (emcp-server-url server)))
