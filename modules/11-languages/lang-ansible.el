@@ -36,8 +36,8 @@ top-level play or task key near the top of the file."
 (add-hook 'yaml-ts-mode-hook #'ide--maybe-ansible-xref)
 
 (defun ide--maybe-ansible ()
-  "Enable `ansible' minor mode for Ansible-looking YAML buffers."
-  (when (and (ide--ansible-file-p) (fboundp 'ansible)) (ansible 1)))
+  "Enable `ansible-mode' for Ansible-looking YAML buffers."
+  (when (and (ide--ansible-file-p) (fboundp 'ansible-mode)) (ansible-mode 1)))
 
 (add-hook 'yaml-ts-mode-hook #'ide--maybe-ansible)
 

@@ -10,6 +10,8 @@
 (require 'ert)
 (require 'cl-lib)
 
+(defvar eglot--managed-mode)
+
 (defmacro lang-web-test--with-project (files &rest body)
   "Run BODY in a temp directory holding FILES, an alist of (NAME . CONTENT)."
   (declare (indent 1))
@@ -177,6 +179,119 @@
                 (with-temp-buffer
                   (call-process tsc nil t nil "--version")
                   (and (string-match-p "Version [7-9]" (buffer-string)) t))))))
+
+(ert-deftest web-run-command-enters-the-package-of-a-monorepo ()
+  ;; S-<f10> runs at the project root; the test file is relative to its package.
+  (lang-web-test--with-project
+      '(("package.json" . "{}")
+        ("packages/app/package.json" . "{\"devDependencies\":{\"vitest\":\"1\"}}")
+        ("packages/app/src/a.test.ts" . ""))
+    (let ((root default-directory)
+          (buffer-file-name (expand-file-name "packages/app/src/a.test.ts" default-directory)))
+      (cl-letf (((symbol-function 'ide-lang-root) (lambda (&optional _) root))
+                ((symbol-function 'ide-lang-node-exe) (lambda (n &optional _) (concat "/bin/" n)))
+                ((symbol-function 'derived-mode-p) (lambda (&rest _) t)))
+        (should (equal (ide-web--run-command) "cd packages/app/ && /bin/vitest run src/a.test.ts"))
+        ;; a single-package project needs no cd
+        (setq root (expand-file-name "packages/app/" root))
+        (should (equal (ide-web--run-command) "/bin/vitest run src/a.test.ts"))))))
+
+(ert-deftest web-eslint-runs-where-its-config-is ()
+  (lang-web-test--with-project
+      '(("eslint.config.js" . "") ("package.json" . "{}")
+        ("packages/app/package.json" . "{}") ("packages/app/eslint.config.mjs" . "")
+        ("packages/app/src/a.ts" . "") ("packages/lib/package.json" . "{}") ("packages/lib/a.ts" . ""))
+    (let ((root default-directory))
+      (let ((buffer-file-name (expand-file-name "packages/app/src/a.ts" root)))
+        (should (equal (ide-web--eslint-dir) (expand-file-name "packages/app/" root))))
+      (let ((buffer-file-name (expand-file-name "packages/lib/a.ts" root)))
+        (should (equal (ide-web--eslint-dir) root))))))
+
+(ert-deftest web-eslint-legacy-config-by-version ()
+  ;; ESLint 9 needs ESLINT_USE_FLAT_CONFIG=false for .eslintrc; ESLint 10 cannot read it.
+  (lang-web-test--with-project '((".eslintrc.json" . "{}") ("a.js" . ""))
+    (let ((buffer-file-name (expand-file-name "a.js" default-directory))
+          (major 8))
+      (cl-letf (((symbol-function 'ide-lang-node-exe) (lambda (&rest _) "/bin/eslint"))
+                ((symbol-function 'ide-web--eslint-major) (lambda (_) major))
+                ((symbol-function 'executable-find) (lambda (n &rest _) (concat "/usr/bin/" n))))
+        (should (equal (ide-web--eslint-command) '("/bin/eslint")))
+        (setq major 9)
+        (should (equal (ide-web--eslint-command)
+                       '("/usr/bin/env" "ESLINT_USE_FLAT_CONFIG=false" "/bin/eslint")))
+        (setq major 10)
+        (should-not (ide-web--eslint-command))
+        ;; a flat config runs with any version
+        (write-region "" nil (expand-file-name "eslint.config.js" default-directory))
+        (should (equal (ide-web--eslint-command) '("/bin/eslint")))))))
+
+(ert-deftest web-eslint-version-of-the-real-binary ()
+  (let ((exe (executable-find "eslint")))
+    (skip-unless exe)
+    (should (>= (ide-web--eslint-major exe) 8))))
+
+(defconst lang-web-test--fake-eslint
+  '((".eslintrc.json" . "{}") ("a.js" . "const a = 1\n")
+    ("node_modules/eslint/package.json" . "{\"name\":\"eslint\",\"version\":\"9.1.0\"}")
+    ("node_modules/.bin/eslint" . "#!/bin/sh\ntouch \"$(dirname \"$0\")/../../MARKER\"\necho '[]'\n"))
+  "An untrusted project whose own eslint leaves a MARKER file when it runs.")
+
+(defun lang-web-test--lint-wait (fn)
+  "Call the Flymake backend FN and wait (briefly) for its report."
+  (let (report (deadline (+ (float-time) 5)))
+    (funcall fn (lambda (&rest args) (setq report (or args '(nil)))))
+    (while (and (not report) (< (float-time) deadline)) (accept-process-output nil 0.05))
+    report))
+
+(ert-deftest web-eslint-never-runs-untrusted-project-code ()
+  (lang-web-test--with-project lang-web-test--fake-eslint
+    (let* ((root default-directory)
+           (exe (expand-file-name "node_modules/.bin/eslint" root))
+           (marker (expand-file-name "MARKER" root))
+           (trusted-content nil))
+      (set-file-modes exe #o755)
+      ;; the version comes from package.json, without running the project's eslint
+      (should (= (ide-web--eslint-major exe) 9))
+      (should-not (file-exists-p marker))
+      (with-temp-buffer
+        (insert-file-contents (expand-file-name "a.js" root))
+        (setq buffer-file-name (expand-file-name "a.js" root))
+        (setq buffer-file-truename (abbreviate-file-name (file-truename buffer-file-name)))
+        (setq default-directory root)
+        (let ((inhibit-message t))
+          (should (equal (lang-web-test--lint-wait #'ide-lang-flymake-eslint) '(nil)))
+          (should-error (ide-web-eslint-fix) :type 'user-error))
+        (should-not (file-exists-p marker))
+        ;; once trusted it runs (the marker proves the check above was meaningful)
+        (let ((trusted-content (list (abbreviate-file-name (file-truename root)))))
+          (should (trusted-content-p))
+          (lang-web-test--lint-wait #'ide-lang-flymake-eslint)
+          (should (file-exists-p marker)))
+        (set-buffer-modified-p nil)
+        (setq buffer-file-name nil)))))
+
+(ert-deftest web-eslint-fix-uses-the-version-aware-command ()
+  (lang-web-test--with-project '((".eslintrc.json" . "{}") ("a.js" . ""))
+    (with-temp-buffer
+      (setq buffer-file-name (expand-file-name "a.js" default-directory))
+      (let (ran)
+        (cl-letf (((symbol-function 'trusted-content-p) (lambda (&rest _) t))
+                  ((symbol-function 'ide-lang-node-exe) (lambda (&rest _) "/bin/eslint"))
+                  ((symbol-function 'ide-web--eslint-major) (lambda (_) 9))
+                  ((symbol-function 'executable-find) (lambda (n &rest _) (concat "/usr/bin/" n)))
+                  ((symbol-function 'ide-lang-run-then) (lambda (_n cmd &rest _) (setq ran cmd))))
+          (ide-web-eslint-fix)
+          (should (equal ran (list "/usr/bin/env" "ESLINT_USE_FLAT_CONFIG=false" "/bin/eslint"
+                                   "--fix" buffer-file-name))))
+        (set-buffer-modified-p nil)
+        (setq buffer-file-name nil)))))
+
+(ert-deftest web-code-action-says-when-nothing-applies ()
+  (let ((eglot--managed-mode t) said)
+    (cl-letf (((symbol-function 'ide-lang-code-action) (lambda (&rest _) nil))
+              ((symbol-function 'message) (lambda (fmt &rest args) (setq said (apply #'format fmt args)))))
+      (ide-web-organize-imports)
+      (should (equal said "No source.organizeImports action to apply")))))
 
 (provide 'lang-web-test)
 ;;; lang-web-test.el ends here

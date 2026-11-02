@@ -23,10 +23,7 @@
         (append ide-bottom-buffer-regexps
                 '(compilation-mode help-mode xref--xref-buffer-mode
                   flymake-diagnostics-buffer-mode grep-mode occur-mode))
-        popper-display-control nil   ; display-buffer-alist below owns placement
-        popper-window-height (lambda (win)
-                               (fit-window-to-buffer
-                                win (floor (* 0.30 (frame-height))) 8)))
+        popper-display-control nil)  ; display-buffer-alist below owns placement
   :config
   (popper-mode 1)
   (popper-echo-mode 1))
@@ -46,8 +43,11 @@
           (display-buffer-in-side-window)
           (side . right) (slot . 0) (window-width . 30)
           (window-parameters . ((no-delete-other-windows . t))))
-         ("\\*magit-\\(diff\\|revision\\|log\\|process\\).*"
-          (display-buffer-reuse-window display-buffer-at-bottom)
+         ;; Magit names buffers "magit-diff: repo" (`magit-buffer-name-format'),
+         ;; so match the mode, not the name.  Revision and stash derive from diff.
+         ;; Reusing a window of the same mode keeps diff after diff from stacking.
+         ((derived-mode magit-diff-mode magit-log-mode magit-process-mode)
+          (display-buffer-reuse-window display-buffer-reuse-mode-window display-buffer-at-bottom)
           (window-height . 0.40))
          ,@(mapcar (lambda (re)
                      `(,re (display-buffer-reuse-window display-buffer-in-side-window)
@@ -55,13 +55,7 @@
                    ide-bottom-buffer-regexps)
          ((derived-mode . compilation-mode)
           (display-buffer-reuse-window display-buffer-in-side-window)
-          ,@ide-bottom-slot-params)
-         ("\\*dap-ui-\\(locals\\|breakpoints\\|expressions\\|sessions\\|repl\\)\\*"
-          (display-buffer-in-side-window)
-          (side . right) (slot . 1) (window-width . 40))
-         ("\\*dap-ui-.*"
-          (display-buffer-in-side-window)
-          (side . bottom) (slot . 1) (window-height . 0.30)))
+          ,@ide-bottom-slot-params))
        display-buffer-alist))
 
 (defun ide-add-drawer-buffer (regexp)

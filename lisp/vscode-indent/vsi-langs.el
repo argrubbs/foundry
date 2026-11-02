@@ -116,7 +116,7 @@ them.  CLOSE is the matching closing bracket."
   (or (vsi--json-open-p s "{" "}") (vsi--json-open-p s "[" "]")))
 
 (vsi-define-language 'json
-  :offset-vars '(json-ts-mode-indent-offset js-indent-level)
+  :offset-vars '(json-ts-indent-offset js-indent-level)
   :modes '(json-ts-mode json-mode jsonc-mode)
   :increase #'vsi--json-increase-p
   ;; ^\s*[}\]],?\s*$
@@ -137,7 +137,7 @@ them.  CLOSE is the matching closing bracket."
   :decrease "^[ \t]+}$")
 
 (vsi-define-language 'dockerfile
-  :offset-vars '(dockerfile-ts-mode-indent-offset)
+  :offset-vars '(dockerfile-indent-offset)
   :modes '(dockerfile-ts-mode dockerfile-mode)
   :increase vsi--yaml-increase
   :decrease "^[ \t]+}$")
@@ -189,7 +189,7 @@ or `until'."
              (not (string-search "--" (substring s 0 (match-beginning 0))))))))
 
 (vsi-define-language 'lua
-  :offset-vars '(lua-ts-mode-indent-offset lua-indent-level)
+  :offset-vars '(lua-ts-indent-offset lua-indent-level)
   :modes '(lua-ts-mode lua-mode)
   :increase #'vsi--lua-increase-p
   ;; ^\s*((\b(elseif|else|end|until)\b)|(\})|(\)))

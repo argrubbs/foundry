@@ -38,13 +38,33 @@
   :demand t
   :config
   ;; Compose Eglot's capf with file and buffer symbols.
-  (defun ide--eglot-capf-setup ()
-    (setq-local completion-at-point-functions
-                (list (cape-capf-super
-                       #'eglot-completion-at-point
-                       #'cape-dabbrev)
-                      #'cape-file)))
   (add-hook 'eglot-managed-mode-hook #'ide--eglot-capf-setup))
+
+(declare-function eglot-managed-p "eglot")
+(declare-function eglot-completion-at-point "eglot")
+(declare-function cape-capf-super "cape")
+(declare-function cape-file "cape")
+(declare-function cape-dabbrev "cape")
+
+(defvar-local ide--eglot-capfs nil
+  "Capfs `ide--eglot-capf-setup' added to this buffer, to remove when Eglot stops.")
+
+(defun ide--eglot-capf-setup ()
+  "Swap Eglot's capf for one that also offers dabbrev words, plus file names.
+`eglot-managed-mode-hook' runs both when Eglot starts and when it stops
+managing the buffer: on the way out, take our capfs back out, leaving the
+mode's own capfs (and the global fallback `t') as they were."
+  (dolist (f ide--eglot-capfs)
+    (remove-hook 'completion-at-point-functions f t))
+  (setq ide--eglot-capfs nil)
+  (when (eglot-managed-p)
+    (remove-hook 'completion-at-point-functions #'eglot-completion-at-point t)
+    (unless (memq #'cape-file completion-at-point-functions)
+      (add-hook 'completion-at-point-functions #'cape-file nil t)
+      (push #'cape-file ide--eglot-capfs))
+    (let ((super (cape-capf-super #'eglot-completion-at-point #'cape-dabbrev)))
+      (add-hook 'completion-at-point-functions super nil t)
+      (push super ide--eglot-capfs))))
 
 (use-package yasnippet-capf :after (cape yasnippet))
 

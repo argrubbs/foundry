@@ -118,7 +118,9 @@ and **ansible-xref** (`lisp/ansible-xref.el`), a small xref backend that follows
 - Chat and region actions: gptel (`C-c a i`, `C-c a r`, `C-c a c`).
 - Privacy: files that look like secrets (`.env`, `*.tfvars`, keys, kubeconfig, `*secrets*.yaml`; see
   `ide-ai-private-file-regexps`) are never sent to hosted models, whole-buffer sends to them ask first, and
-  `M-x ide-ai-mark-private` protects any other buffer. Local Ollama is unaffected.
+  `M-x ide-ai-mark-private` protects any other buffer. Text killed in a private buffer is refused by
+  `gptel-context-add-current-kill` and the menu's kill-ring prompt, but text you paste into another
+  buffer is sent like anything else you type there. Local Ollama is unaffected.
 - Provider and model: `C-c a M` (`ide-ai-set-model`) picks the provider (Ollama, Claude, Gemini) and
   model with completion, like agent-shell's picker: inside a chat or agent buffer it changes that
   session, elsewhere it sets and remembers the default. Set `ide-ai-default-model` for a fixed default;
@@ -129,6 +131,30 @@ and **ansible-xref** (`lisp/ansible-xref.el`), a small xref backend that follows
   plugins (`~/.claude/plugins/cache/*/*/*/skills`); add more via
   `gptel-agent-skill-dirs`.  Use a strong model for agent work; small local models
   are unreliable at tool use.
+- Voice notes and dictation: talk instead of type. One key starts recording and the same key stops it.
+  `<f7>` (`C-c o d`) dictates at point; the text appears when you stop, not while you speak. `<f8>`
+  (`C-c o v`) saves a voice note to `notes/voice-notes.org` with its transcript and a summary.
+  `S-<f8>` (`C-c o e`) does the same but rewrites it for an audience you pick, such as a manager.
+  `C-c o V` opens the notes, and `M-x ide-voice-reprocess` on a note retries it or explains it to
+  someone else. The transcript is saved before any model is asked, so a failed summary loses nothing.
+  Setup: `make packages`, then `make voice` to build whisper.cpp with Vulkan (needs `cmake`, a C++
+  compiler, `glslc`, and the Vulkan and SPIR-V headers), or `make voice-mac` to build with Metal on
+  macOS (needs Homebrew's `cmake` and `ffmpeg`); the speech model downloads on first use. On macOS also
+  set `whisper--ffmpeg-input-device` to `":default"` once whisper loads, and allow the microphone. Set
+  `ide-voice-model`, for example `'(ollama . gemma4:12b)`, to a general model rather than a
+  completion model. A hosted model sends your transcripts off this machine.
+- MCP servers for outside agents (Claude Code and others): **emcp** and **elisp-dev-mcp** let an
+  agent ask this Emacs about itself instead of the web. emcp (HTTP on `127.0.0.1:38913`,
+  `ide-ai-emcp-port`) answers apropos, describe, definitions, references and Info; its profile
+  (`ide-ai-emcp-profile`) is read-only `inspect` by default, and `develop` / `full-control` add
+  variables, screenshots, eval and key sending (eval and keys always ask you first). elisp-dev-mcp
+  (stdio through `emacsclient -s foundry`) adds function/variable docs, Info lookup and reading
+  installed Elisp source, including elpaca packages but never `user/`: neither server returns
+  source, file commentary or references from `user/` (docstrings stay visible). emcp answers only requests addressed to localhost, so a web
+  page cannot reach it through DNS rebinding.
+  - `C-c a x` (`ide-ai-mcp-start`) starts the Emacs server and emcp; set `ide-ai-mcp-autostart`
+    to start them with Foundry. `C-c a X` opens emcp's session manager.
+  - `M-x ide-ai-mcp-register-claude` registers both with Claude Code (user scope).
 
 ## Documentation
 

@@ -16,6 +16,14 @@
 (defmacro k8s-test-with-yaml (text &rest body)
   `(with-temp-buffer (insert ,text) (goto-char (point-min)) ,@body))
 
+(defmacro k8s-test--with-temp-var (&rest body)
+  "Run BODY with `ide-var-dir' in a fresh temp directory, so sandbox state never lands in var/."
+  (declare (indent 0))
+  `(let* ((k8s-test--var (file-name-as-directory (make-temp-file "k8s-var" t)))
+          (ide-var-dir k8s-test--var))
+     (unwind-protect (progn ,@body)
+       (delete-directory k8s-test--var t))))
+
 (ert-deftest k8s-key-path-by-indentation ()
   (k8s-test-with-yaml k8s-test-manifest
     (search-forward "containerPort")
@@ -185,6 +193,7 @@
         (should (= (line-number-at-pos (flymake-diagnostic-beg d)) 8))))))
 
 (ert-deftest k8s-helm-template-renders-real-chart ()
+  (k8s-test--with-temp-var
   (skip-unless (executable-find "helm"))
   (let* ((dir (make-temp-file "k8s-helm" t))
          (chart (expand-file-name "c" dir)))
@@ -201,8 +210,7 @@
                                 nil t nil (cdr (ide-helm-command 'template (file-name-as-directory chart))))
                          (buffer-string)))))
             (should (string-match-p "word: \"three\"" out))))
-      (delete-directory dir t))))
-
+      (delete-directory dir t)))))
 
 (ert-deftest k8s-trivy-chart-lines-map-back-to-the-template ()
   (let* ((dir (make-temp-file "k8s-tr" t))
@@ -224,6 +232,122 @@
             (should (string-match-p "of the rendered output" (nth 3 e)))))
       (delete-directory dir t))))
 
+(ert-deftest k8s-trivy-single-file-target-is-relative-to-its-directory ()
+  "trivy names a single scanned file by basename: links must still reach it from the root."
+  (k8s-test--with-temp-var
+  (let ((json "{\"Results\":[{\"Target\":\"pod.yaml\",\"Misconfigurations\":[{\"ID\":\"K\",\"Title\":\"T\",\"Severity\":\"HIGH\",\"Message\":\"M\",\"CauseMetadata\":{\"StartLine\":3}}]}]}"))
+    (should (equal (car (car (ide-k8s--parse-trivy json nil "/proj/k8s/sub/")))
+                   "/proj/k8s/sub/pod.yaml")))
+  (skip-unless (executable-find "trivy"))
+  (let* ((root (file-name-as-directory (make-temp-file "k8s-trivy" t)))
+         (file (expand-file-name "k8s/sub/pod.yaml" root))
+         (out nil))
+    (unwind-protect
+        (progn
+          (make-directory (file-name-directory file) t)
+          (write-region "apiVersion: v1\nkind: Pod\nmetadata:\n  name: x\nspec:\n  containers:\n    - name: c\n      image: nginx\n      securityContext:\n        privileged: true\n" nil file)
+          (cl-letf (((symbol-function 'ide-k8s--lint-target) (lambda () file))
+                    ((symbol-function 'ide-lang-root) (lambda (&rest _) root))
+                    ((symbol-function 'ide-k8s--show-report) (lambda (_n entries) (setq out entries))))
+            (ide-k8s-trivy)
+            (let ((n 0)) (while (and (null out) (< n 1200)) (accept-process-output nil 0.1) (cl-incf n))))
+          (skip-unless out)
+          (should (cl-every (lambda (e) (equal (car e) file)) out)))
+      (delete-directory root t)))))
+
+(ert-deftest k8s-helm-template-and-validate-fails-when-helm-fails ()
+  (k8s-test--with-temp-var
+  (let ((argv (cl-letf (((symbol-function 'ide-helm-command) (lambda (&rest _) '("helm" "template" "/no/chart")))
+                        ((symbol-function 'ide-k8s--kubeconform-common) (lambda () nil)))
+                (ide-helm--template-validate-command "/no/chart"))))
+    (should (equal (seq-take argv 4) '("bash" "-o" "pipefail" "-c")))
+    (should (string-match-p "helm template /no/chart | kubeconform -summary -" (nth 4 argv)))
+    (skip-unless (and (executable-find "bash") (executable-find "helm") (executable-find "kubeconform")))
+    ;; Without pipefail kubeconform's "0 resources" would make this exit 0.
+    (should-not (zerop (ide-k8s--with-env (apply #'call-process (car argv) nil nil nil (cdr argv)))))))
+
+(defmacro k8s-test--with-fake-kubectl (&rest body)
+  "Run BODY with a fake kubectl first on PATH that prints its KUBECONFIG and XDG_CONFIG_HOME."
+  (declare (indent 0))
+  `(let* ((bin (file-name-as-directory (make-temp-file "k8s-fake-kubectl" t)))
+          (exec-path (cons bin exec-path))
+          (process-environment (cons (concat "PATH=" bin path-separator (getenv "PATH"))
+                                     process-environment)))
+     (with-temp-file (expand-file-name "kubectl" bin)
+       (insert "#!/bin/sh\nprintf '%s|%s' \"$KUBECONFIG\" \"$XDG_CONFIG_HOME\"\n"))
+     (set-file-modes (expand-file-name "kubectl" bin) #o755)
+     (unwind-protect (progn ,@body)
+       (delete-directory bin t)))))
+
+(ert-deftest k8s-yaml-builtin-yamllint-backend-is-removed ()
+  "Emacs 31's `yaml-ts-mode-flymake' would duplicate yamllint with strict defaults."
+  (skip-unless (treesit-language-available-p 'yaml))
+  (let* ((dir (make-temp-file "k8s-yaml" t))
+         (buf (find-file-noselect (expand-file-name "x.yaml" dir))))
+    (unwind-protect
+        (with-current-buffer buf
+          (unless (derived-mode-p 'yaml-ts-mode) (yaml-ts-mode))
+          (should-not (memq 'yaml-ts-mode-flymake flymake-diagnostic-functions))
+          (should (memq 'ide-lang-flymake-yamllint flymake-diagnostic-functions)))
+      (kill-buffer buf)
+      (delete-directory dir t))))
+
+(ert-deftest k8s-kubel-honours-kubeconfig ()
+  (require 'kubel)
+  (require 'tramp)
+  (dolist (f ide-k8s--kubel-entry-points)
+    (should (or (not (fboundp f))
+                (advice-member-p (if (memq f ide-k8s--kubel-tramp-entry-points)
+                                     #'ide-k8s--kubel-tramp-with-kubeconfig
+                                   #'ide-k8s--kubel-with-kubeconfig)
+                                 f))))
+  (k8s-test--with-fake-kubectl
+    (let ((xdg (or (getenv "XDG_CONFIG_HOME") ""))
+          (orig kubel-kubectl))
+      ;; Only KUBECONFIG is added: no sandbox XDG/TMPDIR for credential plugins.
+      (let ((ide-k8s-kubeconfig "/tmp/k8s-test-kubeconfig"))
+        (should (equal (kubel--exec-sync "kubectl version" t) (concat "/tmp/k8s-test-kubeconfig|" xdg)))
+        (let ((kubel-context nil) (kubel-namespace nil))
+          (kubel--init-context)
+          (should (string-prefix-p "/tmp/k8s-test-kubeconfig|" kubel-context))))
+      ;; A buffer-local value applies in that buffer only, even with a local environment
+      ;; (exec-sync runs kubectl from a temporary buffer).
+      (with-temp-buffer
+        (setq-local ide-k8s-kubeconfig "/tmp/k8s-local-kubeconfig")
+        (setq-local process-environment (cons "KUBECONFIG" process-environment))
+        (should (equal (kubel--exec-sync "kubectl version" t) (concat "/tmp/k8s-local-kubeconfig|" xdg))))
+      ;; Nil: untouched, and kubel's own settings never change.
+      (let ((process-environment (cons "KUBECONFIG" process-environment)))
+        (should (equal (kubel--exec-sync "kubectl version" t) (concat "|" xdg))))
+      (should (equal kubel-kubectl orig))
+      ;; A remote directory: a local kubeconfig path means nothing there.
+      (let ((ide-k8s-kubeconfig "/tmp/k8s-test-kubeconfig") (default-directory "/ssh:example.invalid:/"))
+        (should-not (ide-k8s--kubel-kubeconfig))))))
+
+(ert-deftest k8s-kubel-tramp-connections-follow-the-kubeconfig ()
+  (require 'kubel)
+  (require 'tramp)
+  (let ((kubel--tramp-method-cache '((("c" . "n") . "kubel")))
+        (ide-k8s--kubel-tramp-kubeconfig nil)
+        (kubel-conn (make-tramp-file-name :method "kubel" :user "c1" :host "pod"))
+        (ssh-conn (make-tramp-file-name :method "ssh" :host "h"))
+        closed seen)
+    (cl-letf (((symbol-function 'tramp-list-connections) (lambda () (list kubel-conn ssh-conn)))
+              ((symbol-function 'tramp-cleanup-connection) (lambda (v &rest _) (push v closed))))
+      (let ((open (lambda () (setq seen (getenv "KUBECONFIG")))))
+        ;; Same (default) kubeconfig as the open connections: nothing is closed.
+        (ide-k8s--kubel-tramp-with-kubeconfig open)
+        (should-not closed)
+        ;; Another kubeconfig: kubel's connections (only) are closed before connecting.
+        (let ((ide-k8s-kubeconfig "/tmp/k8s-other"))
+          (ide-k8s--kubel-tramp-with-kubeconfig open))
+        (should (equal closed (list kubel-conn)))
+        (should (equal seen "/tmp/k8s-other"))
+        (setq closed nil)
+        (let ((ide-k8s-kubeconfig "/tmp/k8s-other"))
+          (ide-k8s--kubel-tramp-with-kubeconfig open))
+        (should-not closed)))))
+
 (defun k8s-test--cluster-p ()
   "Non-nil when the kind-foundry-test cluster of the sandbox answers."
   (and (executable-find "kubectl")
@@ -235,8 +359,11 @@
 
 (ert-deftest k8s-cluster-explain-and-server-dry-run ()
   (skip-unless (k8s-test--cluster-p))
-  (let ((ide-k8s-kubeconfig (expand-file-name "tools/k8s/kubeconfig" ide-var-dir))
-        (ide-k8s-context "kind-foundry-test"))
+  (let* ((kubeconfig (expand-file-name "tools/k8s/kubeconfig" ide-var-dir))
+         (k8s-test--var (file-name-as-directory (make-temp-file "k8s-var" t)))
+         (ide-var-dir k8s-test--var)
+         (ide-k8s-kubeconfig kubeconfig)
+         (ide-k8s-context "kind-foundry-test"))
     (let ((out (ide-k8s--with-env
                  (with-temp-buffer
                    (apply #'call-process (car (ide-k8s-explain-command '("Deployment.spec.template.spec.containers.ports" . "apps/v1")))

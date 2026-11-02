@@ -4,6 +4,7 @@
 ;; minuet for ghost-text FIM completion (local Ollama or cloud), gptel for
 ;; conversational / region-based work, gptel-agent for autonomous tool-using
 ;; sessions (file edits, shell, Elisp, web, sub-agents and Agent Skills).
+;; emcp and elisp-dev-mcp serve this Emacs to outside agents over MCP.
 
 ;;; Code:
 
@@ -92,7 +93,7 @@ Off by default; `ide-ai-toggle-inline-completion' (C-c a t) switches it on and o
 (declare-function gptel-make-anthropic "gptel-anthropic")
 (declare-function gptel-make-gemini "gptel-gemini")
 (declare-function ide-run-with-timeout "00-core")
-(declare-function gptel-request "gptel")
+(declare-function gptel-request "gptel-request")
 (declare-function gptel-abort "gptel-request")
 (declare-function gptel-add-file "gptel-context")
 (declare-function gptel "gptel")
@@ -196,9 +197,12 @@ Add your own entry in user/ to offer another endpoint.")
   "Return PROVIDER's gptel backend, creating it if needed, offering MODELS."
   (let* ((id (car provider)) (existing (alist-get id ide-ai--backends)))
     (if existing
-        (progn (setf (cl-struct-slot-value 'gptel-backend 'models existing)
-                     (delete-dups (append models (cl-struct-slot-value 'gptel-backend 'models existing))))
-               existing)
+        ;; The slot is reached through the backend's own type, known only at
+        ;; run time, so compiling needs no gptel struct definitions.
+        (let ((type (type-of existing)))
+          (setf (cl-struct-slot-value type 'models existing)
+                (delete-dups (append models (cl-struct-slot-value type 'models existing))))
+          existing)
       (setf (alist-get id ide-ai--backends)
             (funcall (ide-ai--pget provider :make) models
                      (lambda () (ide-ai--api-key provider)))))))
@@ -210,11 +214,15 @@ Add your own entry in user/ to offer another endpoint.")
            (let ((fn (ide-ai--pget provider :models-fn)))
              (if fn (funcall fn) (ide-ai--pget provider :models))))))
 
+(defun ide-ai--backend-provider (backend)
+  "The provider BACKEND belongs to, or nil."
+  (when backend
+    (cl-find (gptel-backend-name backend) ide-ai-providers
+             :key (lambda (p) (ide-ai--pget p :backend-name)) :test #'equal)))
+
 (defun ide-ai--current-provider ()
   "The provider whose backend is current, or nil."
-  (when (and (boundp 'gptel-backend) gptel-backend)
-    (cl-find (gptel-backend-name gptel-backend) ide-ai-providers
-             :key (lambda (p) (ide-ai--pget p :backend-name)) :test #'equal)))
+  (ide-ai--backend-provider (bound-and-true-p gptel-backend)))
 
 (defun ide-ai--read (prompt candidates default annotate category &optional require-match)
   "`completing-read' over CANDIDATES in the given order, annotated, like agent-shell's picker."
@@ -344,7 +352,11 @@ Never touches the network: Ollama's installed models are only listed in the pick
     "\\(\\`\\|/\\)[._]?\\(netrc\\|authinfo\\|npmrc\\|pypirc\\|git-credentials\\|pgpass\\)\\(\\.gpg\\)?\\'"
     "/\\.\\(ssh\\|aws\\|azure\\|gnupg\\|kube\\)/" "/kubeconfig\\'"
     "/[^/]*\\(secret\\|credential\\|password\\|token\\)s?[^/]*\\.\\(json\\|ya?ml\\|env\\|txt\\|ini\\|conf\\|cfg\\|toml\\|properties\\|xml\\|csv\\)\\'"
-    "/\\(secrets?\\|credentials?\\)\\'")
+    "/\\(secrets?\\|credentials?\\)\\'"
+    "\\`/\\(proc\\|sys\\|dev\\)/"                                  ; process environments, devices
+    "/\\.config/\\(gh\\|hub\\|gcloud\\|rclone\\)/" "/\\.docker/config\\.json\\'"
+    "/\\.\\(vault-token\\|terraformrc\\|my\\.cnf\\|s3cfg\\|boto\\)\\'" "/rclone\\.conf\\'"
+    "/\\.password-store/" "/\\.local/share/keyrings/")
   "Files that must never be sent to a hosted AI model (matched case-insensitively).
 Local models are unaffected.  Extend it in user/ with `add-to-list'."
   :type '(repeat regexp))
@@ -363,9 +375,13 @@ Local models are unaffected.  Extend it in user/ with `add-to-list'."
           (string-prefix-p (expand-file-name "var/" user-emacs-directory) f)))))
 
 (defun ide-ai-private-buffer-p (&optional buffer)
-  "Non-nil when BUFFER (default current) is marked private or visits a private file."
+  "Non-nil when BUFFER (default current) is marked private or visits a private file.
+An indirect buffer is as private as its base buffer."
   (with-current-buffer (or buffer (current-buffer))
-    (or ide-ai-private-buffer (ide-ai-private-file-p buffer-file-name))))
+    (or ide-ai-private-buffer
+        (ide-ai-private-file-p buffer-file-name)
+        (and buffer-file-truename (ide-ai-private-file-p (expand-file-name buffer-file-truename)))
+        (and (buffer-base-buffer) (ide-ai-private-buffer-p (buffer-base-buffer))))))
 
 (defun ide-ai--local-host-p ()
   (string-match-p "\\`https?://\\(localhost\\|127\\.[0-9.]+\\|\\[::1\\]\\)\\([:/]\\|\\'\\)" ide-ai-ollama-host))
@@ -378,9 +394,13 @@ Local models are unaffected.  Extend it in user/ with `add-to-list'."
         (and (ide-ai--pget provider :env) t)
         (if (eq (car provider) 'ollama) (not (ide-ai--local-host-p)) t))))
 
+(defun ide-ai--backend-hosted-p (backend)
+  "Non-nil when gptel BACKEND runs on someone else's machine (or is unknown)."
+  (ide-ai--provider-hosted-p (ide-ai--backend-provider backend)))
+
 (defun ide-ai-chat-hosted-p ()
-  "Non-nil when chat and agent requests currently go to a hosted service."
-  (ide-ai--provider-hosted-p (ide-ai--current-provider)))
+  "Non-nil when chat and agent requests from this buffer go to a hosted service."
+  (ide-ai--backend-hosted-p (bound-and-true-p gptel-backend)))
 
 (defun ide-ai-fim-hosted-p ()
   "Non-nil when inline completion currently goes to a hosted service."
@@ -435,18 +455,185 @@ WHOLE-BUFFER non-nil means the entire buffer is about to be sent."
     (minuet-auto-suggestion-mode -1))
   (message "%s is %s" (buffer-name) (if unmark "no longer private" "private: hosted models will not see it")))
 
-(defun ide-ai--guard-gptel-context (&rest _)
-  "Advice for gptel's own context commands: keep private data away from hosted models."
-  (ide-ai--guard-send nil))
+;; Two layers.  Adding private data to gptel's context is refused early while
+;; a hosted model is current.  The real guard sits where every request is
+;; built (`gptel--realize-query': gptel-send, gptel-rewrite, agents, plain
+;; `gptel-request'): it checks the backend that request actually uses, after
+;; presets, against the sending buffer and every context entry.
 
-(defun ide-ai--guard-gptel-file (file &rest _)
-  (when (and (ide-ai-chat-hosted-p) (ide-ai-private-file-p file))
-    (user-error "%s looks private; not adding it to a hosted model's context" (file-name-nondirectory file))))
+(declare-function gptel-fsm-info "gptel-request")
+(defvar gptel-context)
+(defvar gptel-use-context)
+
+(defvar ide-ai--local-spills)
+
+(defun ide-ai--private-path-p (file)
+  "Non-nil when FILE, its true name, or a buffer visiting it is private."
+  (and (stringp file)
+       (or (ide-ai-private-file-p file)
+           (member (expand-file-name file) ide-ai--local-spills)
+           (member (file-truename file) ide-ai--local-spills)
+           (ide-ai-private-file-p (file-truename file))
+           (and (file-directory-p file) (ide-ai-private-file-p (file-name-as-directory file)))
+           (when-let* ((b (get-file-buffer file))) (ide-ai-private-buffer-p b)))))
+
+;; Kills made in a private buffer are remembered (the strings themselves,
+;; weakly, so they go when the kill ring drops them).  gptel's commands that
+;; send a kill directly -- `gptel-context-add-current-kill' and the menu's
+;; kill-ring prompt -- refuse those for hosted models.  Pasting a secret into
+;; another buffer is an explicit act this cannot follow; that text is sent.
+
+(defvar ide-ai--private-kills (make-hash-table :test 'equal :weakness 'key)
+  "Strings killed in private buffers.")
+
+(defun ide-ai--record-private-kill (&rest _)
+  "After `kill-new': remember the new kill when it came from a private buffer."
+  (when (and kill-ring (stringp (car kill-ring)) (ide-ai-private-buffer-p))
+    (puthash (car kill-ring) t ide-ai--private-kills)))
+
+(advice-add 'kill-new :after #'ide-ai--record-private-kill)
+
+(defun ide-ai--private-kill-p (text)
+  (and (stringp text) (gethash text ide-ai--private-kills)))
+
+(defvar ide-ai--private-context-kills (make-hash-table :test 'equal)
+  "Private kills added to gptel's context, kept for as long as the context may hold them.")
+
+(defun ide-ai--holds-private-kill-p (buffer)
+  "Non-nil when BUFFER is gptel's kill-ring context and a segment of it is a private kill.
+`gptel-context-add-current-kill' separates accumulated kills with \"\\n----\\n\"."
+  (and (equal (buffer-name buffer) " *gptel-kill-ring-context*")
+       (cl-some (lambda (seg) (or (ide-ai--private-kill-p seg) (gethash seg ide-ai--private-context-kills)))
+                (split-string (with-current-buffer buffer
+                                (save-restriction (widen) (buffer-substring-no-properties (point-min) (point-max))))
+                              "\n----\n"))))
+
+(defun ide-ai--private-context (context)
+  "Names of the private buffers and files among gptel CONTEXT entries."
+  (let (found)
+    (dolist (entry context (nreverse found))
+      (let ((src (if (consp entry) (car entry) entry)))
+        (cond ((bufferp src)
+               (when (and (buffer-live-p src)
+                          (or (ide-ai-private-buffer-p src) (ide-ai--holds-private-kill-p src)))
+                 (push (buffer-name src) found)))
+              ((stringp src)
+               (dolist (f (if (file-directory-p src) (directory-files-recursively src "") (list src)))
+                 (when (ide-ai--private-path-p f) (push (file-name-nondirectory f) found)))))))))
+
+(defvar ide-ai--origin-buffer nil
+  "Buffer a prompt was taken from when gptel sends it from another (its menu's chat redirect).")
+
+(defun ide-ai--check-request (backend buffer context)
+  "Signal `user-error' if a request from BUFFER with CONTEXT would take private data to BACKEND.
+The prompt being built is the current buffer."
+  (when (ide-ai--backend-hosted-p backend)
+    (when (and (buffer-live-p ide-ai--origin-buffer) (ide-ai-private-buffer-p ide-ai--origin-buffer))
+      (setq buffer ide-ai--origin-buffer))
+    (when (and (buffer-live-p buffer) (ide-ai-private-buffer-p buffer))
+      (user-error "%s looks private (secrets); not sending it to a hosted model. Switch to a local model with C-c a M, or M-x ide-ai-mark-private to change it"
+                  (buffer-name buffer)))
+    (when-let* ((private (ide-ai--private-context context)))
+      (user-error "The AI context holds private data (%s); not sending it to a hosted model. Remove it with M-x gptel-context-remove-all, or switch to a local model with C-c a M"
+                  (string-join private ", ")))))
+
+(defun ide-ai--guard-request (orig fsm)
+  "Around `gptel--realize-query': refuse FSM's request if it would leak private data."
+  (let* ((info (gptel-fsm-info fsm)) (data (plist-get info :data)))
+    (when (buffer-live-p data)
+      (condition-case err
+          (with-current-buffer data
+            (ide-ai--check-request gptel-backend (plist-get info :buffer)
+                                   (and gptel-use-context gptel-context)))
+        (user-error
+         (kill-buffer data)
+         (ide-ai--reset-status (plist-get info :buffer))
+         (signal (car err) (cdr err)))))
+    (funcall orig fsm)))
+
+(declare-function gptel--update-status "gptel")
+
+(defun ide-ai--reset-status (buffer)
+  "Put BUFFER's gptel status back to Ready after a refused request."
+  (when (and (buffer-live-p buffer) (fboundp 'gptel--update-status))
+    (with-current-buffer buffer
+      (when (bound-and-true-p gptel-mode) (gptel--update-status " Ready" 'success)))))
+
+(defun ide-ai--guard-menu-send (orig &rest args)
+  "Around gptel's menu send: it can copy the prompt into a chat buffer and send
+from there, so refuse a private source buffer up front if either side is hosted."
+  (let* ((targets (cl-loop for a in (car args)
+                           when (and (stringp a) (string-prefix-p "g" a))
+                           collect (get-buffer (substring a 1))))
+         (hosted (or (ide-ai-chat-hosted-p)
+                     (cl-some (lambda (b) (and (buffer-live-p b)
+                                               (with-current-buffer b (ide-ai-chat-hosted-p))))
+                              targets))))
+    (when (and hosted (ide-ai-private-buffer-p))
+      (user-error "%s looks private (secrets); not sending it to a hosted model. Switch to a local model with C-c a M, or M-x ide-ai-mark-private to change it"
+                  (buffer-name)))
+    ;; The kill-ring prompt ("y", or C-u for an older kill) is checked on
+    ;; the string actually chosen.
+    (let ((ide-ai--origin-buffer (current-buffer))
+          (ide-ai--checking-kills hosted))
+      (apply orig args))))
+
+(defvar ide-ai--checking-kills nil "Non-nil while a hosted menu send may read the kill ring.")
+
+(defun ide-ai--check-chosen-kill (text)
+  "Filter the kill read by gptel's menu: refuse a private one while sending to a hosted model."
+  (when (and ide-ai--checking-kills (ide-ai--private-kill-p text))
+    (user-error "That kill was copied from a private buffer; not sending it to a hosted model"))
+  text)
+
+(advice-add 'current-kill :filter-return #'ide-ai--check-chosen-kill)
+(advice-add 'read-from-kill-ring :filter-return #'ide-ai--check-chosen-kill)
+
+(defun ide-ai--guard-current-kill (&rest _)
+  "Before `gptel-context-add-current-kill': refuse text killed in a private buffer."
+  (let ((kill (and kill-ring (current-kill 0 t))))
+    (when (ide-ai--private-kill-p kill)
+      (when (ide-ai-chat-hosted-p)
+        (user-error "The last kill was copied from a private buffer; not adding it to a hosted model's context"))
+      ;; Allowed for a local model; the send guard refuses it if a hosted one follows.
+      (puthash (substring-no-properties kill) t ide-ai--private-context-kills))))
+
+(defvar ide-ai--adding-directory nil "Non-nil while gptel adds a directory to its context.")
+
+(defun ide-ai--guard-gptel-file (orig path &rest args)
+  "Around `gptel-context-add-file': keep private files out of a hosted model's context.
+A private file inside an added directory is skipped; one named directly is refused."
+  (if (and (ide-ai-chat-hosted-p) (not (file-directory-p path)) (ide-ai--private-path-p path))
+      (if ide-ai--adding-directory
+          (message "Skipped private file %s" path)
+        (user-error "%s looks private; not adding it to a hosted model's context" (file-name-nondirectory path)))
+    (apply orig path args)))
+
+(defun ide-ai--guard-gptel-directory (orig &rest args)
+  (let ((ide-ai--adding-directory t)) (apply orig args)))
+
+(defun ide-ai--guard-gptel-region (buffer &rest _)
+  "Before `gptel-context--add-region' (regions, buffers, ibuffer): refuse private BUFFER."
+  (when (and (ide-ai-chat-hosted-p) (ide-ai-private-buffer-p buffer))
+    (user-error "%s looks private (secrets); not adding it to a hosted model's context" (buffer-name buffer))))
 
 (with-eval-after-load 'gptel
-  (define-key gptel-mode-map (kbd "C-c C-k") #'gptel-abort)
-  (advice-add 'gptel-add :before #'ide-ai--guard-gptel-context)
-  (advice-add 'gptel-add-file :before #'ide-ai--guard-gptel-file))
+  (define-key gptel-mode-map (kbd "C-c C-k") #'gptel-abort))
+
+(with-eval-after-load 'gptel-request
+  (advice-add 'gptel--realize-query :around #'ide-ai--guard-request)
+  (advice-add 'gptel--handle-tool-use :around #'ide-ai--with-request-backend))
+
+;; `gptel-add' and `gptel-add-file' are aliases: advise the functions they
+;; name, which dired, ibuffer and directory adds call directly.
+(with-eval-after-load 'gptel-context
+  (advice-add 'gptel-context-add-file :around #'ide-ai--guard-gptel-file)
+  (advice-add 'gptel-context--add-directory :around #'ide-ai--guard-gptel-directory)
+  (advice-add 'gptel-context--add-region :before #'ide-ai--guard-gptel-region)
+  (advice-add 'gptel-context-add-current-kill :before #'ide-ai--guard-current-kill))
+
+(with-eval-after-load 'gptel-transient
+  (advice-add 'gptel--suffix-send :around #'ide-ai--guard-menu-send))
 
 ;;;; gptel-agent -----------------------------------------------------------
 
@@ -471,6 +658,131 @@ Plugins live in ~/.claude/plugins/cache/MARKETPLACE/PLUGIN/VERSION/skills."
   :config
   (advice-add 'gptel-agent :before #'ide-ai--refresh-skill-dirs))
 
+;; The agent's Read and Grep tools run without asking, so they get the same
+;; rule: private files stay away from hosted models.  Tools run inside
+;; `gptel--handle-tool-use', which knows the backend of the request.
+
+(defvar ide-ai--request-backend nil "Backend of the request whose tools are running.")
+(defvar ide-ai--grep-root nil "Directory of a hosted agent's Grep, while it runs.")
+
+(defun ide-ai--with-request-backend (orig fsm &rest args)
+  (let ((ide-ai--request-backend (plist-get (gptel-fsm-info fsm) :backend)))
+    (apply orig fsm args)))
+
+(defun ide-ai--tool-hosted-p ()
+  (ide-ai--backend-hosted-p (or ide-ai--request-backend (bound-and-true-p gptel-backend))))
+
+(defun ide-ai--guard-agent-read (file &rest _)
+  "Before the agent's Read tool: refuse private FILE for hosted models."
+  (when (and (stringp file) (ide-ai--tool-hosted-p) (ide-ai--private-path-p (expand-file-name file)))
+    (error "Error: %s is private (secrets) and is not shared with a hosted model" file)))
+
+(defun ide-ai--guard-agent-grep (orig regex path &rest args)
+  "Around the agent's Grep tool: refuse a private PATH and drop matches in private files."
+  (if (not (ide-ai--tool-hosted-p))
+      (apply orig regex path args)
+    (let ((full (expand-file-name (substitute-in-file-name path))))
+      (when (ide-ai--private-path-p full)
+        (error "Error: %s is private (secrets) and is not searched for a hosted model" path))
+      ;; A single (non-private) file needs no filtering: its lines may not name it.
+      (let ((ide-ai--grep-root (and (file-directory-p full)
+                                    (or (locate-dominating-file full ".git") full))))
+        (apply orig regex path args)))))
+
+(defun ide-ai--grep-unquote (path)
+  "PATH as git prints it: C-quoted (\"caf\\303\\251.py\") when not plain ASCII."
+  (if (and (string-prefix-p "\"" path) (string-suffix-p "\"" path) (> (length path) 1))
+      (decode-coding-string
+       (replace-regexp-in-string
+        "\\\\\\([0-7]\\{3\\}\\|.\\)"
+        (lambda (m)
+          (let ((c (substring m 1)))
+            (if (= (length c) 3) (unibyte-string (string-to-number c 8))
+              (pcase c ("n" "\n") ("t" "\t") (_ c)))))
+        (substring path 1 -1) t t)
+       'utf-8)
+    path))
+
+(defvar ide-ai--grep-files nil "Cache of `file-regular-p' answers during one filter run.")
+
+(defun ide-ai--grep-file-p (file)
+  (if (not ide-ai--grep-files) (file-regular-p file)
+    (let ((v (gethash file ide-ai--grep-files 'unknown)))
+      (if (eq v 'unknown) (puthash file (file-regular-p file) ide-ai--grep-files) v))))
+
+(defun ide-ai--grep-line-file (line root)
+  "The existing file a PATH:N: or PATH-N- grep LINE names, relative to ROOT, or nil.
+The longest prefix that is a file and is followed by such a separator wins, so
+paths holding digits and dashes resolve correctly."
+  (let ((start 0) file)
+    (while (string-match "[:-][0-9]+[:-]" line start)
+      (let ((cand (expand-file-name (ide-ai--grep-unquote (substring line 0 (match-beginning 0))) root)))
+        (when (and (> (match-beginning 0) 0) (ide-ai--grep-file-p cand)) (setq file cand)))
+      (setq start (1+ (match-beginning 0))))
+    file))
+
+(defun ide-ai--grep-drop-private ()
+  "Remove lines of private files from the grep output in this buffer.
+Handles git grep and grep (PATH:N:TEXT, PATH-N-TEXT) and ripgrep's
+--heading blocks.  Fails closed: a line whose file cannot be told is dropped."
+  (let* ((root ide-ai--grep-root) (heading 'none) (dropped 0) kept
+         (ide-ai--grep-files (make-hash-table :test 'equal))
+         (verdicts (make-hash-table :test 'equal))
+         (private (lambda (f) (let ((v (gethash f verdicts 'unknown)))
+                                (if (eq v 'unknown) (puthash f (ide-ai--private-path-p f) verdicts) v)))))
+    (dolist (line (split-string (buffer-string) "\n"))
+      (let* ((whole (and (not (string-empty-p line)) (not (string-match-p "\\`[0-9]+[:-]" line))
+                         (expand-file-name (ide-ai--grep-unquote line) root)))
+             (whole (and whole (ide-ai--grep-file-p whole) whole))
+             (file (and (not (string-empty-p line)) (not whole) (ide-ai--grep-line-file line root))))
+        (cond ((string-empty-p line) (setq heading 'none) (push line kept))
+              ;; A line naming a whole file is an rg heading, before any split.
+              (whole (setq heading (if (funcall private whole) 'private 'public))
+                     (if (eq heading 'private) (cl-incf dropped) (push line kept)))
+              (file (if (funcall private file) (cl-incf dropped) (push line kept)))
+              ((equal line "--") (if (eq heading 'private) (cl-incf dropped) (push line kept)))
+              ((string-prefix-p "Error: search failed" line) (push line kept))
+              ((and (not (string-match-p "\\`[0-9]+[:-]" line))
+                    (ide-ai--grep-file-p (expand-file-name (ide-ai--grep-unquote line) root)))
+               (setq heading (if (funcall private (expand-file-name (ide-ai--grep-unquote line) root)) 'private 'public))
+               (if (eq heading 'private) (cl-incf dropped) (push line kept)))
+              ((and (eq heading 'public) (string-match-p "\\`[0-9]+[:-]" line)) (push line kept))
+              (t (cl-incf dropped)))))
+    (when (> dropped 0)
+      ;; Separators and blank lines left around dropped groups collapse.
+      (let (out)
+        (dolist (l (nreverse kept))
+          (unless (and (member l '("--" "")) (or (null out) (member (car out) '("--" "")))) (push l out)))
+        (while (member (car out) '("--" "")) (pop out))
+        (setq kept out))
+      (erase-buffer)
+      (insert (string-join (nreverse kept) "\n")
+              (format "\n[%d lines from private files withheld from this hosted model]" dropped)))))
+
+;; gptel-agent spills large tool output to a temp file the model may Read
+;; later.  Spills made for a local model are unfiltered, so they count as
+;; private; a hosted model's own spills are filtered already.
+(defvar ide-ai--local-spills nil "Spill files gptel-agent wrote for local-model requests.")
+(defvar ide-ai--recording-spills nil)
+
+(defun ide-ai--record-spill (file)
+  (when ide-ai--recording-spills (push (expand-file-name file) ide-ai--local-spills))
+  file)
+
+(advice-add 'make-nearby-temp-file :filter-return #'ide-ai--record-spill)
+
+(defun ide-ai--agent-truncate (orig &rest args)
+  "Around gptel-agent's output truncation: filter a hosted Grep first; record local spills."
+  (if (ide-ai--tool-hosted-p)
+      (progn (when ide-ai--grep-root (ide-ai--grep-drop-private))
+             (apply orig args))
+    (let ((ide-ai--recording-spills t)) (apply orig args))))
+
+(with-eval-after-load 'gptel-agent-tools
+  (advice-add 'gptel-agent--read-file-lines :before #'ide-ai--guard-agent-read)
+  (advice-add 'gptel-agent--grep :around #'ide-ai--guard-agent-grep)
+  (advice-add 'gptel-agent--truncate-buffer :around #'ide-ai--agent-truncate))
+
 (defun ide-ai-agent ()
   "Start a `gptel-agent' session for the current project.
 The agent can read and edit files, run shell commands and Elisp, search the
@@ -481,6 +793,244 @@ web and use Agent Skills; everything except reads and web access asks first."
 (defun ide-ai-chat ()
   "Open a gptel chat buffer."
   (interactive) (call-interactively #'gptel))
+
+;;;; MCP servers: let outside agents ask this Emacs ---------------------------------
+;; Two servers expose the running Foundry to agents such as Claude Code:
+;; emcp (HTTP, inside Emacs) for symbols, definitions, references, Info and,
+;; with richer profiles, variables, screenshots, eval and keys; elisp-dev-mcp
+;; (stdio through emacsclient) for docs, definitions, Info lookup and reading
+;; installed Elisp source.  Neither starts unless asked: `ide-ai-mcp-start'.
+
+(declare-function emcp-start "emcp")
+(declare-function emcp-stop "emcp")
+(declare-function emcp-server-url "emcp")
+(declare-function mcp-server-lib-start "mcp-server-lib-commands")
+(declare-function elisp-dev-mcp-enable "elisp-dev-mcp")
+(declare-function server-start "server")
+(declare-function emcp--server-transport "emcp-core")
+(declare-function mcp-server-lib-tool-throw "mcp-server-lib")
+(defvar emcp-http-port)
+(defvar emcp--servers)
+(defvar server-process)
+(defvar elisp-dev-mcp-additional-allowed-dirs)
+(defvar elpaca-builds-directory)
+(defvar elpaca-sources-directory)
+(defvar ide-modules-directory)
+(defvar server-name)
+
+(defcustom ide-ai-mcp-autostart nil
+  "Start the MCP servers when Foundry starts (not in batch runs or daemons).
+Otherwise start them with `ide-ai-mcp-start'."
+  :type 'boolean)
+
+(defcustom ide-ai-mcp-server-name "foundry"
+  "Emacs server name used for emacsclient, and so by elisp-dev-mcp.
+Distinct from the default \"server\" so another Emacs can run its own.
+Only applied when this Emacs is not already running a server."
+  :type 'string)
+
+(defcustom ide-ai-emcp-profile 'inspect
+  "Profile emcp serves: `inspect' (read-only lookups), `develop' (adds
+reading and setting variables and screenshots) or `full-control' (adds eval
+and sending keys, each confirmed by you first)."
+  :type '(choice (const inspect) (const develop) (const full-control)))
+
+(defcustom ide-ai-emcp-port 38913
+  "Fixed localhost port for emcp, so MCP clients can be registered once."
+  :type 'integer)
+
+(use-package emcp
+  :commands (emcp-start emcp-stop emcp-session-manager)
+  :config (setq emcp-http-port ide-ai-emcp-port))
+
+(use-package elisp-dev-mcp
+  :commands (elisp-dev-mcp-enable elisp-dev-mcp-disable)
+  :config
+  ;; elpaca builds are symlinks into sources; the server resolves links, so
+  ;; both trees must be allowed.  Foundry's own modules are readable too;
+  ;; user/ is not, as it may hold personal settings (see below for definitions).
+  (setq elisp-dev-mcp-additional-allowed-dirs
+        (list elpaca-builds-directory elpaca-sources-directory
+              ide-modules-directory (expand-file-name "lisp/" user-emacs-directory))))
+
+;; user/ stays private to outside agents: both servers can return the source
+;; of any loaded definition, so lookups that resolve into user/ are withheld.
+;; (emcp's eval in the full-control profile can still read anything; it asks.)
+
+(defun ide-ai--user-config-file-p (file)
+  "Non-nil when FILE is under the user/ directory of this config."
+  (and (stringp file)
+       (let ((user (file-name-as-directory (expand-file-name "user/" user-emacs-directory)))
+             (f (expand-file-name file)))
+         (or (string-prefix-p user f)
+             (string-prefix-p (file-truename user) (file-truename f))))))
+
+(defun ide-ai--elisp-dev-hide-user (_fn-name _sym file &rest _)
+  "Before elisp-dev-mcp reads a definition from FILE: refuse files in user/."
+  (when (ide-ai--user-config-file-p file)
+    (mcp-server-lib-tool-throw "Definition withheld: it is in the user's private user/ configuration")))
+
+(defun ide-ai--emcp-hide-user (def)
+  "Filter emcp's definition lookup DEF: withhold source from user/."
+  (if (ide-ai--user-config-file-p (plist-get def :file))
+      (list :file "user/ (private)" :source "Definition withheld: it is in the user's private user/ configuration.")
+    def))
+
+(defvar ide-ai--emcp-hiding-user nil "Non-nil while an emcp tool reads loaded files.")
+
+(defun ide-ai--emcp-references-hide-user (orig &rest args)
+  (let ((ide-ai--emcp-hiding-user t)) (apply orig args)))
+
+(defun ide-ai--elisp-refs-hide-user (paths)
+  (if ide-ai--emcp-hiding-user (cl-remove-if #'ide-ai--user-config-file-p paths) paths))
+
+(defun ide-ai--commentary-hide-user (orig &optional file)
+  "Around `lm-commentary': emcp's describe of a feature gets no commentary from user/."
+  (if (and ide-ai--emcp-hiding-user (ide-ai--user-config-file-p (or file buffer-file-name)))
+      "Commentary withheld: the file is in the user's private user/ configuration."
+    (funcall orig file)))
+
+(with-eval-after-load 'elisp-dev-mcp
+  (advice-add 'elisp-dev-mcp--get-function-definition-from-file :before #'ide-ai--elisp-dev-hide-user))
+
+(with-eval-after-load 'emcp-tools
+  (advice-add 'emcp-tools--find-definition :filter-return #'ide-ai--emcp-hide-user)
+  (advice-add 'emcp-tools-find-references :around #'ide-ai--emcp-references-hide-user)
+  (advice-add 'emcp-tools-describe :around #'ide-ai--emcp-references-hide-user))
+
+(with-eval-after-load 'lisp-mnt
+  (advice-add 'lm-commentary :around #'ide-ai--commentary-hide-user))
+
+(with-eval-after-load 'elisp-refs
+  (advice-add 'elisp-refs--loaded-paths :filter-return #'ide-ai--elisp-refs-hide-user))
+
+;; emcp listens on a fixed localhost port; a web page could reach it through
+;; DNS rebinding.  Only requests addressed to localhost, and not sent from
+;; another site's page, are answered.
+
+(defconst ide-ai--localhost-re "\\(127\\.0\\.0\\.1\\|localhost\\|\\[::1\\]\\)")
+
+(defun ide-ai--emcp-request-allowed-p (headers port)
+  "Non-nil when HEADERS address localhost on PORT and carry no foreign Origin."
+  (let ((host (alist-get 'Host headers)) (origin (alist-get 'Origin headers)))
+    (and (stringp host)
+         (string-match-p (format "\\`%s:%d\\'" ide-ai--localhost-re port) (downcase (string-trim host)))
+         (or (null origin)
+             (string-match-p (format "\\`https?://%s\\(:[0-9]+\\)?\\'" ide-ai--localhost-re)
+                             (downcase (string-trim origin)))))))
+
+(defun ide-ai--emcp-guard-request (orig server request send-response)
+  "Around emcp's HTTP handler: answer 403 to requests not addressed to localhost."
+  (if (ide-ai--emcp-request-allowed-p (plist-get request :headers)
+                                      (process-contact (emcp--server-transport server) :service))
+      (funcall orig server request send-response)
+    (funcall send-response '(:status Forbidden))))
+
+(with-eval-after-load 'emcp-http
+  (advice-add 'emcp--http-on-request :around #'ide-ai--emcp-guard-request))
+
+(defun ide-ai-mcp-elisp-dev-enable ()
+  "Make elisp-dev-mcp answer requests; the stdio script calls this per client.
+Registration is reference-counted, so each connecting client enables once and
+`elisp-dev-mcp-disable' undoes it when that client leaves."
+  (require 'mcp-server-lib-commands)
+  (require 'elisp-dev-mcp)
+  (ignore-errors (mcp-server-lib-start))  ; errors only when already running
+  (elisp-dev-mcp-enable))
+
+(defun ide-ai--server-live-p ()
+  "Non-nil when THIS Emacs runs a server.
+`server-running-p' is also true when another Emacs owns the socket."
+  (and (boundp 'server-process) (processp server-process) (process-live-p server-process)))
+
+(defun ide-ai--mcp-ensure-server ()
+  "Run an Emacs server for emacsclient, named `ide-ai-mcp-server-name' if new.
+Return the server name clients should use."
+  (require 'server)
+  (unless (ide-ai--server-live-p)
+    (let ((old server-name))
+      (setq server-name ide-ai-mcp-server-name)
+      (server-start)
+      (unless (ide-ai--server-live-p)
+        (setq server-name old)
+        (error "Could not start the Emacs server %S; another Emacs probably uses that name. Set `ide-ai-mcp-server-name' to another name"
+               ide-ai-mcp-server-name))))
+  server-name)
+
+(defvar ide-ai--emcp-profile nil "The emcp profile `ide-ai-mcp-start' started, if running.")
+
+(defun ide-ai--emcp-url ()
+  "URL of the emcp server Foundry started, or nil."
+  (when-let* ((server (and ide-ai--emcp-profile (boundp 'emcp--servers)
+                           (alist-get ide-ai--emcp-profile emcp--servers))))
+    (emcp-server-url server)))
+
+(defun ide-ai-mcp-stdio-script ()
+  "The stdio bridge elisp-dev-mcp clients run, from the installed mcp-server-lib."
+  (when-let* ((lib (locate-library "mcp-server-lib")))
+    (expand-file-name "emacs-mcp-stdio.sh" (file-name-directory lib))))
+
+;;;###autoload
+(defun ide-ai-mcp-start ()
+  "Start the Emacs server (for elisp-dev-mcp) and emcp on `ide-ai-emcp-port'."
+  (interactive)
+  (let ((name (ide-ai--mcp-ensure-server)))
+    (require 'emcp)
+    ;; A different profile started earlier holds the port: replace it.
+    (when (and (ide-ai--emcp-url) (not (eq ide-ai--emcp-profile ide-ai-emcp-profile)))
+      (ide-ai-mcp-stop))
+    (setq emcp-http-port ide-ai-emcp-port)
+    (emcp-start ide-ai-emcp-profile)
+    (setq ide-ai--emcp-profile ide-ai-emcp-profile)
+    (message "MCP: emcp (%s) at %s · elisp-dev-mcp via emacsclient -s %s"
+             ide-ai-emcp-profile (ide-ai--emcp-url) name)))
+
+;;;###autoload
+(defun ide-ai-mcp-stop ()
+  "Stop emcp.  The Emacs server keeps running for emacsclient."
+  (interactive)
+  (if (not (ide-ai--emcp-url))
+      (message "MCP: emcp is not running")
+    (emcp-stop ide-ai--emcp-profile)
+    (message "MCP: emcp (%s) stopped" ide-ai--emcp-profile))
+  (setq ide-ai--emcp-profile nil))
+
+(defun ide-ai-mcp-claude-commands ()
+  "The `claude mcp add' argument lists registering both servers for this Emacs."
+  (require 'server)
+  (let ((script (or (ide-ai-mcp-stdio-script) (user-error "The mcp-server-lib package is not installed"))))
+    (list (list "mcp" "add" "--scope" "user" "--transport" "http" "emcp"
+                (format "http://127.0.0.1:%d/mcp" ide-ai-emcp-port))
+          (list "mcp" "add" "--scope" "user" "elisp-dev" "--" script
+                (concat "--socket=" (if (ide-ai--server-live-p) server-name ide-ai-mcp-server-name))
+                "--init-function=ide-ai-mcp-elisp-dev-enable"
+                "--stop-function=elisp-dev-mcp-disable"
+                "--server-id=elisp-dev-mcp"))))
+
+;;;###autoload
+(defun ide-ai-mcp-register-claude ()
+  "Register emcp and elisp-dev-mcp with Claude Code (user scope).
+Existing entries named emcp and elisp-dev are replaced."
+  (interactive)
+  (unless (executable-find "claude") (user-error "The claude CLI is not on PATH"))
+  (let ((commands (ide-ai-mcp-claude-commands)))
+    (when (y-or-n-p "Register emcp and elisp-dev with Claude Code, replacing any existing entries? ")
+      (dolist (args commands)
+        (let ((name (if (member "--transport" args) "emcp" "elisp-dev")))
+          (call-process "claude" nil nil nil "mcp" "remove" "--scope" "user" name)
+          (with-temp-buffer
+            (unless (zerop (apply #'call-process "claude" nil t nil args))
+              (user-error "Command claude mcp add %s failed: %s" name (string-trim (buffer-string)))))))
+      (message "Registered emcp and elisp-dev with Claude Code; start them with %s"
+               (substitute-command-keys "\\[ide-ai-mcp-start]")))))
+
+(defun ide-ai--mcp-autostart ()
+  "Start the MCP servers at startup when `ide-ai-mcp-autostart' asks for it."
+  (when (and ide-ai-mcp-autostart (not noninteractive) (not (daemonp)))
+    (condition-case err (ide-ai-mcp-start)
+      (error (display-warning 'ide (format "MCP servers did not start: %s" (error-message-string err)))))))
+
+(add-hook 'emacs-startup-hook #'ide-ai--mcp-autostart)
 
 (provide '13-ai)
 ;;; 13-ai.el ends here

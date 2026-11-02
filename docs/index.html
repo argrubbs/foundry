@@ -476,7 +476,7 @@ make doctor</pre></div>
    "l": "to first frame"
   },
   {
-   "v": "108",
+   "v": "117",
    "l": "documented keybindings"
   },
   {
@@ -484,11 +484,11 @@ make doctor</pre></div>
    "l": "CLIs and servers via mise"
   },
   {
-   "v": "37",
+   "v": "40",
    "l": "Emacs Lisp modules"
   },
   {
-   "v": "261",
+   "v": "386",
    "l": "automated tests"
   }
  ],
@@ -836,6 +836,22 @@ make doctor</pre></div>
    "ctx": "global"
   },
   {
+   "keys": "C-c a X",
+   "cmd": "emcp-session-manager",
+   "title": "Emcp Session Manager",
+   "desc": "Pop up the EMCP session manager",
+   "cat": "AI",
+   "ctx": "global"
+  },
+  {
+   "keys": "C-c a x",
+   "cmd": "ide-ai-mcp-start",
+   "title": "Ai Mcp Start",
+   "desc": "Start the Emacs server (for elisp-dev-mcp) and emcp on `ide-ai-emcp-port'",
+   "cat": "AI",
+   "ctx": "global"
+  },
+  {
    "keys": "C-c o r",
    "cmd": "org-roam-node-find",
    "title": "Find note",
@@ -880,6 +896,38 @@ make doctor</pre></div>
    "cmd": "confluence-search",
    "title": "Confluence search",
    "desc": "Search pages live, open as Org.",
+   "cat": "Org & knowledge",
+   "ctx": "global"
+  },
+  {
+   "keys": "C-c o V",
+   "cmd": "ide-voice-open-notes",
+   "title": "Voice Open Notes",
+   "desc": "Open the voice notes file",
+   "cat": "Org & knowledge",
+   "ctx": "global"
+  },
+  {
+   "keys": "C-c o e",
+   "cmd": "ide-voice-explain",
+   "title": "Voice Explain",
+   "desc": "Record an explanation to rewrite for an audience, or stop the recording in progress",
+   "cat": "Org & knowledge",
+   "ctx": "global"
+  },
+  {
+   "keys": "C-c o d",
+   "cmd": "ide-voice-dictate",
+   "title": "Voice Dictate",
+   "desc": "Record speech to insert at point, or stop the recording in progress",
+   "cat": "Org & knowledge",
+   "ctx": "global"
+  },
+  {
+   "keys": "C-c o v",
+   "cmd": "ide-voice-note",
+   "title": "Voice Note",
+   "desc": "Record a voice note, or stop the recording in progress",
    "cat": "Org & knowledge",
    "ctx": "global"
   },
@@ -1377,6 +1425,30 @@ make doctor</pre></div>
    "cmd": "ide-complete-snippet",
    "title": "Complete Snippet",
    "desc": "Complete snippets at point via Corfu, or prompt to insert a snippet",
+   "cat": "Other",
+   "ctx": "global"
+  },
+  {
+   "keys": "<S-f8>",
+   "cmd": "ide-voice-explain",
+   "title": "Voice Explain",
+   "desc": "Record an explanation to rewrite for an audience, or stop the recording in progress",
+   "cat": "Other",
+   "ctx": "global"
+  },
+  {
+   "keys": "<f8>",
+   "cmd": "ide-voice-note",
+   "title": "Voice Note",
+   "desc": "Record a voice note, or stop the recording in progress",
+   "cat": "Other",
+   "ctx": "global"
+  },
+  {
+   "keys": "<f7>",
+   "cmd": "ide-voice-dictate",
+   "title": "Voice Dictate",
+   "desc": "Record speech to insert at point, or stop the recording in progress",
    "cat": "Other",
    "ctx": "global"
   }
@@ -2237,7 +2309,7 @@ make doctor</pre></div>
    "ico": "💡",
    "title": "Language servers",
    "body": "Eglot with inlay hints, Flymake underlines, eldoc-box hover and format-on-save. Servers: pyright, gopls, terraform-ls, ansible-language-server, yaml, bash, dockerfile.",
-   "cmds": ["eglot", "eglot-code-actions", "eglot-format-buffer", "eldoc-box-help-at-point"]
+   "cmds": ["eglot", "eglot-format-buffer", "eldoc-box-help-at-point"]
   },
   {
    "cat": "Editor",
@@ -2382,6 +2454,13 @@ make doctor</pre></div>
     "org-roam-capture",
     "org-roam-db-sync"
    ]
+  },
+  {
+   "cat": "Knowledge",
+   "ico": "🎙",
+   "title": "Voice notes & dictation",
+   "body": "Talk instead of type, with one key to start and the same key to stop. Dictate at point, or save a voice note with its transcript and a clear summary, or an explanation rewritten for a chosen audience. Speech recognition runs locally through whisper.cpp (make voice) and the model is set by ide-voice-model; a hosted one sends transcripts off this machine.",
+   "cmds": ["ide-voice-note", "ide-voice-dictate", "ide-voice-explain", "ide-voice-reprocess", "ide-voice-open-notes"]
   },
   {
    "cat": "Knowledge",
@@ -2629,7 +2708,13 @@ make doctor</pre></div>
     "ide-web-typecheck",
     "ide-web-typecheck-watch",
     "ide-compose-down-volumes",
-    "ide-code-actions"
+    "ide-code-actions",
+    "ide-ai-mcp-register-claude",
+    "ide-ai-mcp-stop",
+    "ide-go-debug",
+    "ide-canvas-doctor",
+    "ide-doom-doctor",
+    "ide-doom-rebuild-module"
    ]
   }
  ],
@@ -2779,6 +2864,10 @@ make doctor</pre></div>
    "desc": "Org, agenda, capture."
   },
   {
+   "file": "modules/14-org/org-voice.el",
+   "desc": "Voice notes and dictation"
+  },
+  {
    "file": "modules/15-docs.el",
    "desc": "Documentation viewer and AI-assisted updater"
   },
@@ -2789,6 +2878,14 @@ make doctor</pre></div>
   {
    "file": "modules/17-juice.el",
    "desc": "Juice: theme, motion and a forge-lit start screen"
+  },
+  {
+   "file": "modules/18-canvas.el",
+   "desc": "Web pages on a canvas: canvas-browser"
+  },
+  {
+   "file": "modules/19-doom.el",
+   "desc": "DOOM on a canvas"
   }
  ],
  "tools": [
@@ -3129,6 +3226,14 @@ make doctor</pre></div>
   {
    "cmd": "make docs",
    "desc": "Refresh docs/index.html deterministically from live facts and docstrings."
+  },
+  {
+   "cmd": "make voice",
+   "desc": "Needs cmake, a C++ compiler, glslc (shaderc), and the Vulkan and SPIR-V headers."
+  },
+  {
+   "cmd": "make voice-mac",
+   "desc": "The same on macOS, where whisper.cpp uses Metal.  Needs Homebrew's cmake and ffmpeg."
   }
  ],
  "votes": [
@@ -4839,8 +4944,8 @@ make doctor</pre></div>
       {
        "key": "c",
        "label": "code actions",
-       "cmd": "eglot-code-actions",
-       "does": "code actions"
+       "cmd": "ide-code-actions",
+       "does": "Offer the language server's code actions at point"
       },
       {
        "key": "o",

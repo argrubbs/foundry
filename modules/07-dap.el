@@ -1,9 +1,10 @@
 ;;; 07-dap.el --- Visual debugger (dap-mode) -*- lexical-binding: t; -*-
 
 ;;; Commentary:
-;; dap-mode with UI panes routed by `display-buffer-alist' (see 02-layout).
+;; dap-mode with UI panes placed by `dap-ui-buffer-configurations' below
+;; (dap-ui shows them with `display-buffer-in-side-window' directly).
 ;; dap-mode is lsp-mode based; it is installed for the UI/breakpoint
-;; machinery and its dap-python / dap-go adapters, used standalone with Eglot.
+;; machinery and its dap-python / dap-dlv-go adapters, used standalone with Eglot.
 
 ;;; Code:
 

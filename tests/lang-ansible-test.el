@@ -7,6 +7,7 @@
 ;;; Code:
 
 (require 'ert)
+(require 'cl-lib)
 (require 'xref)
 (require 'eglot)
 (require 'yaml-ts-mode)
@@ -34,6 +35,16 @@
     (should (eq (car ansible) 'ansible-xref-backend))
     (should (memq 'eglot-xref-backend ansible))
     (should-not (memq 'ansible-xref-backend plain))))
+
+(ert-deftest lang-ansible-enables-ansible-mode-not-the-obsolete-alias ()
+  (skip-unless (require 'ansible nil t))
+  (let (obsolete)
+    (with-temp-buffer
+      (insert "- hosts: web\n  tasks: []\n")
+      (cl-letf (((symbol-function 'ansible) (lambda (&rest _) (setq obsolete t))))
+        (ide--maybe-ansible))
+      (should ansible-mode)
+      (should-not obsolete))))
 
 (provide 'lang-ansible-test)
 ;;; lang-ansible-test.el ends here

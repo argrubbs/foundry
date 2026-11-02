@@ -65,7 +65,11 @@
 
 (defcustom ide-k8s-kubeconfig nil
   "Kubeconfig file for kubectl, helm and kubel started from here, or nil.
-nil leaves KUBECONFIG as Emacs inherited it (and kubectl's own default after that)."
+nil leaves KUBECONFIG as Emacs inherited it (and kubectl's own default after that).
+kubel reads it from the buffer a kubel command runs in, and ignores it when that
+buffer's directory is remote.  kubel's pod shells and files are TRAMP connections:
+opening one under a different kubeconfig closes the old ones, but a connection
+TRAMP reopens by itself later (after a timeout) uses Emacs's own KUBECONFIG."
   :type '(choice (const nil) file))
 
 (defcustom ide-helm-extra-args nil
@@ -633,6 +637,15 @@ custom resources would be flagged as unknown kinds (see `ide-k8s-insert-schema-c
             (list "-d" ide-k8s--yamllint-default))
           '("-")))
 
+;; Emacs 31's yaml-ts-mode adds its own `yaml-ts-mode-flymake' (yamllint with strict
+;; defaults, ignoring `ide-k8s--yamllint-default'): findings would show twice and in
+;; untrusted files it only logs "Disabling ...".  Drop it before Flymake first runs.
+(declare-function yaml-ts-mode-flymake "yaml-ts-mode")
+(defun ide-k8s--drop-builtin-yamllint ()
+  "Remove Emacs's built-in yamllint Flymake backend from this buffer."
+  (remove-hook 'flymake-diagnostic-functions #'yaml-ts-mode-flymake t))
+(add-hook 'yaml-ts-mode-hook #'ide-k8s--drop-builtin-yamllint -95)
+
 (ide-lang-define-linter
  'yamllint :safe t :modes '(yaml-ts-mode k8s-mode)
  :program (lambda () (executable-find "yamllint"))
@@ -880,16 +893,21 @@ appended.  The release name is the chart name."
          (ide-lang-show-text "*helm template error*" err)))
      root)))
 
+(defun ide-helm--template-validate-command (root)
+  "The command (a list) piping `helm template ROOT' into kubeconform.
+It runs under bash with pipefail (not `shell-file-name'), so a helm failure
+fails the run instead of kubeconform reporting 0 resources as success."
+  (list "bash" "-o" "pipefail" "-c"
+        (concat (ide-lang-command-string (ide-helm-command 'template root)) " | "
+                (ide-lang-command-string
+                 (append '("kubeconform") (ide-k8s--kubeconform-common) '("-summary" "-"))))))
+
 (defun ide-helm-template-and-validate ()
   "Render the chart with helm template and validate the result with kubeconform."
   (interactive)
   (let ((root (ide-helm--chart-or-error)))
     (ide-k8s--with-env
-      (ide-lang-run "helm template | kubeconform"
-                    (concat (ide-lang-command-string (ide-helm-command 'template root)) " | "
-                            (ide-lang-command-string
-                             (append '("kubeconform") (ide-k8s--kubeconform-common) '("-summary" "-"))))
-                    root))))
+      (ide-lang-run "helm template | kubeconform" (ide-helm--template-validate-command root) root))))
 
 ;;;; Jumping between templates and values ----------------------------------------------------------------
 
@@ -1138,11 +1156,13 @@ lines that match, the one closest to LINE wins."
               (setq best n)))))
       best)))
 
-(defun ide-k8s--parse-trivy (output &optional chart-dir)
+(defun ide-k8s--parse-trivy (output &optional chart-dir base-dir)
   "Report entries (FILE LINE SEVERITY MESSAGE) from `trivy config -f json' OUTPUT.
-For a chart (CHART-DIR) trivy reports lines of the rendered manifest: they are mapped
-back to the template source when a matching line is found, and labelled as rendered
-lines otherwise."
+trivy names each Target relative to the path it scanned (the file's directory for a
+single file): CHART-DIR or BASE-DIR is that directory, and FILE is made absolute from
+it.  For a chart (CHART-DIR) trivy reports lines of the rendered manifest: they are
+mapped back to the template source when a matching line is found, and labelled as
+rendered lines otherwise."
   (let ((json (json-parse-string output :object-type 'alist :array-type 'list :null-object nil)))
     (cl-loop for res in (alist-get 'Results json)
              append (cl-loop
@@ -1151,7 +1171,8 @@ lines otherwise."
                      (let* ((cause (alist-get 'CauseMetadata m))
                             (line (or (alist-get 'StartLine cause) 1))
                             (target (alist-get 'Target res))
-                            (file (if chart-dir (expand-file-name target chart-dir) target))
+                            (base (or chart-dir base-dir))
+                            (file (if base (expand-file-name target base) target))
                             (note ""))
                        (when chart-dir
                          (let* ((lines (alist-get 'Lines (alist-get 'Code cause)))
@@ -1181,7 +1202,9 @@ lines otherwise."
      (ide-k8s-trivy-command target)
      (lambda (_code out err)
        (condition-case e
-           (let ((entries (ide-k8s--parse-trivy out (and (file-directory-p target) target))))
+           (let ((entries (if (file-directory-p target)
+                              (ide-k8s--parse-trivy out target)
+                            (ide-k8s--parse-trivy out nil (file-name-directory target)))))
              (if entries (ide-k8s--show-report "trivy config" entries)
                (message "trivy: no misconfigurations found")))
          (error (ide-lang-show-text "*trivy error*" (format "%s\n%s" (error-message-string e) err)))))
@@ -1228,8 +1251,78 @@ lines otherwise."
           (if kind (format "https://kubernetes.io/search/?q=%s" kind)
             "https://kubernetes.io/docs/reference/kubernetes-api/"))))))
 
+;; kubel starts kubectl from a fixed set of entry points (below): argv lists, shell
+;; strings, terminals, and TRAMP methods whose login program is kubectl.  Each runs with
+;; KUBECONFIG=`ide-k8s-kubeconfig' (as seen from the invoking buffer) added to the
+;; environment, and nothing else: no sandbox XDG/TMPDIR, which would break exec credential
+;; plugins.  Nil, or a remote `default-directory' (a local path means nothing there),
+;; leaves kubel untouched.
+
+(defvar kubel--tramp-method-cache)
+(declare-function tramp-list-connections "tramp-cache")
+(declare-function tramp-cleanup-connection "tramp-cmds")
+(declare-function tramp-file-name-method "tramp")
+
+(defconst ide-k8s--kubel-entry-points
+  '(kubel--exec-sync kubel--exec-async kubel--init-context kubel-exec-pod-by-shell-command
+    kubel-exec-ansi-term-pod kubel-exec-pod kubel-exec-shell-pod kubel-exec-eshell-pod
+    kubel-exec-vterm-pod kubel-exec-eat-pod)
+  "Every kubel function that starts kubectl (all other kubel commands go through these).")
+
+(defconst ide-k8s--kubel-tramp-entry-points
+  '(kubel-exec-pod kubel-exec-shell-pod kubel-exec-eshell-pod kubel-exec-vterm-pod kubel-exec-eat-pod)
+  "The entry points that open a TRAMP connection through kubectl.")
+
+(defvar ide-k8s--kubel-tramp-kubeconfig nil
+  "The KUBECONFIG kubel's open TRAMP connections were made with (nil: kubectl's default).")
+
+(defun ide-k8s--kubel-kubeconfig ()
+  "The kubeconfig kubel should use from this buffer, or nil to leave it alone."
+  (and ide-k8s-kubeconfig (not (file-remote-p default-directory))
+       (expand-file-name ide-k8s-kubeconfig)))
+
+(defun ide-k8s--kubel-reset-tramp (kubeconfig)
+  "Close kubel's TRAMP connections when they were made with another KUBECONFIG.
+TRAMP reuses an open connection by method, user and host, so one opened under a
+different kubeconfig would otherwise keep talking to the old cluster."
+  (unless (equal kubeconfig ide-k8s--kubel-tramp-kubeconfig)
+    (when (and (featurep 'tramp) (bound-and-true-p kubel--tramp-method-cache))
+      (let ((methods (mapcar #'cdr kubel--tramp-method-cache)))
+        (dolist (v (tramp-list-connections))
+          (when (member (tramp-file-name-method v) methods)
+            (tramp-cleanup-connection v)))))
+    (setq ide-k8s--kubel-tramp-kubeconfig kubeconfig)))
+
+(defun ide-k8s--kubel-with-kubeconfig (fn &rest args)
+  "Call kubel's FN with ARGS, KUBECONFIG set to `ide-k8s--kubel-kubeconfig' when non-nil.
+The default value of `process-environment' is bound too: `kubel--exec-sync' runs
+kubectl from a temporary buffer, which does not see a buffer-local binding."
+  (let ((kc (ide-k8s--kubel-kubeconfig)))
+    (if (null kc)
+        (apply fn args)
+      (let ((entry (concat "KUBECONFIG=" kc)))
+        (cl-letf (((default-value 'process-environment)
+                   (cons entry (default-value 'process-environment))))
+          (let ((process-environment (cons entry process-environment)))
+            (apply fn args)))))))
+
+(defun ide-k8s--kubel-tramp-with-kubeconfig (fn &rest args)
+  "Like `ide-k8s--kubel-with-kubeconfig' for FN (ARGS), which opens a TRAMP connection.
+Open kubel connections made under another kubeconfig are closed first."
+  (unless (file-remote-p default-directory)
+    (ide-k8s--kubel-reset-tramp (ide-k8s--kubel-kubeconfig)))
+  (apply #'ide-k8s--kubel-with-kubeconfig fn args))
+
+(with-eval-after-load 'kubel
+  (dolist (f ide-k8s--kubel-entry-points)
+    (when (fboundp f)
+      (advice-add f :around (if (memq f ide-k8s--kubel-tramp-entry-points)
+                                #'ide-k8s--kubel-tramp-with-kubeconfig
+                              #'ide-k8s--kubel-with-kubeconfig)))))
+
 (defun ide-k8s-kubel ()
-  "Open kubel, the cluster browser (pods, logs, exec), for the chosen context."
+  "Open kubel, the cluster browser (pods, logs, exec), for the chosen context.
+kubel's kubectl uses `ide-k8s-kubeconfig' (see `ide-k8s--kubel-with-kubeconfig')."
   (interactive)
   (require 'kubel)
   (when ide-k8s-context (setq kubel-context ide-k8s-context))

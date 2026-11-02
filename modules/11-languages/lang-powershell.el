@@ -106,7 +106,6 @@ The session-details and log files live under var/tools/pwsh/log/."
      "-LogLevel" ide-powershell-log-level
      "-SessionDetailsPath" (expand-file-name (format "session-%d.json" (emacs-pid)) log)
      "-BundledModulesPath" (ide-powershell-pses-dir)
-     "-FeatureFlags" "@()" "-AdditionalModules" "@()"
      (append extra '("-Stdio")))))
 
 (defun ide-powershell--server-contact (&optional _interactive _project)

@@ -150,9 +150,19 @@ returns non-nil, or returns nil to leave it to the next one.")
     (define-key m (kbd "C-c a a") #'ide-ai-agent)
     (define-key m (kbd "C-c a c") #'ide-ai-add-project-context)
     (define-key m (kbd "C-c a t") #'ide-ai-toggle-inline-completion)
+    (define-key m (kbd "C-c a x") #'ide-ai-mcp-start)
+    (define-key m (kbd "C-c a X") #'emcp-session-manager)
     (define-key m (kbd "C-c o r") #'org-roam-node-find)
     (define-key m (kbd "C-c o i") #'org-roam-node-insert)
     (define-key m (kbd "C-c o b") #'org-roam-buffer-toggle)
+    (define-key m (kbd "C-c o v") #'ide-voice-note)
+    (define-key m (kbd "C-c o d") #'ide-voice-dictate)
+    (define-key m (kbd "C-c o e") #'ide-voice-explain)
+    (define-key m (kbd "C-c o V") #'ide-voice-open-notes)
+    ;; Single keys too: voice input is for when typing hurts, chords included.
+    (define-key m (kbd "<f7>") #'ide-voice-dictate)
+    (define-key m (kbd "<f8>") #'ide-voice-note)
+    (define-key m (kbd "S-<f8>") #'ide-voice-explain)
     m)
   "Keymap of `ide-keys-mode'.")
 
@@ -160,7 +170,12 @@ returns non-nil, or returns nil to leave it to the next one.")
   "Offer the language server's code actions at point."
   (interactive)
   (if (bound-and-true-p eglot--managed-mode)
-      (call-interactively #'eglot-code-actions)
+      ;; Emacs 32 moved code actions to its `refactor' library and made
+      ;; `eglot-code-actions' obsolete; Emacs 31 has only the latter.
+      (if (fboundp 'refactor)
+          (call-interactively #'refactor)
+        (with-suppressed-warnings ((obsolete eglot-code-actions))
+          (call-interactively #'eglot-code-actions)))
     (message "No language server in this buffer (M-x eglot starts one)")))
 
 ;; Code actions live on M-RET in programming modes only, so Org, Markdown and

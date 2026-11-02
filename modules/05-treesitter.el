@@ -32,17 +32,25 @@
 
 (setq treesit-font-lock-level 4)
 
+(defun ide-treesit-missing-grammars ()
+  "Return the languages in `treesit-language-source-alist' with no usable grammar."
+  (seq-remove #'treesit-language-available-p (mapcar #'car treesit-language-source-alist)))
+
 (defun ide-treesit-install-grammars ()
-  "Install any missing tree-sitter grammars into the sandbox."
+  "Install any missing tree-sitter grammars into the sandbox.
+Return the languages that are still unavailable afterwards."
   (interactive)
   (make-directory (car treesit-extra-load-path) t)
-  (dolist (entry treesit-language-source-alist)
-    (let ((lang (car entry)))
-      (unless (treesit-language-available-p lang)
-        (condition-case err
-            (let ((treesit--install-language-grammar-out-dir-history nil))
-              (treesit-install-language-grammar lang (car treesit-extra-load-path)))
-          (error (message "Grammar %s failed: %s" lang (error-message-string err))))))))
+  ;; `treesit-install-language-grammar' reports its own failures as warnings
+  ;; and never signals, so judge success by whether the grammar now loads.
+  (let ((failed (seq-remove (lambda (lang)
+                              (treesit-install-language-grammar lang (car treesit-extra-load-path))
+                              (treesit-language-available-p lang))
+                            (ide-treesit-missing-grammars))))
+    (when failed
+      (message "Tree-sitter grammars not installed: %s (see *Warnings*)"
+               (mapconcat #'symbol-name failed " ")))
+    failed))
 
 (setq major-mode-remap-alist
       '((python-mode . python-ts-mode)

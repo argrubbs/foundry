@@ -135,7 +135,20 @@ each one the first time a file of that language is opened."
   (add-hook 'emacs-startup-hook
             (lambda () (message "[profile] startup %s (gcs %d)" (emacs-init-time) gcs-done))))
 
-(when (file-exists-p custom-file) (load custom-file nil 'nomessage))
+(defun ide--load-custom-file ()
+  "Load `custom-file' if it exists."
+  (when (file-exists-p custom-file) (load custom-file nil 'nomessage)))
+
+(defun ide--schedule-custom-file ()
+  "Load `custom-file' once every package's `use-package' body has run.
+Elpaca defers those bodies (:init/:config) until its queues are processed
+after init, so loading custom.el now would let them override the user's
+saved Customize choices.  Batch runs have already waited for the queues."
+  (if (or noninteractive elpaca-after-init-time)
+      (ide--load-custom-file)
+    (add-hook 'elpaca-after-init-hook #'ide--load-custom-file)))
+
+(ide--schedule-custom-file)
 
 (provide 'init)
 

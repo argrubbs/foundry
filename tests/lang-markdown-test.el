@@ -277,6 +277,49 @@ Setext
   (should-not (ide-markdown--run-spec "cobol"))
   (should (equal (car (ide-markdown--run-spec "sql")) '("sqlite3" "-header" "-column" ":memory:" ".read"))))
 
+(ert-deftest markdown-run-sql-block-reads-file-with-spaces ()
+  "sqlite3 needs `.read FILE' as one argument, quoted when FILE has spaces or quotes."
+  (should (equal (ide-markdown--spec-argv '("sqlite3" ":memory:" ".read") "/a b/q.sql")
+                 '("sqlite3" ":memory:" ".read \"/a b/q.sql\"")))
+  (should (equal (ide-markdown--spec-argv '("bash") "/x.sh") '("bash" "/x.sh")))
+  (skip-unless (executable-find "sqlite3"))
+  (let* ((dir (make-temp-file "md sql'dir" t))
+         (file (expand-file-name "q \"1\".sql" dir)))
+    (unwind-protect
+        (progn
+          (with-temp-file file (insert "select 40 + 2 as answer;\n"))
+          (let ((out (with-temp-buffer
+                       (apply #'call-process (car (ide-markdown--spec-argv (car (ide-markdown--run-spec "sql")) file))
+                              nil t nil
+                              (cdr (ide-markdown--spec-argv (car (ide-markdown--run-spec "sql")) file)))
+                       (buffer-string))))
+            (should (string-match-p "answer" out))
+            (should (string-match-p "42" out)))
+          ;; The same through the shell command line the drawer runs.
+          (let ((out (shell-command-to-string
+                      (ide-lang-command-string (ide-markdown--spec-argv (car (ide-markdown--run-spec "sql")) file)))))
+            (should (string-match-p "42" out))))
+      (delete-directory dir t))))
+
+(ert-deftest markdown-preview-superseded-render-is-not-a-failure ()
+  "Killing a running render for a newer one must not log \"pandoc failed\"."
+  (skip-unless (executable-find "sleep"))
+  (with-temp-buffer
+    (let (logged)
+      (cl-letf (((symbol-function 'ide-lang-exe-or-error) (lambda (&rest _) (executable-find "sleep")))
+                ((symbol-function 'ide-markdown--html-args) (lambda (&rest _) '("30")))
+                ((symbol-function 'message)
+                 (lambda (fmt &rest args) (push (apply #'format-message fmt args) logged))))
+        (ide-markdown--render #'ignore)
+        (let ((first ide-markdown--render-process))
+          (ide-markdown--render #'ignore)
+          (let ((n 0)) (while (and (process-live-p first) (< n 50)) (accept-process-output nil 0.1) (cl-incf n)))
+          (accept-process-output nil 0.2)
+          (should-not (process-live-p first)))
+        (ide-markdown--cancel-render)
+        (accept-process-output nil 0.2))
+      (should-not (cl-find "pandoc failed" logged :test #'string-match-p)))))
+
 (ert-deftest markdown-run-block-asks-before-running ()
   (skip-unless (executable-find "bash"))
   (md-test--with "```bash\necho hi\n```\n"

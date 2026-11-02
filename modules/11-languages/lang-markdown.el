@@ -749,6 +749,12 @@ by Emacs do not see the page's own globals.")
 
 (defun ide-markdown--file-url (file) (url-encode-url (concat "file://" file)))
 
+(defun ide-markdown--cancel-render ()
+  "Kill this buffer's running pandoc render, if any, without reporting it as a failure."
+  (when (process-live-p ide-markdown--render-process)
+    (process-put ide-markdown--render-process 'ide-markdown-superseded t)
+    (kill-process ide-markdown--render-process)))
+
 (defun ide-markdown--render (&optional then)
   "Render this buffer to its preview file in the background; call THEN with the file when done."
   (let* ((src (current-buffer))
@@ -760,19 +766,22 @@ by Emacs do not see the page's own globals.")
          (default-directory (if buffer-file-name (file-name-directory buffer-file-name) default-directory))
          (errbuf (generate-new-buffer " *pandoc-preview*"))
          (args (ide-markdown--html-args out (file-name-nondirectory (or buffer-file-name (buffer-name))))))
-    (when (process-live-p ide-markdown--render-process) (kill-process ide-markdown--render-process))
+    (ide-markdown--cancel-render)
     (let ((proc (make-process
                  :name "markdown-preview" :buffer errbuf :noquery t :connection-type 'pipe
                  :command (cons (ide-lang-exe-or-error "pandoc") args)
                  :sentinel (lambda (p _e)
                              (when (memq (process-status p) '(exit signal))
                                (unwind-protect
-                                   (if (and (eq (process-status p) 'exit) (zerop (process-exit-status p)))
-                                       (when (buffer-live-p src)
-                                         (with-current-buffer src
-                                           (when then (funcall then out))))
-                                     (message "markdown preview: pandoc failed: %s"
-                                              (string-trim (with-current-buffer errbuf (buffer-string)))))
+                                   (cond
+                                    ;; Killed on purpose by `ide-markdown--cancel-render'.
+                                    ((process-get p 'ide-markdown-superseded))
+                                    ((and (eq (process-status p) 'exit) (zerop (process-exit-status p)))
+                                     (when (buffer-live-p src)
+                                       (with-current-buffer src
+                                         (when then (funcall then out)))))
+                                    (t (message "markdown preview: pandoc failed: %s"
+                                                (string-trim (with-current-buffer errbuf (buffer-string))))))
                                  (kill-buffer errbuf)))))))
       (setq ide-markdown--render-process proc)
       (process-send-string proc text)
@@ -861,7 +870,7 @@ by Emacs do not see the page's own globals.")
     (remove-hook 'after-save-hook #'ide-markdown--on-save t)
     (remove-hook 'after-change-functions #'ide-markdown--on-change t)
     (remove-hook 'post-command-hook #'ide-markdown--follow t)
-    (when (process-live-p ide-markdown--render-process) (kill-process ide-markdown--render-process))))
+    (ide-markdown--cancel-render)))
 
 (defun ide-markdown-preview ()
   "Open the live preview beside the editor (or refresh it)."
@@ -1094,6 +1103,18 @@ sql runs against an empty in-memory SQLite database.")
                 prog)
               (nth 2 e))))))
 
+(defun ide-markdown--sqlite-quote (file)
+  "FILE quoted for an sqlite3 dot-command argument (double quotes, C-style escapes)."
+  (concat "\"" (replace-regexp-in-string "[\\\"]" "\\\\\\&" file) "\""))
+
+(defun ide-markdown--spec-argv (command file)
+  "The argv running FILE with COMMAND (from `ide-markdown--run-spec').
+sqlite3's `.read' takes its file in the same argument, so a trailing \".read\"
+becomes the single argument `.read \"FILE\"'."
+  (if (equal (car (last command)) ".read")
+      (append (butlast command) (list (concat ".read " (ide-markdown--sqlite-quote file))))
+    (append command (list file))))
+
 (defun ide-markdown--block-command (block)
   "Write BLOCK's body to a file and return (COMMAND-STRING . FILE), after asking to run it."
   (let* ((lang (or (plist-get block :lang) (user-error "The fence has no language")))
@@ -1109,7 +1130,7 @@ sql runs against an empty in-memory SQLite database.")
                                  (car (car spec))))
       (user-error "Cancelled"))
     (with-temp-file file (insert body))
-    (cons (ide-lang-command-string (append (car spec) (list file)))
+    (cons (ide-lang-command-string (ide-markdown--spec-argv (car spec) file))
           file)))
 
 (defun ide-markdown--insert-output (block text)
@@ -1165,7 +1186,7 @@ The output goes to the drawer; with prefix INSERT it is put in an `output' fence
 (defun ide-markdown-lsp-toc ()
   "Ask marksman for its table-of-contents code action at point."
   (interactive)
-  (ide-lang-code-action "source"))
+  (ide-lang-code-action "source" (point) (point) t))
 
 (defun ide-markdown-start-server ()
   "Start marksman for this buffer whatever `ide-markdown-lsp' says."

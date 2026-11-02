@@ -111,6 +111,16 @@
 
 (use-package markdown-toc :commands markdown-toc-generate-or-refresh-toc)
 
+(defconst ide-markdown--ts-mode-languages '((js-ts-mode . javascript))
+  "Tree-sitter modes whose grammar is not named after the mode (see 05-treesitter).")
+
+(defun ide-markdown--ts-mode-language (mode)
+  "The tree-sitter grammar MODE (a symbol) needs, or nil when it is not a -ts-mode."
+  (or (alist-get mode ide-markdown--ts-mode-languages)
+      (let ((name (symbol-name mode)))
+        (when (string-suffix-p "-ts-mode" name)
+          (intern (string-remove-suffix "-ts-mode" name))))))
+
 (use-package markdown-mode
   :mode (("\\.\\(?:md\\|markdown\\|mkd\\|mdown\\)\\'" . markdown-mode)
          ("\\(?:README\\|CHANGELOG\\|CONTRIBUTING\\|CODE_OF_CONDUCT\\|SECURITY\\|SUPPORT\\|HISTORY\\|CHANGES\\|PULL_REQUEST_TEMPLATE\\)\\.\\(?:md\\|markdown\\)\\'" . gfm-mode)
@@ -144,10 +154,9 @@
                    ("terraform" . hcl-mode) ("nix" . nix-ts-mode) ("sql" . sql-mode)
                    ("elisp" . emacs-lisp-mode) ("el" . emacs-lisp-mode)
                    ("org" . org-mode) ("diff" . diff-mode)))
-    (when (or (not (string-suffix-p "-ts-mode" (symbol-name (cdr entry))))
-              (let ((lang (replace-regexp-in-string
-                           "-ts-mode\\'" "" (symbol-name (cdr entry)))))
-                (treesit-language-available-p (intern (if (equal lang "tsx") "tsx" lang)))))
+    (when (if-let* ((lang (ide-markdown--ts-mode-language (cdr entry))))
+              (treesit-language-available-p lang)
+            t)
       (setf (alist-get (car entry) markdown-code-lang-modes nil nil #'equal) (cdr entry)))))
 
 (use-package ox-gfm :after ox :defer t)

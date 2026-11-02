@@ -51,8 +51,7 @@
 
 (use-package diff-hl
   :demand t
-  :hook ((magit-pre-refresh . diff-hl-magit-pre-refresh)
-         (magit-post-refresh . diff-hl-magit-post-refresh)
+  :hook ((magit-post-refresh . diff-hl-magit-post-refresh)
          (dired-mode . diff-hl-dired-mode))
   :config
   (setq diff-hl-flydiff-delay 0.3)
