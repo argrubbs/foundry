@@ -107,10 +107,11 @@
   (should (fboundp 'confluence-publish-buffer)))
 
 (ert-deftest test-gptel-agent-and-skills ()
-  "gptel-agent replaces agent-shell and sees Claude-style skill directories."
+  "gptel-agent sees Claude-style skill directories; agent-shell runs Pi."
   (should (fboundp 'gptel-agent))
   (should (eq (key-binding (kbd "C-c a a")) 'ide-ai-agent))
-  (should-not (locate-library "agent-shell"))
+  (should (eq (key-binding (kbd "C-c a p")) 'ide-ai-pi))
+  (should (locate-library "agent-shell-pi"))
   (require 'gptel-agent)
   (should (member "~/.claude/skills/" gptel-agent-skill-dirs))
   (let ((tmp (make-temp-file "plug" t)))

@@ -237,6 +237,64 @@
             (should (eq (car (car sel)) 'local-vllm))
             (should (eq (cdr sel) 'my-model))))))))
 
+(ert-deftest ai-ready-fn-decides-readiness-of-keyless-providers ()
+  (ai-test--with-state
+    (let* ((up nil)
+           (ide-ai-providers (append ide-ai-providers
+                                     `((mine :name "Mine" :backend-name "Mine" :make ide-ai--make-ollama
+                                             :models (m) :ready-fn ,(lambda () up)))))
+           (mine (ide-ai--provider 'mine)))
+      ;; Ollama's state no longer decides for a provider with its own probe.
+      (ai-test--ollama t '(a)
+        (should-not (ide-ai--ready-p mine))
+        (should (equal (ide-ai--status mine) "not running"))
+        (setq up t)
+        (should (ide-ai--ready-p mine))
+        (should (equal (ide-ai--status mine) "ready"))))))
+
+(ert-deftest ai-openai-compatible-provider-builds-a-local-backend ()
+  (ai-test--with-state
+    (let* ((entry (ide-ai-openai-compatible-provider
+                   'ai-test-gw "Test gateway" "http://127.0.0.1:8002/v1" '(qwen-test)
+                   :context-window 241 :max-output 16384 :vision t))
+           (ide-ai-providers (cons entry ide-ai-providers))
+           (p (ide-ai--provider 'ai-test-gw)))
+      (should (fboundp (ide-ai--pget p :make)))
+      (should (equal (ide-ai--pget p :models) '(qwen-test)))
+      (should-not (ide-ai--provider-hosted-p p))
+      ;; the probe asks GET .../v1/models, at most once per 10 seconds
+      (let ((calls nil) (ide-ai--http-probes (make-hash-table :test 'equal)))
+        (cl-letf (((symbol-function 'ide-run-with-timeout)
+                   (lambda (_s &rest args) (push (car (last args)) calls) (list 0 ""))))
+          (should (ide-ai--ready-p p))
+          (should (ide-ai--ready-p p))
+          (should (equal calls '("http://127.0.0.1:8002/v1/models")))))
+      (let ((b (ide-ai--backend p '(qwen-test))))
+        (should (equal (gptel-backend-name b) "Test gateway"))
+        (should (equal (gptel-backend-host b) "127.0.0.1:8002"))
+        (should (equal (gptel-backend-protocol b) "http"))
+        (should (equal (gptel-backend-endpoint b) "/v1/chat/completions"))
+        (should (memq 'media (get 'qwen-test :capabilities)))
+        (should (memq 'tool-use (get 'qwen-test :capabilities)))
+        (should (equal (get 'qwen-test :context-window) 241))
+        (should (equal (get 'qwen-test :request-params) '(:max_tokens 16384)))))))
+
+(ert-deftest ai-startup-applies-a-configured-keyless-provider-without-network ()
+  (ai-test--with-state
+    (let ((ide-ai-providers (cons (ide-ai-openai-compatible-provider
+                                   'ai-test-gw "Test gateway" "http://127.0.0.1:8002/v1" '(qwen-test))
+                                  ide-ai-providers)))
+      (ai-test--no-network
+        (let ((ide-ai-default-model '(ai-test-gw . qwen-test)))
+          (ide-ai--apply-startup-model)
+          (should (equal (gptel-backend-name (default-value 'gptel-backend)) "Test gateway"))
+          (should (eq (default-value 'gptel-model) 'qwen-test)))
+        ;; a remembered choice still wins
+        (ide-ai--save (ide-ai--provider 'ollama) 'llama-x)
+        (let ((ide-ai-default-model '(ai-test-gw . qwen-test)))
+          (ide-ai--apply-startup-model)
+          (should (eq (default-value 'gptel-model) 'llama-x)))))))
+
 (ert-deftest ai-key-is-bound-and-explains-its-scopes ()
   (should (eq (key-binding (kbd "C-c a M")) 'ide-ai-set-model))
   (should (string-match-p "prefix argument" (documentation 'ide-ai-set-model)))

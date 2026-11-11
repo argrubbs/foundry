@@ -74,3 +74,6 @@ marksman             = "latest"
 
 # AI
 "npm:@agentclientprotocol/claude-agent-acp" = "latest"
+
+# AI: GitHub Copilot inline suggestions (copilot.el uses this server; pinned)
+"npm:@github/copilot-language-server" = "1.565.4"

@@ -113,8 +113,10 @@ and **ansible-xref** (`lisp/ansible-xref.el`), a small xref backend that follows
 
 ## AI
 
-- Inline ghost-text completion: minuet (Ollama by default; `M-x ide-ai-switch-backend`). Off until
-  you turn it on with `C-c a t` (`ide-ai-toggle-inline-completion`), or set `ide-ai-inline-completion`.
+- Inline ghost-text completion: GitHub Copilot (copilot.el; needs a Copilot subscription and one
+  `M-x copilot-login`; its language server is pinned in `mise.toml`). On in programming buffers,
+  never in private ones; `C-c a t` (`ide-ai-toggle-inline-completion`) switches it off and on.
+  `M-x ide-ai-switch-backend` swaps to minuet (Ollama, Gemini or any FIM endpoint).
 - Chat and region actions: gptel (`C-c a i`, `C-c a r`, `C-c a c`).
 - Privacy: files that look like secrets (`.env`, `*.tfvars`, keys, kubeconfig, `*secrets*.yaml`; see
   `ide-ai-private-file-regexps`) are never sent to hosted models, whole-buffer sends to them ask first, and
@@ -124,7 +126,11 @@ and **ansible-xref** (`lisp/ansible-xref.el`), a small xref backend that follows
 - Provider and model: `C-c a M` (`ide-ai-set-model`) picks the provider (Ollama, Claude, Gemini) and
   model with completion, like agent-shell's picker: inside a chat or agent buffer it changes that
   session, elsewhere it sets and remembers the default. Set `ide-ai-default-model` for a fixed default;
-  add your own endpoints to `ide-ai-providers`.
+  add your own endpoints to `ide-ai-providers` (`ide-ai-openai-compatible-provider` builds an entry for
+  any OpenAI-compatible server; `M-x ide-user-install-example RET local-ai` sets up a self-hosted one,
+  with a shared memory MCP server and a sandboxed Pi).
+- ACP agents: **agent-shell**; `C-c a p` (`ide-ai-pi`) starts Pi for the project. Set
+  `agent-shell-pi-acp-command` to your Pi ACP adapter.
 - Autonomous agent: **gptel-agent** (`C-c a a`): file, shell, Elisp and web tools
   with confirmation, sub-agents, and Agent Skills.  Skills (`SKILL.md`) are found in
   `~/.claude/skills`, the project's `.claude/skills` and installed Claude Code

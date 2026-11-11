@@ -1,0 +1,59 @@
+;;; local-ai.el --- Your own model server: chat, shared memory, sandboxed Pi -*- lexical-binding: t; -*-
+
+;;; Commentary:
+;; For a self-hosted model behind a local OpenAI-compatible gateway (here: a
+;; keyless gateway on 127.0.0.1:8002 that adds the real API key itself, so
+;; Emacs never holds one).  Install with M-x ide-user-install-example RET local-ai.
+;;
+;; - Chat (C-c a i) and gptel-agent (C-c a a) default to the local model, unless
+;;   you picked another one with C-c a M (that choice is remembered and wins).
+;; - The local model counts as yours, not hosted: the privacy guards for
+;;   hosted models stay out of its way.
+;; - A shared memory MCP server (plain notes, also used by your other harnesses)
+;;   is offered to gptel as tools: memory_search, memory_read, memory_write.
+;; - Pi (C-c a p, agent-shell) runs sandboxed through `agent-box acp'.
+;; Inline suggestions stay with GitHub Copilot; nothing here points minuet at this server.
+
+;;; Code:
+
+(defvar ide-local-ai-url "http://127.0.0.1:8002/v1" "Base URL of the local model gateway.")
+(defvar ide-local-ai-model 'qwen3.8-27b "Model id the gateway serves.")
+(defvar ide-local-ai-memory-url "http://127.0.0.1:8770/mcp/emacs" "Shared memory MCP server, or nil.")
+
+(add-to-list 'ide-ai-providers
+             (ide-ai-openai-compatible-provider
+              'local "Local (glados)" ide-local-ai-url (list ide-local-ai-model)
+              :context-window 241 :max-output 16384 :vision t))
+
+;; Default for new sessions; a model remembered with C-c a M still wins.
+(unless ide-ai-default-model
+  (setq ide-ai-default-model (cons 'local ide-local-ai-model)))
+
+;;;; Shared memory over MCP ------------------------------------------------------
+
+(use-package mcp :ensure t :defer t)     ; provides mcp-hub, which gptel uses
+
+(defvar mcp-hub-servers)
+(with-eval-after-load 'mcp-hub
+  (when ide-local-ai-memory-url
+    (setf (alist-get "memory" mcp-hub-servers nil nil #'equal) (list :url ide-local-ai-memory-url))))
+
+(defun ide-local-ai-memory-connect ()
+  "Connect the shared memory MCP server and offer its tools to gptel."
+  (interactive)
+  (require 'mcp-hub)
+  (require 'gptel-integrations)
+  (gptel-mcp-connect '("memory")))
+
+;; Connect once gptel is used, in the background (never at startup).
+(with-eval-after-load 'gptel
+  (when ide-local-ai-memory-url
+    (run-with-idle-timer 1 nil (lambda () (ignore-errors (ide-local-ai-memory-connect))))))
+
+;;;; Pi, sandboxed --------------------------------------------------------------------
+
+;; agent-box runs Pi's ACP adapter inside its sandbox, in the project folder.
+(setq agent-shell-pi-acp-command '("agent-box" "acp"))
+
+(provide 'user-local-ai)
+;;; local-ai.el ends here

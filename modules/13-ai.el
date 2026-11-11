@@ -1,26 +1,30 @@
-;;; 13-ai.el --- Inline FIM completion and agentic chat -*- lexical-binding: t; -*-
+;;; 13-ai.el --- Inline completion and agentic chat -*- lexical-binding: t; -*-
 
 ;;; Commentary:
-;; minuet for ghost-text FIM completion (local Ollama or cloud), gptel for
-;; conversational / region-based work, gptel-agent for autonomous tool-using
-;; sessions (file edits, shell, Elisp, web, sub-agents and Agent Skills).
+;; GitHub Copilot (copilot.el) for ghost-text inline suggestions, or minuet
+;; (local Ollama or cloud FIM); gptel for conversational / region-based work,
+;; gptel-agent for autonomous tool-using sessions (file edits, shell, Elisp,
+;; web, sub-agents and Agent Skills); agent-shell for ACP agents such as Pi.
 ;; emcp and elisp-dev-mcp serve this Emacs to outside agents over MCP.
 
 ;;; Code:
 
 (require 'cl-lib)
 (require 'project)
+(require 'url-parse)                        ; small; parses OpenAI-compatible base URLs
 (eval-when-compile (require 'gptel nil t))  ; struct types, for the byte-compiler
 
 (defgroup ide-ai nil "AI assistant settings." :group 'tools)
 
-(defcustom ide-ai-fim-backend 'ollama
-  "Backend for inline completion: `ollama', `gemini' or `openai-fim'."
-  :type '(choice (const ollama) (const gemini) (const openai-fim)))
+(defcustom ide-ai-fim-backend 'copilot
+  "Backend for inline completion: `copilot' (GitHub Copilot, needs a subscription
+and one `copilot-login'), or minuet with `ollama', `gemini' or `openai-fim'."
+  :type '(choice (const copilot) (const ollama) (const gemini) (const openai-fim)))
 
-(defcustom ide-ai-inline-completion nil
-  "Start ghost-text inline completion (minuet) in every programming buffer.
-Off by default; `ide-ai-toggle-inline-completion' (C-c a t) switches it on and off."
+(defcustom ide-ai-inline-completion t
+  "Start ghost-text inline completion in every programming buffer.
+`ide-ai-toggle-inline-completion' (C-c a t) switches it on and off.  Private
+buffers (secrets) never get suggestions from a hosted backend such as Copilot."
   :type 'boolean)
 
 (defcustom ide-ai-ollama-model "qwen2.5-coder:7b" "Ollama FIM model." :type 'string)
@@ -53,19 +57,22 @@ Off by default; `ide-ai-toggle-inline-completion' (C-c a t) switches it on and o
      (setq minuet-provider 'gemini
            minuet-gemini-options (plist-put (copy-sequence minuet-gemini-options)
                                             :model ide-ai-gemini-model)))
-    ('openai-fim (setq minuet-provider 'openai-fim-compatible)))
+    ('openai-fim (setq minuet-provider 'openai-fim-compatible))
+    ('copilot nil))                     ; copilot.el needs no minuet setup
   (ide-ai--disable-minuet-in-private-buffers)
   (message "Inline completion backend: %s" ide-ai-fim-backend))
 
 (defun ide-ai-switch-backend (backend)
   "Switch the inline completion BACKEND."
-  (interactive (list (intern (completing-read "FIM backend: " '("ollama" "gemini" "openai-fim") nil t))))
+  (interactive (list (intern (completing-read "FIM backend: " '("copilot" "ollama" "gemini" "openai-fim") nil t))))
   (setq ide-ai-fim-backend backend)
-  (ide-ai-apply-fim-backend))
+  (unless (eq backend 'copilot) (require 'minuet nil t))
+  (ide-ai-apply-fim-backend)
+  (ide-ai--refresh-inline))
 
 (use-package minuet
   :ensure (:host github :repo "milanglacier/minuet-ai.el")
-  :hook (prog-mode . ide-ai--maybe-enable-minuet)
+  :commands minuet-auto-suggestion-mode
   :bind (:map minuet-active-mode-map
          ("TAB" . minuet-accept-suggestion)
          ("<tab>" . minuet-accept-suggestion)
@@ -85,6 +92,31 @@ Off by default; `ide-ai-toggle-inline-completion' (C-c a t) switches it on and o
   :config
   (ide-ai-apply-fim-backend)
   (add-to-list 'minuet-auto-suggestion-block-predicates
+               (lambda () (and (bound-and-true-p corfu--frame) (frame-visible-p corfu--frame)))))
+
+;; GitHub Copilot: the language server comes from mise (mise.toml pins it), so
+;; copilot.el never downloads one itself.  Sign in once with M-x copilot-login.
+(defvar copilot-completion-map)
+(defvar copilot-disable-predicates)
+(defvar copilot-install-dir)
+
+(use-package copilot
+  :ensure t
+  :commands (copilot-mode copilot-login copilot-logout copilot-diagnose)
+  :bind (:map copilot-completion-map
+         ("TAB" . copilot-accept-completion)
+         ("<tab>" . copilot-accept-completion)
+         ("C-<return>" . copilot-accept-completion-by-word)
+         ("S-<return>" . copilot-accept-completion-by-line)
+         ("M-n" . copilot-next-completion)
+         ("M-p" . copilot-previous-completion)
+         ("C-g" . copilot-clear-overlay))
+  :init
+  (setq copilot-install-dir (expand-file-name "copilot/" ide-var-dir))
+  :config
+  ;; Never ask Copilot about secrets, and stay quiet while the completion popup is open.
+  (add-to-list 'copilot-disable-predicates #'ide-ai-private-buffer-p)
+  (add-to-list 'copilot-disable-predicates
                (lambda () (and (bound-and-true-p corfu--frame) (frame-visible-p corfu--frame)))))
 
 ;;;; gptel ------------------------------------------------------------------
@@ -129,7 +161,8 @@ Example: (setq ide-ai-default-model \\='(claude . claude-sonnet-5-5))"
 
 (defvar ide-ai-providers
   '((ollama :name "Ollama (local)" :backend-name "Ollama"
-            :make ide-ai--make-ollama :models-fn ide-ai--ollama-models)
+            :make ide-ai--make-ollama :models-fn ide-ai--ollama-models
+            :ready-fn ide-ai--ollama-running-p)
     (claude :name "Claude (Anthropic)" :backend-name "Claude"
             :make ide-ai--make-claude :env "ANTHROPIC_API_KEY" :host "api.anthropic.com"
             :models (claude-fable-5-1 claude-opus-5-5 claude-sonnet-5-5 claude-haiku-5-5))
@@ -139,9 +172,12 @@ Example: (setq ide-ai-default-model \\='(claude . claude-sonnet-5-5))"
   "Providers offered by `ide-ai-set-model': (ID . PLIST).
 PLIST keys: :name (shown), :backend-name (the gptel backend's name), :make
 (function (MODELS KEY-FUNCTION) returning a gptel backend), :models or
-:models-fn (suggested models; any other model id can still be typed), and for
-hosted services :env (API key variable) and :host (auth-source host).
-Add your own entry in user/ to offer another endpoint.")
+:models-fn (suggested models; any other model id can still be typed), for
+hosted services :env (API key variable) and :host (auth-source host), and for
+keyless servers :ready-fn (function returning non-nil while the server answers;
+without it the Ollama probe is used) and :hosted (nil for your own machines).
+Add your own entry in user/ to offer another endpoint;
+`ide-ai-openai-compatible-provider' builds one for any OpenAI-compatible server.")
 
 (defun ide-ai--provider (id) (assq id ide-ai-providers))
 (defun ide-ai--pget (provider key) (plist-get (cdr provider) key))
@@ -174,10 +210,15 @@ Add your own entry in user/ to offer another endpoint.")
   "Models installed in the local Ollama, or the configured default when it is not running."
   (or (cdr (ide-ai--ollama-probe)) (list (intern ide-ai-ollama-model))))
 
+(defun ide-ai--ollama-running-p ()
+  "Non-nil while the local Ollama server answers."
+  (car (ide-ai--ollama-probe)))
+
 (defun ide-ai--ready-p (provider)
   "Non-nil when PROVIDER can be used right now."
-  (if (ide-ai--pget provider :env) (and (ide-ai--api-key provider) t)
-    (car (ide-ai--ollama-probe))))
+  (cond ((ide-ai--pget provider :env) (and (ide-ai--api-key provider) t))
+        ((ide-ai--pget provider :ready-fn) (and (funcall (ide-ai--pget provider :ready-fn)) t))
+        (t (ide-ai--ollama-running-p))))
 
 (defun ide-ai--status (provider)
   "Short status text for PROVIDER, shown next to it in the picker."
@@ -190,6 +231,55 @@ Add your own entry in user/ to offer another endpoint.")
                      :stream t :models models))
 (defun ide-ai--make-claude (models key) (gptel-make-anthropic "Claude" :stream t :key key :models models))
 (defun ide-ai--make-gemini (models key) (gptel-make-gemini "Gemini" :stream t :key key :models models))
+
+;;;; OpenAI-compatible servers (vLLM, llama.cpp, a local gateway, ...) ---------------
+
+(declare-function gptel-make-openai "gptel-openai")
+
+(defvar ide-ai--http-probes (make-hash-table :test 'equal)
+  "URL -> (TIME . ANSWERED) of the last readiness probe.")
+
+(defun ide-ai--http-answers-p (url)
+  "Non-nil when GET URL succeeds; the answer is cached for 10 seconds."
+  (let ((hit (gethash url ide-ai--http-probes)))
+    (if (and hit (< (float-time (time-since (car hit))) 10))
+        (cdr hit)
+      (let* ((res (ide-run-with-timeout 4 "curl" "-sf" "-o" "/dev/null" "--max-time" "2" url))
+             (ok (eql (car res) 0)))
+        (puthash url (cons (current-time) ok) ide-ai--http-probes)
+        ok))))
+
+(cl-defun ide-ai-openai-compatible-provider (id name url models
+                                                &key (key "none") (hosted nil) (context-window nil)
+                                                (max-output nil) (vision nil) (tools t))
+  "A provider entry for `ide-ai-providers': an OpenAI-compatible server at URL.
+ID is a symbol, NAME the label shown, URL the API base (\"http://127.0.0.1:8002/v1\"),
+MODELS a list of model id symbols.  KEY is sent as the bearer token (keyless
+servers accept anything).  HOSTED nil (the default) means the server runs on
+your own machines, so the privacy guards treat it like a local model.
+CONTEXT-WINDOW is in thousands of tokens, MAX-OUTPUT caps the reply's tokens,
+VISION non-nil allows images, TOOLS nil hides tool use (agents need it).
+The server is probed (GET URL/models) only when the model picker shows it."
+  (let*((u (url-generic-parse-url url))
+         (host (format "%s:%d" (url-host u) (url-port u)))
+         (path (string-remove-suffix "/" (url-filename u)))
+         (caps (append (and tools '(tool-use)) '(json) (and vision '(media))))
+         (specs (mapcar (lambda (m)
+                          (append (list m :capabilities caps)
+                                  (and context-window (list :context-window context-window))
+                                  (and vision (list :mime-types '("image/png" "image/jpeg" "image/webp" "image/gif")))
+                                  (and max-output (list :request-params (list :max_tokens max-output)))))
+                        models))
+         (make (intern (format "ide-ai--make-%s" id)))
+         (ready (intern (format "ide-ai--%s-ready-p" id))))
+    (defalias make
+      (lambda (_models _key)
+        (gptel-make-openai name :host host :protocol (url-type u) :endpoint (concat path "/chat/completions")
+                           :stream t :key key :models specs))
+      (format "Make the gptel backend for %s (%s)." name url))
+    (defalias ready (lambda () (ide-ai--http-answers-p (concat url "/models")))
+      (format "Non-nil while %s answers." name))
+    (list id :name name :backend-name name :make make :models models :ready-fn ready :hosted hosted)))
 
 (defvar ide-ai--backends nil "Alist (PROVIDER-ID . gptel backend) created so far.")
 
@@ -289,7 +379,8 @@ with a prefix argument, it sets the default for new sessions and remembers it."
 Never touches the network: Ollama's installed models are only listed in the picker."
   (dolist (p ide-ai-providers)
     (when (or (null (ide-ai--pget p :env)) (ide-ai--api-key p))
-      (ignore-errors (ide-ai--backend p (and (null (ide-ai--pget p :env)) (list (intern ide-ai-ollama-model)))))))
+      (ignore-errors (ide-ai--backend p (and (null (ide-ai--pget p :env))
+                                              (or (ide-ai--pget p :models) (list (intern ide-ai-ollama-model))))))))
   (let* ((saved (ide-ai--saved))
          (choice (or (and saved (cons (plist-get saved :provider) (plist-get saved :model)))
                      ide-ai-default-model))
@@ -418,24 +509,37 @@ WHOLE-BUFFER non-nil means the entire buffer is about to be sent."
                                       (let ((p (ide-ai--current-provider))) (if p (ide-ai--pget p :name) "a hosted model"))))))
       (user-error "Cancelled"))))
 
+(defun ide-ai--inline-mode ()
+  "The minor mode that shows inline suggestions for `ide-ai-fim-backend'."
+  (if (eq ide-ai-fim-backend 'copilot) 'copilot-mode 'minuet-auto-suggestion-mode))
+
+(defun ide-ai--inline-off ()
+  "Turn off inline suggestions (any backend) in this buffer."
+  (dolist (m '(copilot-mode minuet-auto-suggestion-mode))
+    (when (and (boundp m) (symbol-value m)) (funcall m -1))))
+
 (defun ide-ai--maybe-enable-minuet ()
   "Turn on inline suggestions when wanted, except in private buffers with a hosted model."
   (when (and ide-ai-inline-completion
              (not (and (ide-ai-fim-hosted-p) (ide-ai-private-buffer-p))))
-    (minuet-auto-suggestion-mode 1)))
+    (funcall (ide-ai--inline-mode) 1)))
+
+(defun ide-ai--refresh-inline ()
+  "Apply `ide-ai-inline-completion' and the current backend to every programming buffer."
+  (dolist (b (buffer-list))
+    (with-current-buffer b
+      (when (derived-mode-p 'prog-mode)
+        (ide-ai--inline-off)
+        (ide-ai--maybe-enable-minuet)))))
+
+(add-hook 'prog-mode-hook #'ide-ai--maybe-enable-minuet)
 
 ;;;###autoload
 (defun ide-ai-toggle-inline-completion ()
   "Switch ghost-text inline completion on or off, in this and every programming buffer."
   (interactive)
   (setq ide-ai-inline-completion (not ide-ai-inline-completion))
-  (dolist (b (buffer-list))
-    (with-current-buffer b
-      (when (derived-mode-p 'prog-mode)
-        (if ide-ai-inline-completion
-            (ide-ai--maybe-enable-minuet)
-          (when (bound-and-true-p minuet-auto-suggestion-mode)
-            (minuet-auto-suggestion-mode -1))))))
+  (ide-ai--refresh-inline)
   (message "Inline completion %s" (if ide-ai-inline-completion "on" "off")))
 
 (defun ide-ai--disable-minuet-in-private-buffers ()
@@ -443,16 +547,14 @@ WHOLE-BUFFER non-nil means the entire buffer is about to be sent."
   (when (ide-ai-fim-hosted-p)
     (dolist (b (buffer-list))
       (with-current-buffer b
-        (when (and (bound-and-true-p minuet-auto-suggestion-mode) (ide-ai-private-buffer-p))
-          (minuet-auto-suggestion-mode -1))))))
+        (when (ide-ai-private-buffer-p) (ide-ai--inline-off))))))
 
 ;;;###autoload
 (defun ide-ai-mark-private (&optional unmark)
   "Mark this buffer private: it is never sent to a hosted AI model.  With UNMARK, undo that."
   (interactive "P")
   (setq ide-ai-private-buffer (not unmark))
-  (when (and (not unmark) (ide-ai-fim-hosted-p) (bound-and-true-p minuet-auto-suggestion-mode))
-    (minuet-auto-suggestion-mode -1))
+  (when (and (not unmark) (ide-ai-fim-hosted-p)) (ide-ai--inline-off))
   (message "%s is %s" (buffer-name) (if unmark "no longer private" "private: hosted models will not see it")))
 
 ;; Two layers.  Adding private data to gptel's context is refused early while
@@ -657,6 +759,22 @@ Plugins live in ~/.claude/plugins/cache/MARKETPLACE/PLUGIN/VERSION/skills."
   :commands (gptel-agent gptel-agent-update)
   :config
   (advice-add 'gptel-agent :before #'ide-ai--refresh-skill-dirs))
+
+;; agent-shell: ACP coding agents in a shell buffer.  Pi is the default agent
+;; (`ide-ai-pi', C-c a p); point `agent-shell-pi-acp-command' at your Pi ACP
+;; adapter (for a sandboxed Pi: ("agent-box" "acp")).
+(declare-function agent-shell-pi-start-agent "agent-shell-pi")
+
+(use-package agent-shell
+  :ensure t
+  :commands (agent-shell agent-shell-pi-start-agent))
+
+;;;###autoload
+(defun ide-ai-pi ()
+  "Start a Pi coding agent session (agent-shell) for the current project."
+  (interactive)
+  (let ((default-directory (if-let* ((p (project-current))) (project-root p) default-directory)))
+    (agent-shell-pi-start-agent)))
 
 ;; The agent's Read and Grep tools run without asking, so they get the same
 ;; rule: private files stay away from hosted models.  Tools run inside
