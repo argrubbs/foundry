@@ -9,7 +9,7 @@
 ;;
 ;; What must exist before that moment lives here: file-name associations, the
 ;; third-party packages (declared at startup so that `make packages' installs them and
-;; Elpaca activates them), and autoloads for the few commands reachable from outside
+;; package.el activates them), and autoloads for the few commands reachable from outside
 ;; the language's own buffers.  In batch runs (tests, docs, byte-compilation) every
 ;; module loads at once, so they see the whole configuration.
 
@@ -191,7 +191,7 @@
 
 (ide-lang-lazy 'lang-ansible '(yaml-ts-mode))
 
-(use-package ansible :commands ansible)
+(use-package ansible :commands ansible-mode)
 
 (use-package ansible-doc
   :commands (ansible-doc ansible-doc-mode)

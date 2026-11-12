@@ -142,13 +142,13 @@
     (should-not (eq (alist-get 'isError result) t))
     (alist-get 'text (car (alist-get 'content result)))))
 
-(ert-deftest ai-mcp-elisp-dev-answers-and-reads-elpaca-sources ()
+(ert-deftest ai-mcp-elisp-dev-answers-and-reads-package-sources ()
   (ide-ai-mcp-elisp-dev-enable)
   (unwind-protect
       (progn
         (should (string-match-p "mapcar" (ai-mcp-test--elisp-dev-call
                                           "elisp-describe-function" '(("function" . "mapcar")))))
-        ;; Elpaca-installed source is readable because its trees are allowed.
+        ;; Installed package source is readable because `package-user-dir' is allowed.
         (should (string-match-p "define-minor-mode corfu-mode"
                                 (ai-mcp-test--elisp-dev-call
                                  "elisp-read-source-file" '(("library-or-path" . "corfu"))))))

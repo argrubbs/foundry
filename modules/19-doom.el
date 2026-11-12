@@ -6,7 +6,7 @@
 ;; a native module.  The package builds that module itself the first time
 ;; `M-x doom' runs: it downloads a pinned doomgeneric source archive with
 ;; curl, unpacks it with unzip and compiles doomgeneric_emacs.so with gcc,
-;; next to its own files in the Elpaca build directory.  Compiler output and
+;; next to its own files in the package's install directory.  Compiler output and
 ;; errors go to the ` *doom-log*' buffer.
 ;;
 ;; DOOM also needs a WAD data file.  doom-game looks for *.wad in the

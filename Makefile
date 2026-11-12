@@ -10,7 +10,7 @@ export PATH := $(shell tr -d '()"' < var/mise/path.eld 2>/dev/null | tr ' ' ':')
 all: packages compile test docs-check
 
 packages:
-	$(RUN) --batch -l init.el --eval '(progn (elpaca-process-queues) (elpaca-wait))'
+	$(RUN) --batch -l init.el
 
 compile:
 	$(RUN) --batch -l init.el -l tests/compile.el
@@ -64,4 +64,4 @@ run:
 	./launch.sh
 
 clean:
-	find . -path ./elpaca -prune -o -name '*.elc' -print -exec rm -f {} +
+	find . \( -path ./elpaca -o -path ./elpa \) -prune -o -name '*.elc' -print -exec rm -f {} +

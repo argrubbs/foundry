@@ -8,7 +8,7 @@
 ;;; Code:
 
 ;; (use-package some-package
-;;   :ensure (:host github :repo "OWNER/some-package")   ; or (:repo "https://example.org/x.git")
+;;   :vc (:url "https://github.com/OWNER/some-package")   ; or any git URL; :rev "COMMIT" pins it
 ;;   :commands (some-package-run)
 ;;   :bind ("C-c x s" . some-package-run)
 ;;   :init (setq some-package-directory (expand-file-name "some-package/" ide-var-dir)))

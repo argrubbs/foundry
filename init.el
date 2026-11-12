@@ -1,7 +1,7 @@
 ;;; init.el --- McGeEmacs: a sandboxed Emacs IDE -*- lexical-binding: t; -*-
 
 ;;; Commentary:
-;; Bootstraps elpaca inside the sandbox, then loads modules in order.
+;; Sets up package.el inside the sandbox, then loads modules in order.
 
 ;;; Code:
 
@@ -11,74 +11,30 @@
 
 (setq custom-file (expand-file-name "custom.el" user-emacs-directory))
 
-;; Elpaca dates the Emacs core from a table of releases and warns, assigning the
-;; last release's date, for a development build such as 31.1.50.  A development
-;; build is newer than that release, so give Elpaca the build date instead: from
-;; `emacs-build-time', or, when the distribution strips it (reproducible builds),
-;; from the date of the emacs binary, which for a packaged build is the build date.
-(when (and (> (length (version-to-list emacs-version)) 2)
-           (not (boundp 'elpaca-core-date)))
-  (when-let* ((time (or emacs-build-time
-                        (file-attribute-modification-time
-                         (file-attributes (expand-file-name invocation-name invocation-directory))))))
-    (defvar elpaca-core-date (list (string-to-number (format-time-string "%Y%m%d" time)))
-      "List (N) with N the YYYYMMDD date of this Emacs build; see init.el.")))
+;;;; Packages: package.el with GNU ELPA, NonGNU ELPA and MELPA, kept inside the sandbox.
+(require 'package)
+(setq package-user-dir (expand-file-name "elpa/" user-emacs-directory)
+      package-gnupghome-dir (expand-file-name "gnupg/" package-user-dir)
+      package-archives '(("gnu" . "https://elpa.gnu.org/packages/")
+                         ("nongnu" . "https://elpa.nongnu.org/nongnu/")
+                         ("melpa" . "https://melpa.org/packages/"))
+      ;; MELPA (latest commits) wins, as this config tracks current package code;
+      ;; GNU and NonGNU ELPA supply what MELPA does not carry.
+      package-archive-priorities '(("melpa" . 3) ("gnu" . 2) ("nongnu" . 1))
+      ;; One precomputed file of every package's autoloads makes startup fast.
+      package-quickstart t
+      package-quickstart-file (expand-file-name "var/package-quickstart.el" user-emacs-directory))
+(package-activate-all)
 
-;;;; Elpaca bootstrap
-(defvar elpaca-installer-version 0.12)
-(defvar elpaca-directory (expand-file-name "elpaca/" user-emacs-directory))
-(defvar elpaca-builds-directory (expand-file-name "builds/" elpaca-directory))
-(defvar elpaca-sources-directory (expand-file-name "sources/" elpaca-directory))
-(defvar elpaca-order '(elpaca :repo "https://github.com/progfolio/elpaca.git"
-                              :ref nil :depth 1 :inherit ignore
-                              :files (:defaults "elpaca-test.el" (:exclude "extensions"))
-                              :build (:not elpaca-activate)))
-(let* ((repo  (expand-file-name "elpaca/" elpaca-sources-directory))
-       (build (expand-file-name "elpaca/" elpaca-builds-directory))
-       (order (cdr elpaca-order))
-       (default-directory repo))
-  (add-to-list 'load-path (if (file-exists-p build) build repo))
-  (unless (file-exists-p repo)
-    (make-directory repo t)
-    (when (<= emacs-major-version 28) (require 'subr-x))
-    (condition-case-unless-debug err
-        (if-let* ((buffer (pop-to-buffer-same-window "*elpaca-bootstrap*"))
-                  ((zerop (apply #'call-process
-                                 `("git" nil ,buffer t "clone"
-                                   ,@(when-let* ((depth (plist-get order :depth)))
-                                       (list (format "--depth=%d" depth) "--no-single-branch"))
-                                   ,(plist-get order :repo) ,repo))))
-                  ((zerop (call-process "git" nil buffer t "checkout"
-                                        (or (plist-get order :ref) "--"))))
-                  (emacs (concat invocation-directory invocation-name))
-                  ((zerop (call-process emacs nil buffer nil "-Q" "-L" "." "--batch"
-                                        "--eval" "(byte-recompile-directory \".\" 0 'force)")))
-                  ((require 'elpaca))
-                  ((elpaca-generate-autoloads "elpaca" repo)))
-            (progn (message "%s" (buffer-string)) (kill-buffer buffer))
-          (error "%s" (with-current-buffer buffer (buffer-string))))
-      ((error) (warn "%s" err) (delete-directory repo 'recursive))))
-  (unless (require 'elpaca-autoloads nil t)
-    (require 'elpaca)
-    (elpaca-generate-autoloads "elpaca" repo)
-    (let ((load-source-file-function nil)) (load "./elpaca-autoloads"))))
-(add-hook 'after-init-hook #'elpaca-process-queues)
-(elpaca `(,@elpaca-order))
-;; Batch runs (`-l init.el') load us after `after-init-hook' has fired.
-(when after-init-time (elpaca-process-queues))
-
-;; Lockfile lives in the sandbox.
-(setq elpaca-lock-file (expand-file-name "elpaca.lock" user-emacs-directory))
-
-(elpaca elpaca-use-package
-  (elpaca-use-package-mode)
-  (setq use-package-always-ensure t))
-(elpaca-wait)
+(require 'use-package)
+;; Missing packages install when their `use-package' form runs (archives are
+;; refreshed on the first miss).  Built-ins say `:ensure nil' (see `ide-builtin').
+(setq use-package-always-ensure t)
 
 (setq use-package-always-defer t
       load-prefer-newer t)
 
-;; Built-in packages must not be fetched by elpaca.
+;; Built-in packages must never be fetched from an archive.
 (defmacro ide-builtin (name &rest body)
   "Configure built-in package NAME with `use-package' BODY, never fetching it."
   (declare (indent 1))
@@ -127,33 +83,21 @@ each one the first time a file of that language is opened."
 ;; mistake there can never break the IDE.  Start with IDE_NO_USER=1 to skip them.
 (when (fboundp 'ide-user-load-all) (ide-user-load-all))
 
-;; Interactive sessions let elpaca install/activate packages asynchronously
-;; after init (fast first frame); batch runs block so tests are deterministic.
-(when noninteractive (elpaca-wait))
-
 (when (getenv "IDE_PROFILE")
   (add-hook 'emacs-startup-hook
             (lambda () (message "[profile] startup %s (gcs %d)" (emacs-init-time) gcs-done))))
 
 (defun ide--load-custom-file ()
-  "Load `custom-file' if it exists."
+  "Load `custom-file' if it exists.
+It loads after every module, so the user's saved Customize choices win over
+the `use-package' bodies (which package.el runs right away)."
   (when (file-exists-p custom-file) (load custom-file nil 'nomessage)))
 
-(defun ide--schedule-custom-file ()
-  "Load `custom-file' once every package's `use-package' body has run.
-Elpaca defers those bodies (:init/:config) until its queues are processed
-after init, so loading custom.el now would let them override the user's
-saved Customize choices.  Batch runs have already waited for the queues."
-  (if (or noninteractive elpaca-after-init-time)
-      (ide--load-custom-file)
-    (add-hook 'elpaca-after-init-hook #'ide--load-custom-file)))
-
-(ide--schedule-custom-file)
+(ide--load-custom-file)
 
 (provide 'init)
 
-;; init.el must stay uncompiled: the `elpaca' macro expands into calls that
-;; need elpaca.el loaded, which only the (uncompiled) bootstrap guarantees.
+;; init.el stays uncompiled: it is small, and it sets up the package system.
 ;; Local Variables:
 ;; no-byte-compile: t
 ;; End:

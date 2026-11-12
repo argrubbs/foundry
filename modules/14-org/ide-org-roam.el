@@ -5,6 +5,9 @@
 
 ;;; Code:
 
+;; `ide-notes-dir' comes from org-core.el, which sorts after this file.
+(require 'org-core (expand-file-name "org-core" (file-name-directory (or load-file-name buffer-file-name))))
+
 (use-package org-roam
   :commands (org-roam-node-find org-roam-node-insert org-roam-buffer-toggle
              org-roam-capture org-roam-tag-add org-roam-db-sync)

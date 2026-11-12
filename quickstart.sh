@@ -69,7 +69,7 @@ Options:
   --branch <branch>  Git branch to clone (default: main)
   --repo <url>       Git repository URL (default: https://github.com/argrubbs/mcgeemacs.git)
   --tools            Pre-install all CLI tools and language servers via mise (~2 GB)
-  --no-packages      Skip pre-installing Elpaca packages
+  --no-packages      Skip pre-installing packages
   --no-compile       Skip byte-compiling Emacs Lisp files
   --no-desktop       Skip installing desktop application launcher
   --no-bin           Skip creating ~/.local/bin/mcgeemacs symlink
@@ -214,12 +214,12 @@ setup_repo() {
 # --- Package Installation & Compilation ---------------------------------------
 bootstrap_mcgeemacs() {
     if [ "$MCGEEMACS_DRY_RUN" = "1" ]; then
-        info "[dry-run] Would pre-fetch Elpaca packages and byte-compile"
+        info "[dry-run] Would pre-fetch packages and byte-compile"
         return 0
     fi
 
     if [ "$MCGEEMACS_PACKAGES" = "1" ]; then
-        step "Pre-installing Elpaca packages (ensures fast initial launch)..."
+        step "Pre-installing packages (ensures fast initial launch)..."
         make -C "$MCGEEMACS_DIR" packages
         success "Packages installed."
     fi

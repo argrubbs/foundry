@@ -122,7 +122,8 @@ as Org mode text using short paragraphs and \"-\" bullets, with no headings and 
         whisper-return-cursor 'end))
 
 (use-package whisper
-  :ensure (:host github :repo "natrys/whisper.el")  ; MELPA's `whisper' is another package
+  ;; Not in an archive (MELPA's `whisper' is another package): from git, pinned.
+  :vc (:url "https://github.com/natrys/whisper.el" :rev "dfec03903fe57a99e9e1df3bb0d67395e7a53b8d")
   :commands (whisper-run whisper-file)
   :init (ide-voice--whisper-settings))
 

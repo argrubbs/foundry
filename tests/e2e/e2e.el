@@ -2,7 +2,7 @@
 
 ;;; Commentary:
 ;; End-to-end tests.  tests/e2e/run.sh starts a real McGeEmacs frame with this file
-;; loaded after init.el; once Elpaca has activated every package the tests run
+;; loaded after init.el; once package.el has activated every package the tests run
 ;; inside that session, pressing keys with `execute-kbd-macro' and looking at
 ;; what a user would see: which buffer is current, where windows went, what the
 ;; buffer now contains, whether a menu or a prompt is up.  Nothing is mocked.
@@ -143,8 +143,8 @@
 
 (ert-deftest e2e-02-ready-quickly ()
   "Packages are activated within a few seconds of starting."
-  (should (boundp 'elpaca-after-init-time))
-  (should (< (float-time (time-subtract elpaca-after-init-time before-init-time)) 5)))
+  (should after-init-time)
+  (should (< (float-time (time-subtract after-init-time before-init-time)) 5)))
 
 ;;;; Languages ----------------------------------------------------------------------------
 
@@ -509,9 +509,9 @@ only the server warnings the config logs without showing (eglot, jsonrpc)."
 (unless (and e2e-project e2e-report)
   (error "E2E_PROJECT and E2E_REPORT must be set; use tests/e2e/run.sh"))
 
-(if (boundp 'elpaca-after-init-time)
+(if after-init-time
     (e2e--start)
-  (add-hook 'elpaca-after-init-hook #'e2e--start))
+  (add-hook 'emacs-startup-hook #'e2e--start))
 
 (provide 'e2e)
 ;;; e2e.el ends here

@@ -76,6 +76,9 @@ For tools you add under user/: they then behave like the built-in ones."
       split-height-threshold nil)
 
 ;;;; Project tool window
+(declare-function treemacs-follow-mode "treemacs-follow-mode")
+(declare-function treemacs-filewatch-mode "treemacs-filewatch-mode")
+(declare-function treemacs-fringe-indicator-mode "treemacs-fringe-indicator")
 (use-package treemacs
   :commands (treemacs treemacs-select-window)
   :init
@@ -91,6 +94,7 @@ For tools you add under user/: they then behave like the built-in ones."
   (treemacs-filewatch-mode 1)
   (treemacs-fringe-indicator-mode 'only-when-focused))
 
+(declare-function treemacs-load-theme "treemacs-themes")
 (use-package treemacs-nerd-icons
   :after treemacs
   :config (treemacs-load-theme "nerd-icons"))

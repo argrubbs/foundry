@@ -18,7 +18,7 @@ cd ~/.config/mcgeemacs
 ./launch.sh
 ```
 
-Nothing is written outside this directory (`var/`, `.cache/`, `elpaca/`).
+Nothing is written outside this directory (`var/`, `.cache/`, `elpa/`). Packages come from GNU ELPA, NonGNU ELPA and MELPA through package.el.
 
 ## Make it yours (`user/`)
 
@@ -155,7 +155,7 @@ and **ansible-xref** (`lisp/ansible-xref.el`), a small xref backend that follows
   (`ide-ai-emcp-profile`) is read-only `inspect` by default, and `develop` / `full-control` add
   variables, screenshots, eval and key sending (eval and keys always ask you first). elisp-dev-mcp
   (stdio through `emacsclient -s mcgeemacs`) adds function/variable docs, Info lookup and reading
-  installed Elisp source, including elpaca packages but never `user/`: neither server returns
+  installed Elisp source, including installed packages but never `user/`: neither server returns
   source, file commentary or references from `user/` (docstrings stay visible). emcp answers only requests addressed to localhost, so a web
   page cannot reach it through DNS rebinding.
   - `C-c a x` (`ide-ai-mcp-start`) starts the Emacs server and emcp; set `ide-ai-mcp-autostart`
@@ -218,7 +218,7 @@ into the sandbox, so your global mise setup is untouched.
 (starts a real frame on a sample project and drives it like a user: keys, menus, tool windows, saving;
 needs a display), `make docs`,
 `make docs-check`, `make packages`, `make tools`, `make doctor`.
-`init.el` is intentionally not byte-compiled (elpaca requirement).
+`init.el` is intentionally not byte-compiled (it sets up the package system).
 
 ## Credentials
 

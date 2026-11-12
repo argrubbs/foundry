@@ -177,21 +177,15 @@
 (defvar core-test--custom-var 'default "Variable set by a test custom file.")
 
 (ert-deftest core-custom-file-wins-over-package-config ()
-  "Interactively, custom.el waits for elpaca to run the deferred use-package bodies."
+  "custom.el loads after the modules, so saved choices beat use-package bodies."
   (let* ((custom-file (make-temp-file "core-custom" nil ".el"
-                                      "(custom-set-variables '(core-test--custom-var 'user))\n"))
-         (noninteractive nil)
-         (elpaca-after-init-time nil)
-         (elpaca-after-init-hook nil))
+                                      "(custom-set-variables '(core-test--custom-var 'user))\n")))
     (unwind-protect
         (progn
-          (setq core-test--custom-var 'default)
-          (ide--schedule-custom-file)
-          (should (eq core-test--custom-var 'default))   ; not loaded yet
-          ;; Elpaca then evaluates a package's :init/:config ...
+          ;; A package's :init/:config ran first (package.el runs them at once) ...
           (setq core-test--custom-var 'package)
-          ;; ... and runs its after-init hook once all queues are done.
-          (run-hooks 'elpaca-after-init-hook)
+          ;; ... and init.el loads custom.el after every module.
+          (ide--load-custom-file)
           (should (eq core-test--custom-var 'user)))
       (delete-file custom-file)
       (put 'core-test--custom-var 'theme-value nil)

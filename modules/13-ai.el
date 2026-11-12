@@ -16,6 +16,12 @@
 
 (defgroup ide-ai nil "AI assistant settings." :group 'tools)
 
+(defmacro ide-ai--after-module (&rest body)
+  "Run BODY now if this module has finished loading, else once it has.
+For `use-package' :config bodies that call functions defined further down:
+package.el may load a package (and so run its :config) while this file loads."
+  `(if (featurep '13-ai) (progn ,@body) (with-eval-after-load '13-ai ,@body)))
+
 (defcustom ide-ai-fim-backend 'copilot
   "Backend for inline completion: `copilot' (GitHub Copilot, needs a subscription
 and one `copilot-login'), or minuet with `ollama', `gemini' or `openai-fim'."
@@ -71,7 +77,7 @@ buffers (secrets) never get suggestions from a hosted backend such as Copilot."
   (ide-ai--refresh-inline))
 
 (use-package minuet
-  :ensure (:host github :repo "milanglacier/minuet-ai.el")
+  :ensure t
   :commands minuet-auto-suggestion-mode
   :bind (:map minuet-active-mode-map
          ("TAB" . minuet-accept-suggestion)
@@ -90,7 +96,7 @@ buffers (secrets) never get suggestions from a hosted backend such as Copilot."
         ;; An unreachable model must not nag after every pause in typing.
         minuet-show-error-message-on-minibuffer nil)
   :config
-  (ide-ai-apply-fim-backend)
+  (ide-ai--after-module (ide-ai-apply-fim-backend))
   (add-to-list 'minuet-auto-suggestion-block-predicates
                (lambda () (and (bound-and-true-p corfu--frame) (frame-visible-p corfu--frame)))))
 
@@ -140,7 +146,7 @@ buffers (secrets) never get suggestions from a hosted backend such as Copilot."
               gptel-display-buffer-action '(display-buffer-reuse-window display-buffer-at-bottom))
   ;; Must stay the last form: it applies your saved or configured model after
   ;; gptel's own defaults, so nothing in user/ can be silently overwritten.
-  :config (ide-ai--apply-startup-model))
+  :config (ide-ai--after-module (ide-ai--apply-startup-model)))
 
 ;;;; Providers and models -----------------------------------------------------------
 
@@ -937,9 +943,8 @@ web and use Agent Skills; everything except reads and web access asks first."
 (defvar emcp--servers)
 (defvar server-process)
 (defvar elisp-dev-mcp-additional-allowed-dirs)
-(defvar elpaca-builds-directory)
-(defvar elpaca-sources-directory)
 (defvar ide-modules-directory)
+(defvar package-user-dir)
 (defvar server-name)
 
 (defcustom ide-ai-mcp-autostart nil
@@ -970,11 +975,11 @@ and sending keys, each confirmed by you first)."
 (use-package elisp-dev-mcp
   :commands (elisp-dev-mcp-enable elisp-dev-mcp-disable)
   :config
-  ;; elpaca builds are symlinks into sources; the server resolves links, so
-  ;; both trees must be allowed.  McGeEmacs's own modules are readable too;
-  ;; user/ is not, as it may hold personal settings (see below for definitions).
+  ;; Installed packages (package.el and package-vc checkouts) and McGeEmacs's
+  ;; own modules are readable; user/ is not, as it may hold personal settings
+  ;; (see below for definitions).
   (setq elisp-dev-mcp-additional-allowed-dirs
-        (list elpaca-builds-directory elpaca-sources-directory
+        (list package-user-dir
               ide-modules-directory (expand-file-name "lisp/" user-emacs-directory))))
 
 ;; user/ stays private to outside agents: both servers can return the source

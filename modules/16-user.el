@@ -15,7 +15,6 @@
 (require 'cl-lib)
 (require 'subr-x)
 
-(declare-function elpaca-process-queues "elpaca")
 (declare-function ide-mise-setup "00-mise")
 (declare-function ide-env-flag-p "00-core")
 (declare-function ide-slurp "00-core")
@@ -62,10 +61,9 @@
 
 ;;;###autoload
 (defun ide-user-reload ()
-  "Reload the user files and start installing any newly declared packages."
+  "Reload the user files, installing any newly declared packages."
   (interactive)
   (let ((n (ide-user-load-all)))
-    (when (fboundp 'elpaca-process-queues) (elpaca-process-queues))
     (message "Loaded %d user file(s)%s" n
              (if ide-user-load-errors (format "; %d failed (see *Warnings*)" (length ide-user-load-errors)) ""))))
 
@@ -85,8 +83,8 @@ on MELPA/ELPA; DEMAND loads the package at startup instead of on first use."
   (concat (format "(use-package %s\n" name)
           (cond ((null repo) "")
                 ((string-match-p "\\`[[:alnum:]_.-]+/[[:alnum:]_.-]+\\'" repo)
-                 (format "  :ensure (:host github :repo %S)\n" repo))
-                (t (format "  :ensure (:repo %S)\n" repo)))
+                 (format "  :vc (:url %S)\n" (format "https://github.com/%s" repo)))
+                (t (format "  :vc (:url %S)\n" repo)))
           (if demand "  :demand t\n" "")
           "  ;; :bind ((\"C-c x y\" . some-command))\n"
           "  ;; :init (setq some-package-dir (expand-file-name \"some-package/\" ide-var-dir))\n"
@@ -127,9 +125,8 @@ With a prefix argument, load the package at startup instead of on first use."
         (insert "\n" form)
         (save-buffer))
       (when ide-user-eval-new-forms
-        (eval (car (read-from-string form)) t)
-        (when (fboundp 'elpaca-process-queues) (elpaca-process-queues)))
-      (message "Added %s to %s; installing in the background (M-x elpaca-log to watch)" name file)
+        (eval (car (read-from-string form)) t))
+      (message "Added %s to %s%s" name file (if ide-user-eval-new-forms " and installed it" ""))
       file)))
 
 ;;;; New files and examples ---------------------------------------------------------

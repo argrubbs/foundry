@@ -815,7 +815,6 @@ Return (VECTOR ADDED REMOVED)."
   "Update the documentation deterministically.
 ON-DONE receives (STATUS MESSAGE): ok, unchanged, dry-run, failed."
   (unless (file-exists-p ide-docs-file) (user-error "No documentation at %s" ide-docs-file))
-  (when (fboundp 'elpaca-wait) (ignore-errors (elpaca-wait)))
   (let* ((html (ide-slurp ide-docs-file))
          (data (ide-docs--parse-data html))
          (facts (ide-docs--facts))

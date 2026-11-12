@@ -393,7 +393,7 @@ make doctor</pre></div>
         <li>Keep data in the sandbox with <code>ide-var-dir</code> (<code>var/</code>) and <code>ide-cache-dir</code> (<code>.cache/</code>).</li>
         <li>Put your keys on <code>ide-keys-mode-map</code>; <kbd>C-c x</kbd> is free for you.</li>
         <li>Dock a tool's buffers in the bottom drawer with <code>(ide-add-drawer-buffer "\\*name\\*")</code>.</li>
-        <li>Adjust a core package inside <code>with-eval-after-load</code>; run things that need everything loaded from <code>elpaca-after-init-hook</code>.</li>
+        <li>Adjust a core package inside <code>with-eval-after-load</code>; run things that need everything loaded from <code>emacs-startup-hook</code>.</li>
         <li>Prefix file names (<code>10-</code>, <code>20-</code>) to control load order.</li>
       </ul></div>
   </div>
@@ -408,7 +408,7 @@ make doctor</pre></div>
 
 <section id="architecture" aria-labelledby="h-arch">
   <h2 id="h-arch"><span class="num">10</span>Architecture</h2>
-  <p class="lede">Modules load in numeric order from <code>init.el</code>; each is small and independently readable. Packages are managed by <code>elpaca</code> and installed asynchronously after the first frame appears.</p>
+  <p class="lede">Modules load in numeric order from <code>init.el</code>; each is small and independently readable. Packages are managed by <code>package.el</code> (GNU ELPA, NonGNU ELPA, MELPA); missing ones install on first start.</p>
   <div class="grid g2">
     <div class="card"><h3>Directory layout</h3><div class="tree" id="dirtree"></div></div>
     <div class="card"><h3>How startup stays fast</h3>
@@ -476,7 +476,7 @@ make doctor</pre></div>
    "l": "to first frame"
   },
   {
-   "v": "117",
+   "v": "118",
    "l": "documented keybindings"
   },
   {
@@ -488,7 +488,7 @@ make doctor</pre></div>
    "l": "Emacs Lisp modules"
   },
   {
-   "v": "386",
+   "v": "391",
    "l": "automated tests"
   }
  ],
@@ -848,6 +848,14 @@ make doctor</pre></div>
    "cmd": "ide-ai-mcp-start",
    "title": "Ai Mcp Start",
    "desc": "Start the Emacs server (for elisp-dev-mcp) and emcp on `ide-ai-emcp-port'",
+   "cat": "AI",
+   "ctx": "global"
+  },
+  {
+   "keys": "C-c a p",
+   "cmd": "ide-ai-pi",
+   "title": "Ai Pi",
+   "desc": "Start a Pi coding agent session (agent-shell) for the current project",
    "cat": "AI",
    "ctx": "global"
   },
@@ -2714,7 +2722,8 @@ make doctor</pre></div>
     "ide-go-debug",
     "ide-canvas-doctor",
     "ide-doom-doctor",
-    "ide-doom-rebuild-module"
+    "ide-doom-rebuild-module",
+    "ide-ai-mcp-client-connect"
    ]
   }
  ],
@@ -2725,7 +2734,7 @@ make doctor</pre></div>
   },
   {
    "file": "init.el",
-   "desc": "elpaca bootstrap, loads early-init in batch, loads modules in order."
+   "desc": "package.el setup, loads early-init in batch, loads modules in order."
   },
   {
    "file": "modules/00-core.el",
@@ -3275,7 +3284,7 @@ make doctor</pre></div>
   ["├─ lisp/  ansible-xref.el (variable navigation)", "n"],
   ["├─ tests/  smoke-test.el  compile.el  docs-check.el  ansible-*.el", "n"],
   ["├─ docs/  index.html  (this page)", "n"],
-  ["├─ elpaca/  packages, sources, builds", "d"],
+  ["├─ elpa/  installed packages", "d"],
   ["├─ .cache/  backups, auto-save, locks, eln, mise cache", "d"],
   ["└─ var/  recentf, org-roam.db, transient, azure/, mise/", "d"]
  ],
@@ -3340,15 +3349,15 @@ make doctor</pre></div>
   },
   {
    "title": "Turn off a core feature",
-   "desc": "Remove its hook once everything has loaded; here, the inline AI suggestions.",
+   "desc": "Switch it off in user/; here, the inline AI suggestions.",
    "lang": "elisp",
-   "code": "(add-hook 'elpaca-after-init-hook\n          (lambda () (remove-hook 'prog-mode-hook #'minuet-auto-suggestion-mode)))\n"
+   "code": "(setq ide-ai-inline-completion nil)\n"
   },
   {
    "title": "Run something once the IDE is fully up",
-   "desc": "elpaca-after-init-hook runs when every package has been installed and activated.",
+   "desc": "emacs-startup-hook runs once every module and package has loaded.",
    "lang": "elisp",
-   "code": "(add-hook 'elpaca-after-init-hook\n          (lambda () (message \"IDE ready: %d packages\" (length (elpaca--queued)))))\n"
+   "code": "(add-hook 'emacs-startup-hook\n          (lambda () (message \"IDE ready: %d packages\" (length package-activated-list))))\n"
   }
  ],
  "examples": [
@@ -3359,7 +3368,7 @@ make doctor</pre></div>
    "files": [
     {
      "path": "user/settings.el",
-     "code": ";;; settings.el --- Personal settings -*- lexical-binding: t; -*-\n\n;;; Commentary:\n;; Ordinary Emacs customisation layered on top of the IDE: theme, font, a different\n;; local AI model and an extra key.  User files load last, so these win over the defaults.\n\n;;; Code:\n\n;; Theme: the IDE loads doom-one asynchronously, so switch once everything is up.\n(add-hook 'elpaca-after-init-hook (lambda () (load-theme 'doom-palenight t)))\n\n;; Font size (height is in 1/10 pt).\n(set-face-attribute 'default nil :height 140)\n\n;; Use a larger local model for inline completion.\n(setq ide-ai-ollama-model \"qwen2.5-coder:14b\")\n\n;; Default provider and model for chat and gptel-agent (pick interactively with\n;; C-c a M, which remembers the choice).  Claude needs ANTHROPIC_API_KEY.\n(setq ide-ai-default-model '(claude . claude-sonnet-5-5))\n\n;; Extra key on the IDE keymap (kept apart from the built-in IDE keys).\n(with-eval-after-load '10-keybindings\n  (define-key ide-keys-mode-map (kbd \"C-c x t\") #'toggle-truncate-lines))\n\n;; Highlight the current line in code buffers.\n(add-hook 'prog-mode-hook #'hl-line-mode)\n\n(provide 'user-settings)\n;;; settings.el ends here\n"
+     "code": ";;; settings.el --- Personal settings -*- lexical-binding: t; -*-\n\n;;; Commentary:\n;; Ordinary Emacs customisation layered on top of the IDE: theme, font, a different\n;; local AI model and an extra key.  User files load last, so these win over the defaults.\n\n;;; Code:\n\n;; Theme: the IDE loads doom-one asynchronously, so switch once everything is up.\n(add-hook 'emacs-startup-hook (lambda () (load-theme 'doom-palenight t)))\n\n;; Font size (height is in 1/10 pt).\n(set-face-attribute 'default nil :height 140)\n\n;; Use a larger local model for inline completion.\n(setq ide-ai-ollama-model \"qwen2.5-coder:14b\")\n\n;; Default provider and model for chat and gptel-agent (pick interactively with\n;; C-c a M, which remembers the choice).  Claude needs ANTHROPIC_API_KEY.\n(setq ide-ai-default-model '(claude . claude-sonnet-5-5))\n\n;; Extra key on the IDE keymap (kept apart from the built-in IDE keys).\n(with-eval-after-load '10-keybindings\n  (define-key ide-keys-mode-map (kbd \"C-c x t\") #'toggle-truncate-lines))\n\n;; Highlight the current line in code buffers.\n(add-hook 'prog-mode-hook #'hl-line-mode)\n\n(provide 'user-settings)\n;;; settings.el ends here\n"
     }
    ]
   },
@@ -3407,7 +3416,7 @@ make doctor</pre></div>
    "files": [
     {
      "path": "user/github-package.el",
-     "code": ";;; github-package.el --- A package that is not on MELPA -*- lexical-binding: t; -*-\n\n;;; Commentary:\n;; Template for installing a package straight from a git repository.  Replace\n;; OWNER/some-package and the command names.  Equivalent: `M-x ide-user-add-package'\n;; and enter owner/name when asked for the git repo.\n\n;;; Code:\n\n;; (use-package some-package\n;;   :ensure (:host github :repo \"OWNER/some-package\")   ; or (:repo \"https://example.org/x.git\")\n;;   :commands (some-package-run)\n;;   :bind (\"C-c x s\" . some-package-run)\n;;   :init (setq some-package-directory (expand-file-name \"some-package/\" ide-var-dir)))\n\n(provide 'user-github-package)\n;;; github-package.el ends here\n"
+     "code": ";;; github-package.el --- A package that is not on MELPA -*- lexical-binding: t; -*-\n\n;;; Commentary:\n;; Template for installing a package straight from a git repository.  Replace\n;; OWNER/some-package and the command names.  Equivalent: `M-x ide-user-add-package'\n;; and enter owner/name when asked for the git repo.\n\n;;; Code:\n\n;; (use-package some-package\n;;   :vc (:url \"https://github.com/OWNER/some-package\")   ; or any git URL; :rev \"COMMIT\" pins it\n;;   :commands (some-package-run)\n;;   :bind (\"C-c x s\" . some-package-run)\n;;   :init (setq some-package-directory (expand-file-name \"some-package/\" ide-var-dir)))\n\n(provide 'user-github-package)\n;;; github-package.el ends here\n"
     }
    ]
   },
@@ -3419,6 +3428,17 @@ make doctor</pre></div>
     {
      "path": "user/mise.toml",
      "code": "# Extra command-line tools through mise\n# Adds shellcheck and shfmt to your mise installs; they are put on PATH for Emacs.\n[tools]\nshellcheck = \"latest\"\nshfmt = \"latest\"\n"
+    }
+   ]
+  },
+  {
+   "id": "local-ai",
+   "title": "Your own model server: chat, shared memory, sandboxed Pi",
+   "blurb": "For a self-hosted model behind a local OpenAI-compatible gateway (here: a keyless gateway on 127.0.0.1:8002 that adds the real API key itself, so Emacs never holds one).  Install with M-x ide-user-install-example RET local-ai.",
+   "files": [
+    {
+     "path": "user/local-ai.el",
+     "code": ";;; local-ai.el --- Your own model server: chat, shared memory, sandboxed Pi -*- lexical-binding: t; -*-\n\n;;; Commentary:\n;; For a self-hosted model behind a local OpenAI-compatible gateway (here: a\n;; keyless gateway on 127.0.0.1:8002 that adds the real API key itself, so\n;; Emacs never holds one).  Install with M-x ide-user-install-example RET local-ai.\n;;\n;; - Chat (C-c a i) and gptel-agent (C-c a a) default to the local model, unless\n;;   you picked another one with C-c a M (that choice is remembered and wins).\n;; - The local model counts as yours, not hosted: the privacy guards for\n;;   hosted models stay out of its way.\n;; - gptel gets MCP tools: the shared memory server (plain notes, also used by your\n;;   other harnesses), Microsoft Learn and the Terraform Registry.\n;; - Pi (C-c a p, agent-shell) runs sandboxed through `agent-box acp'.\n;; Inline suggestions stay with GitHub Copilot; nothing here points minuet at this server.\n\n;;; Code:\n\n(defvar ide-local-ai-url \"http://127.0.0.1:8002/v1\" \"Base URL of the local model gateway.\")\n(defvar ide-local-ai-model 'qwen3.8-27b \"Model id the gateway serves.\")\n(defvar ide-local-ai-memory-url \"http://127.0.0.1:8770/mcp/emacs\" \"Shared memory MCP server, or nil.\")\n\n(add-to-list 'ide-ai-providers\n             (ide-ai-openai-compatible-provider\n              'local \"Local (glados)\" ide-local-ai-url (list ide-local-ai-model)\n              :context-window 241 :max-output 16384 :vision t))\n\n;; Default for new sessions; a model remembered with C-c a M still wins.\n(unless ide-ai-default-model\n  (setq ide-ai-default-model (cons 'local ide-local-ai-model)))\n\n;;;; MCP tools for gptel: read-only knowledge sources ---------------------------\n;; Shared memory connects soon after startup; Microsoft Learn and the Terraform\n;; Registry connect on gptel's first request.  The Terraform server is skipped\n;; where it is not installed.  No code-editing servers here: gptel is not\n;; sandboxed (Pi in agent-shell is the agent for code work).\n\n(setq ide-ai-mcp-client-servers\n      `(,@(and ide-local-ai-memory-url `((\"memory\" :url ,ide-local-ai-memory-url :connect startup)))\n        (\"mslearn\" :url \"https://learn.microsoft.com/api/mcp\")\n        (\"terraform\" :command \"~/iac-tools/bin/terraform-mcp-server\" :args (\"stdio\")\n         :env (:OTEL_SDK_DISABLED \"true\"))))\n\n;;;; Pi, sandboxed --------------------------------------------------------------------\n\n;; agent-box runs Pi's ACP adapter inside its sandbox, in the project folder\n;; (a normal folder under your home).  Pi has no per-tool prompts: the sandbox\n;; is the boundary.  C-c a p starts it; \"Pi (offline)\" in M-x agent-shell, or\n;; M-x ide-local-ai-pi-offline, starts one with no internet at all.\n(setq agent-shell-pi-acp-command '(\"agent-box\" \"acp\"))\n\n(declare-function agent-shell-pi-make-agent-config \"agent-shell-pi\")\n(declare-function agent-shell-pi-make-client \"agent-shell-pi\")\n(declare-function agent-shell--dwim \"agent-shell\")\n(defvar agent-shell-agent-configs)\n\n(defun ide-local-ai-pi-offline-config ()\n  \"agent-shell config for Pi in agent-box with no internet (`agent-box --offline acp').\"\n  (require 'agent-shell-pi)\n  (let ((config (agent-shell-pi-make-agent-config)))\n    (setf (alist-get :identifier config) 'pi-offline\n          (alist-get :mode-line-name config) \"Pi offline\"\n          (alist-get :buffer-name config) \"Pi (offline)\"\n          (alist-get :client-maker config)\n          (lambda (buffer)\n            (let ((agent-shell-pi-acp-command '(\"agent-box\" \"--offline\" \"acp\")))\n              (agent-shell-pi-make-client :buffer buffer))))\n    config))\n\n(defun ide-local-ai-pi-offline ()\n  \"Start a sandboxed Pi with no internet for the current project.\"\n  (interactive)\n  (let ((default-directory (if-let* ((p (project-current))) (project-root p) default-directory)))\n    (agent-shell--dwim :config (ide-local-ai-pi-offline-config) :new-shell t)))\n\n(with-eval-after-load 'agent-shell\n  (when (listp agent-shell-agent-configs)\n    (add-to-list 'agent-shell-agent-configs #'ide-local-ai-pi-offline-config t)))\n\n(provide 'user-local-ai)\n;;; local-ai.el ends here\n"
     }
    ]
   },

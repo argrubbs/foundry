@@ -19,19 +19,20 @@
 
 (ert-deftest test-state-contained ()
   "Runtime state lives inside the sandbox."
-  (dolist (v (list custom-file recentf-save-file savehist-file elpaca-directory))
+  (dolist (v (list custom-file recentf-save-file savehist-file package-user-dir package-quickstart-file))
     (should (string-prefix-p (directory-file-name (expand-file-name user-emacs-directory))
                              (expand-file-name v))))
   (should (string-prefix-p (expand-file-name user-emacs-directory)
                            (expand-file-name (cdr (car backup-directory-alist))))))
 
-(ert-deftest test-elpaca-initialized ()
-  "Ensure elpaca package manager is active inside sandbox."
-  ;; `elpaca-alist' was removed upstream; queues now live in `elpaca--queues'.
-  (should (or (boundp 'elpaca-alist) (boundp 'elpaca--queues)))
-  (should (fboundp 'elpaca-process-queues))
-  (should (equal (file-name-as-directory (expand-file-name elpaca-directory))
-                 (expand-file-name "elpaca/" user-emacs-directory))))
+(ert-deftest test-packages-initialized ()
+  "package.el is active inside the sandbox, with GNU, NonGNU and MELPA."
+  (should (featurep 'package))
+  (should package--activated)
+  (should (equal (file-name-as-directory (expand-file-name package-user-dir))
+                 (expand-file-name "elpa/" user-emacs-directory)))
+  (should (equal (sort (mapcar #'car package-archives) #'string<) '("gnu" "melpa" "nongnu")))
+  (should use-package-always-ensure))
 
 (ert-deftest test-completion-stack-loaded ()
   "Verify Vertico, Orderless, and Consult are available."
@@ -169,8 +170,8 @@
       (should (eq (car form) 'use-package))
       (should (eq (cadr form) 'foo))
       (should (macroexpand-all form))))
-  (should (string-match-p ":host github :repo \"owner/foo\"" (ide-user--package-form "foo" "owner/foo")))
-  (should (string-match-p ":ensure (:repo \"https://example.org/foo.git\")" (ide-user--package-form "foo" "https://example.org/foo.git")))
+  (should (string-match-p ":vc (:url \"https://github.com/owner/foo\")" (ide-user--package-form "foo" "owner/foo")))
+  (should (string-match-p ":vc (:url \"https://example.org/foo.git\")" (ide-user--package-form "foo" "https://example.org/foo.git")))
   (should (string-match-p ":demand t" (ide-user--package-form "foo" nil t)))
   (should-not (string-match-p ":demand" (ide-user--package-form "foo")))
   (should (ide-user--valid-package-name-p "magit-section"))
@@ -548,7 +549,7 @@ while the core and user manifests still merge."
     (let ((path (expand-file-name f user-emacs-directory)))
       (should (cl-some (lambda (re) (string-match-p re path))
                        native-comp-jit-compilation-deny-list))))
-  (should-not (cl-some (lambda (re) (string-match-p re "/elpaca/builds/popper/popper.el"))
+  (should-not (cl-some (lambda (re) (string-match-p re "/elpa/popper-20260101.1/popper.el"))
                        native-comp-jit-compilation-deny-list)))
 
 (ert-deftest test-mcgeemacs-branding ()

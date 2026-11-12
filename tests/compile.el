@@ -8,7 +8,11 @@
 ;;; Code:
 
 (require 'cl-lib)
-(elpaca-wait)
+;; With package.el, compiling a `use-package' form may install its package
+;; (:ensure runs at compile time, e.g. for forms init.el skips on this
+;; display).  Don't regenerate the quickstart file then: compiling it here
+;; would turn third-party warnings into errors.
+(setq package-quickstart nil)
 (add-to-list 'load-path (expand-file-name "lisp/" user-emacs-directory))
 (add-to-list 'load-path (expand-file-name "modules/11-languages/" user-emacs-directory))
 

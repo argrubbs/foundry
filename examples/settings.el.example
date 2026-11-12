@@ -7,7 +7,7 @@
 ;;; Code:
 
 ;; Theme: the IDE loads doom-one asynchronously, so switch once everything is up.
-(add-hook 'elpaca-after-init-hook (lambda () (load-theme 'doom-palenight t)))
+(add-hook 'emacs-startup-hook (lambda () (load-theme 'doom-palenight t)))
 
 ;; Font size (height is in 1/10 pt).
 (set-face-attribute 'default nil :height 140)

@@ -25,9 +25,9 @@
       native-comp-async-report-warnings-errors 'silent)
 
 ;; Never native-compile this config's own files.  JIT compilation runs in a
-;; clean subprocess that lacks our macros (`ide-builtin', elpaca-aware
-;; `use-package'), which silently produced broken code such as
-;; "Cannot load popper".  Packages from elpaca are still native-compiled.
+;; clean subprocess that lacks our macros (`ide-builtin'), which silently
+;; produced broken code such as "Cannot load popper".  Installed packages are
+;; still native-compiled.
 (setq native-comp-jit-compilation-deny-list
       (list (concat "\\`" (regexp-quote (expand-file-name user-emacs-directory))
                     "\\(?:modules/\\|init\\.el\\|early-init\\.el\\)")))

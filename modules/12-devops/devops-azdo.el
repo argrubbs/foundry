@@ -996,7 +996,9 @@ FETCH-FN is called as (FETCH-FN CALLBACK); CALLBACK receives data or
 (let ((lib (expand-file-name "lib/" (file-name-directory (or load-file-name buffer-file-name)))))
   (add-to-list 'load-path lib)
   (add-to-list 'load-path (file-name-directory (directory-file-name lib))))
-(with-eval-after-load 'magit (require 'devops-azdo-magit))
+;; After both: magit may already be loaded while this file is still loading.
+(with-eval-after-load 'magit
+  (with-eval-after-load 'devops-azdo (require 'devops-azdo-magit)))
 
 ;;;; Dispatchers -------------------------------------------------------------
 
