@@ -519,10 +519,16 @@ WHOLE-BUFFER non-nil means the entire buffer is about to be sent."
     (when (and (boundp m) (symbol-value m)) (funcall m -1))))
 
 (defun ide-ai--maybe-enable-minuet ()
-  "Turn on inline suggestions when wanted, except in private buffers with a hosted model."
+  "Turn on inline suggestions when wanted, except in private buffers with a hosted model.
+Only in interactive sessions and in buffers visiting a file (never in batch
+runs, package compilation or scratch buffers); a backend that cannot start
+(Copilot without its server or sign-in) only leaves a message."
   (when (and ide-ai-inline-completion
+             (not noninteractive)
+             buffer-file-name
              (not (and (ide-ai-fim-hosted-p) (ide-ai-private-buffer-p))))
-    (funcall (ide-ai--inline-mode) 1)))
+    (condition-case err (funcall (ide-ai--inline-mode) 1)
+      (error (message "Inline completion unavailable: %s" (error-message-string err))))))
 
 (defun ide-ai--refresh-inline ()
   "Apply `ide-ai-inline-completion' and the current backend to every programming buffer."
@@ -1149,6 +1155,83 @@ Existing entries named emcp and elisp-dev are replaced."
       (error (display-warning 'ide (format "MCP servers did not start: %s" (error-message-string err)))))))
 
 (add-hook 'emacs-startup-hook #'ide-ai--mcp-autostart)
+
+;;;; MCP servers gptel can use (the other direction: tools for the chat) -----------
+
+(defvar mcp-hub-servers)
+(defvar mcp-server-wait-initial-time)
+(declare-function gptel-mcp-connect "gptel-integrations")
+
+(defcustom ide-ai-mcp-client-servers nil
+  "MCP servers whose tools gptel may use, as (NAME . PLIST) entries.
+PLIST is what `mcp-hub-servers' takes: (:url URL) for HTTP servers or
+(:command CMD :args ARGS :env (:VAR \"value\" ...)) for stdio ones, plus
+:connect, either `startup' (connect in the background soon after Emacs starts)
+or `first-use' (the default: connect when gptel sends its first request).
+An entry whose :command is not installed is skipped.  Only list servers whose
+tools are safe for an unsandboxed chat: lookups and notes, not code edits."
+  :type '(alist :key-type string :value-type plist))
+
+(use-package mcp :defer t)              ; provides mcp-hub, which gptel's MCP support uses
+
+(defun ide-ai--mcp-client-command (cmd)
+  "CMD with a leading ~ expanded; bare names stay for PATH lookup."
+  (if (string-prefix-p "~" cmd) (expand-file-name cmd) cmd))
+
+(defun ide-ai--mcp-client-available-p (plist)
+  "Non-nil when the server described by PLIST can run on this machine."
+  (let ((cmd (plist-get plist :command)))
+    (or (null cmd) (and (executable-find (ide-ai--mcp-client-command cmd)) t))))
+
+(defun ide-ai--mcp-client-names (connect)
+  "Names of usable servers in `ide-ai-mcp-client-servers' to connect at CONNECT."
+  (cl-loop for (name . plist) in ide-ai-mcp-client-servers
+           when (and (eq (or (plist-get plist :connect) 'first-use) connect)
+                     (ide-ai--mcp-client-available-p plist))
+           collect name))
+
+(defun ide-ai--mcp-client-register ()
+  "Copy `ide-ai-mcp-client-servers' into `mcp-hub-servers'."
+  (dolist (entry ide-ai-mcp-client-servers)
+    (let ((plist (copy-sequence (cdr entry))))
+      (cl-remf plist :connect)
+      (when (plist-get plist :command)
+        (setq plist (plist-put plist :command (ide-ai--mcp-client-command (plist-get plist :command)))))
+      (setf (alist-get (car entry) mcp-hub-servers nil nil #'equal) plist))))
+
+(defun ide-ai-mcp-client-connect (&optional connect)
+  "Connect the gptel MCP servers marked CONNECT (`startup' or `first-use'; both if nil).
+This waits for the servers (a second or two), so their tools are ready for the
+request that follows; it runs when Emacs is idle or just before gptel's first
+request, never during startup itself."
+  (interactive)
+  (let ((names (if connect (ide-ai--mcp-client-names connect)
+                 (append (ide-ai--mcp-client-names 'startup) (ide-ai--mcp-client-names 'first-use)))))
+    (when names
+      (require 'mcp-hub)
+      (require 'gptel-integrations)
+      (ide-ai--mcp-client-register)
+      ;; mcp.el pauses 2 s after each server's handshake; these answer at once.
+      (let ((mcp-server-wait-initial-time 0.2))
+        (gptel-mcp-connect names t)))))
+
+(defun ide-ai--mcp-client-first-use (&rest _)
+  "Before gptel's first request: connect the `first-use' MCP servers, once."
+  (advice-remove 'gptel-request #'ide-ai--mcp-client-first-use)
+  (condition-case err (ide-ai-mcp-client-connect 'first-use)
+    (error (message "MCP servers for gptel did not connect: %s" (error-message-string err)))))
+
+(defun ide-ai--mcp-client-startup ()
+  "Shortly after startup: connect the `startup' MCP servers, and arm the rest."
+  (when (and ide-ai-mcp-client-servers (not noninteractive))
+    (advice-add 'gptel-request :before #'ide-ai--mcp-client-first-use)
+    (when (ide-ai--mcp-client-names 'startup)
+      (run-with-idle-timer
+       2 nil (lambda () (condition-case err (ide-ai-mcp-client-connect 'startup)
+                          (error (message "MCP servers for gptel did not connect: %s"
+                                          (error-message-string err)))))))))
+
+(add-hook 'emacs-startup-hook #'ide-ai--mcp-client-startup)
 
 (provide '13-ai)
 ;;; 13-ai.el ends here

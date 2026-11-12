@@ -9,8 +9,8 @@
 ;;   you picked another one with C-c a M (that choice is remembered and wins).
 ;; - The local model counts as yours, not hosted: the privacy guards for
 ;;   hosted models stay out of its way.
-;; - A shared memory MCP server (plain notes, also used by your other harnesses)
-;;   is offered to gptel as tools: memory_search, memory_read, memory_write.
+;; - gptel gets MCP tools: the shared memory server (plain notes, also used by your
+;;   other harnesses), Microsoft Learn and the Terraform Registry.
 ;; - Pi (C-c a p, agent-shell) runs sandboxed through `agent-box acp'.
 ;; Inline suggestions stay with GitHub Copilot; nothing here points minuet at this server.
 
@@ -29,31 +29,53 @@
 (unless ide-ai-default-model
   (setq ide-ai-default-model (cons 'local ide-local-ai-model)))
 
-;;;; Shared memory over MCP ------------------------------------------------------
+;;;; MCP tools for gptel: read-only knowledge sources ---------------------------
+;; Shared memory connects soon after startup; Microsoft Learn and the Terraform
+;; Registry connect on gptel's first request.  The Terraform server is skipped
+;; where it is not installed.  No code-editing servers here: gptel is not
+;; sandboxed (Pi in agent-shell is the agent for code work).
 
-(use-package mcp :ensure t :defer t)     ; provides mcp-hub, which gptel uses
-
-(defvar mcp-hub-servers)
-(with-eval-after-load 'mcp-hub
-  (when ide-local-ai-memory-url
-    (setf (alist-get "memory" mcp-hub-servers nil nil #'equal) (list :url ide-local-ai-memory-url))))
-
-(defun ide-local-ai-memory-connect ()
-  "Connect the shared memory MCP server and offer its tools to gptel."
-  (interactive)
-  (require 'mcp-hub)
-  (require 'gptel-integrations)
-  (gptel-mcp-connect '("memory")))
-
-;; Connect once gptel is used, in the background (never at startup).
-(with-eval-after-load 'gptel
-  (when ide-local-ai-memory-url
-    (run-with-idle-timer 1 nil (lambda () (ignore-errors (ide-local-ai-memory-connect))))))
+(setq ide-ai-mcp-client-servers
+      `(,@(and ide-local-ai-memory-url `(("memory" :url ,ide-local-ai-memory-url :connect startup)))
+        ("mslearn" :url "https://learn.microsoft.com/api/mcp")
+        ("terraform" :command "~/iac-tools/bin/terraform-mcp-server" :args ("stdio")
+         :env (:OTEL_SDK_DISABLED "true"))))
 
 ;;;; Pi, sandboxed --------------------------------------------------------------------
 
-;; agent-box runs Pi's ACP adapter inside its sandbox, in the project folder.
+;; agent-box runs Pi's ACP adapter inside its sandbox, in the project folder
+;; (a normal folder under your home).  Pi has no per-tool prompts: the sandbox
+;; is the boundary.  C-c a p starts it; "Pi (offline)" in M-x agent-shell, or
+;; M-x ide-local-ai-pi-offline, starts one with no internet at all.
 (setq agent-shell-pi-acp-command '("agent-box" "acp"))
+
+(declare-function agent-shell-pi-make-agent-config "agent-shell-pi")
+(declare-function agent-shell-pi-make-client "agent-shell-pi")
+(declare-function agent-shell--dwim "agent-shell")
+(defvar agent-shell-agent-configs)
+
+(defun ide-local-ai-pi-offline-config ()
+  "agent-shell config for Pi in agent-box with no internet (`agent-box --offline acp')."
+  (require 'agent-shell-pi)
+  (let ((config (agent-shell-pi-make-agent-config)))
+    (setf (alist-get :identifier config) 'pi-offline
+          (alist-get :mode-line-name config) "Pi offline"
+          (alist-get :buffer-name config) "Pi (offline)"
+          (alist-get :client-maker config)
+          (lambda (buffer)
+            (let ((agent-shell-pi-acp-command '("agent-box" "--offline" "acp")))
+              (agent-shell-pi-make-client :buffer buffer))))
+    config))
+
+(defun ide-local-ai-pi-offline ()
+  "Start a sandboxed Pi with no internet for the current project."
+  (interactive)
+  (let ((default-directory (if-let* ((p (project-current))) (project-root p) default-directory)))
+    (agent-shell--dwim :config (ide-local-ai-pi-offline-config) :new-shell t)))
+
+(with-eval-after-load 'agent-shell
+  (when (listp agent-shell-agent-configs)
+    (add-to-list 'agent-shell-agent-configs #'ide-local-ai-pi-offline-config t)))
 
 (provide 'user-local-ai)
 ;;; local-ai.el ends here
