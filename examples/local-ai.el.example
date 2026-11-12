@@ -47,7 +47,19 @@
 ;; (a normal folder under your home).  Pi has no per-tool prompts: the sandbox
 ;; is the boundary.  C-c a p starts it; "Pi (offline)" in M-x agent-shell, or
 ;; M-x ide-local-ai-pi-offline, starts one with no internet at all.
-(setq agent-shell-pi-acp-command '("agent-box" "acp"))
+;; GUI Emacs on macOS (Dock/Spotlight) doesn't inherit the shell's PATH, so add
+;; ~/.local/bin (agent-box, pi) and call agent-box by its full path.
+(let ((bin (expand-file-name "~/.local/bin")))
+  (when (file-directory-p bin)
+    (add-to-list 'exec-path bin)
+    (unless (member bin (split-string (or (getenv "PATH") "") path-separator))
+      (setenv "PATH" (concat bin path-separator (getenv "PATH"))))))
+
+(defvar ide-local-ai-agent-box
+  (or (executable-find "agent-box") (expand-file-name "~/.local/bin/agent-box"))
+  "Full path of agent-box, the sandbox launcher from harness-kit.")
+
+(setq agent-shell-pi-acp-command (list ide-local-ai-agent-box "acp"))
 
 (declare-function agent-shell-pi-make-agent-config "agent-shell-pi")
 (declare-function agent-shell-pi-make-client "agent-shell-pi")
@@ -63,7 +75,7 @@
           (alist-get :buffer-name config) "Pi (offline)"
           (alist-get :client-maker config)
           (lambda (buffer)
-            (let ((agent-shell-pi-acp-command '("agent-box" "--offline" "acp")))
+            (let ((agent-shell-pi-acp-command (list ide-local-ai-agent-box "--offline" "acp")))
               (agent-shell-pi-make-client :buffer buffer))))
     config))
 
